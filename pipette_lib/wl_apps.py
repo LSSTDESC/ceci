@@ -8,12 +8,12 @@ class shearMeasurementPipe(PipelineStage):
     def run(self):
         for inp in self.inputs:
             filename = self.get_input(inp)
-            print(f"shearMeasurementPipe reading from {filename}")
+            print(f"    shearMeasurementPipe reading from {filename}")
             open(filename)
 
         for out in self.outputs:
             filename = self.get_output(out)
-            print(f"shearMeasurementPipe writing to {filename}")
+            print(f"    shearMeasurementPipe writing to {filename}")
             open(filename,'w').write("shearMeasurementPipe was here \n")
 
 
@@ -25,12 +25,12 @@ class PZEstimationPipe(PipelineStage):
     def run(self):
         for inp in self.inputs:
             filename = self.get_input(inp)
-            print(f"PZEstimationPipe reading from {filename}")
+            print(f"    PZEstimationPipe reading from {filename}")
             open(filename)
 
         for out in self.outputs:
             filename = self.get_output(out)
-            print(f"PZEstimationPipe writing to {filename}")
+            print(f"    PZEstimationPipe writing to {filename}")
             open(filename,'w').write("PZEstimationPipe was here \n")
 
 
@@ -42,12 +42,12 @@ class WLGCRandoms(PipelineStage):
     def run(self):
         for inp in self.inputs:
             filename = self.get_input(inp)
-            print(f"WLGCRandoms reading from {filename}")
+            print(f"    WLGCRandoms reading from {filename}")
             open(filename)
 
         for out in self.outputs:
             filename = self.get_output(out)
-            print(f"WLGCRandoms writing to {filename}")
+            print(f"    WLGCRandoms writing to {filename}")
             open(filename,'w').write("WLGCRandoms was here \n")
 
 
@@ -59,12 +59,12 @@ class WLGCSelector(PipelineStage):
     def run(self):
         for inp in self.inputs:
             filename = self.get_input(inp)
-            print(f"WLGCSelector reading from {filename}")
+            print(f"    WLGCSelector reading from {filename}")
             open(filename)
 
         for out in self.outputs:
             filename = self.get_output(out)
-            print(f"WLGCSelector writing to {filename}")
+            print(f"    WLGCSelector writing to {filename}")
             open(filename,'w').write("WLGCSelector was here \n")
 
 
@@ -76,12 +76,12 @@ class SourceSummarizer(PipelineStage):
     def run(self):
         for inp in self.inputs:
             filename = self.get_input(inp)
-            print(f"SourceSummarizer reading from {filename}")
+            print(f"    SourceSummarizer reading from {filename}")
             open(filename)
 
         for out in self.outputs:
             filename = self.get_output(out)
-            print(f"SourceSummarizer writing to {filename}")
+            print(f"    SourceSummarizer writing to {filename}")
             open(filename,'w').write("SourceSummarizer was here \n")
 
 
@@ -93,12 +93,12 @@ class SysMapMaker(PipelineStage):
     def run(self):
         for inp in self.inputs:
             filename = self.get_input(inp)
-            print(f"SysMapMaker reading from {filename}")
+            print(f"    SysMapMaker reading from {filename}")
             open(filename)
 
         for out in self.outputs:
             filename = self.get_output(out)
-            print(f"SysMapMaker writing to {filename}")
+            print(f"    SysMapMaker writing to {filename}")
             open(filename,'w').write("SysMapMaker was here \n")
 
 
@@ -110,12 +110,12 @@ class WLGCTwoPoint(PipelineStage):
     def run(self):
         for inp in self.inputs:
             filename = self.get_input(inp)
-            print(f"WLGCTwoPoint reading from {filename}")
+            print(f"    WLGCTwoPoint reading from {filename}")
             open(filename)
 
         for out in self.outputs:
             filename = self.get_output(out)
-            print(f"WLGCTwoPoint writing to {filename}")
+            print(f"    WLGCTwoPoint writing to {filename}")
             open(filename,'w').write("WLGCTwoPoint was here \n")
 
 
@@ -127,12 +127,12 @@ class WLGCCov(PipelineStage):
     def run(self):
         for inp in self.inputs:
             filename = self.get_input(inp)
-            print(f"WLGCCov reading from {filename}")
+            print(f"    WLGCCov reading from {filename}")
             open(filename)
 
         for out in self.outputs:
             filename = self.get_output(out)
-            print(f"WLGCCov writing to {filename}")
+            print(f"    WLGCCov writing to {filename}")
             open(filename,'w').write("WLGCCov was here \n")
 
 
@@ -144,12 +144,12 @@ class WLGCSummaryStatistic(PipelineStage):
     def run(self):
         for inp in self.inputs:
             filename = self.get_input(inp)
-            print(f"WLGCSummaryStatistic reading from {filename}")
+            print(f"    WLGCSummaryStatistic reading from {filename}")
             open(filename)
 
         for out in self.outputs:
             filename = self.get_output(out)
-            print(f"WLGCSummaryStatistic writing to {filename}")
+            print(f"    WLGCSummaryStatistic writing to {filename}")
             open(filename,'w').write("WLGCSummaryStatistic was here \n")
 
 
