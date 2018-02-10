@@ -9,11 +9,14 @@ class Stage(pipette.PipelineStage):
     outputs = ["countfile"]
     
     def run(self):
-        filename = self.input_values[0]
+        filename = self.get_input("filename")
+        outfile = self.get_output("countfile")
+
         print(f"Opening {filename}")
         text = open(filename).read()
         count = len(text.split())
         print(f"Length = {count}")
+        open(outfile,'w').write(f"{count}\n")
 
 
 

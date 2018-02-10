@@ -3,14 +3,18 @@ import abc
 import pathlib
 import sys
 
+
 class PipelineStage:
-    def __init__(self, inputs, outputs):
-        for name in inputs:
-            print(f"Input: {name}")
-        for name in outputs:
-            print(f"Output: {name}")
-        self.input_values = inputs
-        self.output_values = outputs
+    def __init__(self, args):
+        args = vars(args)
+        self._inputs = {x:args[x] for x in self.inputs}
+        self._outputs = {x:args[x] for x in self.outputs}
+
+    def get_input(self, tag):
+        return self._inputs[tag]
+
+    def get_output(self, tag):
+        return self._outputs[tag]
 
     pipeline_stages = {}
     def __init_subclass__(cls, **kwargs):
@@ -44,6 +48,10 @@ class PipelineStage:
         # Find the absolute path to the class defining the file
         path = pathlib.Path(filename).resolve()
         cls.pipeline_stages[cls.name] = (cls, path)
+
+    @classmethod
+    def get_stage(cls, name):
+        return cls.pipeline_stages[name][0]
     
     @classmethod
     def get_executable(cls):
@@ -58,27 +66,32 @@ class PipelineStage:
         Create an instance of this stage and run it with 
         inputs and outputs taken from the command line
         """
-        inputs, outputs = cls._parse_command_line()
-        cls.execute(inputs, outputs)
+        stage_name = sys.argv[1]
+        stage = cls.get_stage(stage_name)
+        args = stage._parse_command_line()
+        print(f"Found args: {args}")
+        print(f"running stage: {stage.name}")
+        stage.execute(args)
 
     @classmethod
     def _parse_command_line(cls):
         import argparse
         parser = argparse.ArgumentParser(description="Run a stage or something")
-        parser.add_argument('--inputs', default="")
-        parser.add_argument('--outputs', default="")
+        parser.add_argument("stage_name")
+        for inp in cls.inputs:
+            parser.add_argument('--{}'.format(inp))
+        for out in cls.outputs:
+            parser.add_argument('--{}'.format(out))
         args = parser.parse_args()
-        inputs = args.inputs.split(',') if args.inputs else []
-        outputs = args.outputs.split(',') if args.outputs else []
-        return inputs, outputs
+        return args
 
     @classmethod
-    def execute(cls, inputs, outputs):
+    def execute(cls, args):
         """
         Create an instance of this stage and run it 
         with the specified inputs and outputs
         """
-        stage = cls(inputs, outputs)
+        stage = cls(args)
         stage.run()
 
     @classmethod
@@ -89,19 +102,32 @@ class PipelineStage:
         function.__name__ = cls.name
         return function
 
+
+    @classmethod
+    def parsl_outputs(cls, future):
+        outputs = {tag: future[i] for i,tag in enumerate(self.outputs)}
+
+
     @classmethod
     def generate_bash(cls, dfk):
         """
         Build a parsl bash app that executes this pipeline stage
         """
         path = cls.get_executable()
-        template = f'''
+        flags = [cls.name]
+        for i,inp in enumerate(cls.inputs):
+            flag = '--{}={{inputs[{}]}}'.format(inp,i)
+            flags.append(flag)
+        for i,out in enumerate(cls.outputs):
+            flag = '--{}={{outputs[{}]}}'.format(out,i)
+            flags.append(flag)
+        flags = "   ".join(flags)
+        template = f"""
 @parsl.App('bash', dfk)
-def function(inputs=[], outputs=[]):
-    input_text = ",".join(str(x) for x in inputs)
-    output_text = ",".join(str(x) for x in outputs)
-    return "python3 {path} --inputs=" + input_text + " --outputs=" + output_text
-        '''
+def function(inputs, outputs):
+    return 'python3 {path} {flags}'.format(inputs=inputs,outputs=outputs)
+"""
+        print(template)
         return cls._generate(template, dfk)
 
     @classmethod
@@ -118,3 +144,5 @@ def function(cls=cls, inputs=[], outputs=[]):
     return cls.execute(inputs, outputs)
         '''
         return cls._generate(template, dfk)
+
+
