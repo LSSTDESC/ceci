@@ -1,5 +1,6 @@
 import parsl
-import abc
+from parsl.data_provider.files import File
+
 import pathlib
 import sys
 
@@ -74,6 +75,8 @@ class PipelineStage:
 
     @classmethod
     def _parse_command_line(cls):
+        cmd = " ".join(sys.argv[:])
+        print(f"Executing command line: {cmd}")
         import argparse
         parser = argparse.ArgumentParser(description="Run a stage or something")
         parser.add_argument("stage_name")
@@ -108,7 +111,7 @@ class PipelineStage:
 
 
     @classmethod
-    def generate_bash(cls, dfk):
+    def generate(cls, dfk):
         """
         Build a parsl bash app that executes this pipeline stage
         """
@@ -129,18 +132,11 @@ def function(inputs, outputs):
         return cls._generate(template, dfk)
 
     @classmethod
-    def generate_python(cls, dfk):
-        """
-        Build a parsl python app that executes this pipeline stage
-        """
-
-        template = '''
-@parsl.App('python', dfk)
-def function(cls=cls, inputs=[], outputs=[]):
-    inputs = [str(s) for s in inputs]
-    outputs = [str(s) for s in outputs]
-    return cls.execute(inputs, outputs)
-        '''
-        return cls._generate(template, dfk)
-
-
+    def find_inputs(cls, data_elements):
+        inputs = []
+        for inp in cls.inputs:
+            item = data_elements[inp]
+            if isinstance(item,str):
+                item = File(item)
+            inputs.append(item)
+        return inputs
