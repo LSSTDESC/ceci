@@ -31,10 +31,8 @@ class Pipeline:
         if stages:
             missing = sum([s.inputs for s in stages], [])
             msg = f"""
-            These overall inputs to the pipeline could not be found,
-            (or possibly your pipeline is cyclic):
-
-            {missing}
+            Some required inputs to the pipeline could not be found,
+            (or possibly your pipeline is cyclic).
             """
             raise ValueError(msg)
         return ordered_stages
@@ -49,6 +47,7 @@ class Pipeline:
             inputs = stage.find_inputs(data_elements)
             outputs = self.find_outputs(stage, output_dir)
             future = app(inputs=inputs, outputs=outputs)
+            
             for i,output in enumerate(stage.outputs):
                 data_elements[output] = future.outputs[i]
 
