@@ -21,7 +21,7 @@ def find_outputs(outdir, stage):
 
 
 def main():
-    parsl.set_stream_logger()
+    # parsl.set_stream_logger()
     workers = parsl.ThreadPoolExecutor(max_workers=4)
     dfk = parsl.DataFlowKernel(executors=[workers])
 

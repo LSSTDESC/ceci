@@ -1,10 +1,6 @@
-Stage API
----------
+Pipette
+-------
 
-self.get_input(tag)
-# tag: str, a tag corresponding to one of the inputs to the code
-self.get_output(tag)
-self.validate_input(tag)
-self.validate_output(tag)
-cls.main()
+A framework for running DESC pipeline.
 
+Pre-alpha.  Do not use for anything serious.  See test/test-pipeline.py.

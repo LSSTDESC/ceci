@@ -69,7 +69,6 @@ class PipelineStage:
         stage_name = sys.argv[1]
         stage = cls.get_stage(stage_name)
         args = stage._parse_command_line()
-        print(f"Found args: {args}")
         print(f"running stage: {stage.name}")
         stage.execute(args)
 
@@ -127,7 +126,6 @@ class PipelineStage:
 def function(inputs, outputs):
     return 'python3 {path} {flags}'.format(inputs=inputs,outputs=outputs)
 """
-        print(template)
         return cls._generate(template, dfk)
 
     @classmethod
