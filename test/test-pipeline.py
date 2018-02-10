@@ -5,7 +5,7 @@ import os
 
 
 
-def main():
+def test_pipeline():
     stage_names = [
          'WLGCSummaryStatistic','SysMapMaker',
          'shearMeasurementPipe', 'PZEstimationPipe',
@@ -15,7 +15,7 @@ def main():
 
     pipeline = Pipeline(stage_names)
 
-    
+
     output_dir = './test/outputs/'
     overall_inputs = {
         "DM": "./test/inputs/dm.txt",
@@ -25,4 +25,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    test_pipeline()
