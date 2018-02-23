@@ -124,17 +124,47 @@ class WLGCCov(PipelineStage):
     name='WLGCCov'
     inputs = ['fiducial_cosmology','tomography_catalog','shear_catalog','source_summary_data','diagnostic_maps']
     outputs = ['covariance']
+
+    def rank_filename(self, rank, size):
+        filename = self.get_output('covariance')
+        if size==1:
+            fname = filename
+        else:
+            fname = f"{filename}.{rank}"
+        return fname
+
     
     def run(self):
+
+        # MPI Information
+        rank = self.rank
+        size = self.size
+        comm = self.comm
+
         for inp in self.inputs:
             filename = self.get_input(inp)
-            print(f"    WLGCCov reading from {filename}")
+            print(f"    WLGCCov rank {rank}/{size} reading from {filename}")
             open(filename)
 
-        for out in self.outputs:
-            filename = self.get_output(out)
-            print(f"    WLGCCov writing to {filename}")
-            open(filename,'w').write("WLGCCov was here \n")
+        filename = self.get_output('covariance')
+        my_filename = self.rank_filename(rank, size)
+        print(f"    WLGCCov rank {rank}/{size} writing to {my_filename}")
+        open(my_filename,'w').write(f"WLGCCov rank {rank} was here \n")
+
+        # 
+        if comm:
+            comm.Barrier()
+
+        # If needed, concatenate all files
+        if rank==0 and size>1:
+            f = open(filename,'w')
+            print(f"Master process concatenating files:")
+            for i in range(size):
+                fname = self.rank_filename(i, size)
+                print(f"   {fname}")
+                content = open(fname).read()
+                f.write(content)
+            f.close()
 
 
 class WLGCSummaryStatistic(PipelineStage):

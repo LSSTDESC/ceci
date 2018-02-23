@@ -10,7 +10,7 @@ def test_pipeline(config_filename="./test/config.yml"):
     # Required configuration information
 
     # List of stage names, must be imported somewhere
-    stage_names = config['stage_names']
+    stages = config['stages']
 
     # parsl execution/launcher configuration information
     launcher_config = config['launcher']
@@ -20,7 +20,7 @@ def test_pipeline(config_filename="./test/config.yml"):
     inputs = config['inputs']
 
     # Create and run pipeline
-    pipeline = Pipeline(stage_names, launcher_config)
+    pipeline = Pipeline(launcher_config, stages)
     pipeline.run(inputs, output_dir)
 
 

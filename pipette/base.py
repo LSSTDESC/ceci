@@ -16,37 +16,33 @@ class PipelineStage:
         self._inputs = {x:args[x] for x in self.inputs}
         self._outputs = {x:args[x] for x in self.outputs}
         self.memory_limit = args['mem']
-        self._setup_parallelism(args)
 
-    def _setup_parallelism(self, args):
         if args['mpi']:
             import mpi4py.MPI
             self._parallel = MPI_PARALLEL
             self._comm = mpi4py.MPI.COMM_WORLD
+            self._size = self._comm.Get_size()
+            self._rank = self._comm.Get_rank()
         else:
             self._parallel = SERIAL
+            self._comm = None
+            self._size = 1
+            self._rank = 0
 
+    @property
+    def rank(self):
+        return self._rank
 
-    def iter_fits_chunks(self, hdr, cols):
-        n = hdr.get_nrows()
-        ncol = len(cols)
-        meg_per_row = ncol * 8 * 1000 * 1000.0
-        self.ncore = self.get_nprocess()
-        nrow_max = self.memory_limit / meg_per_row
-        
+    @property
+    def size(self):
+        return self._size
 
-    def get_nprocess(self):
-        if self._parallel == MPI_PARALLEL:
-            comm = self.get_communicator()
-            return comm.Get_size()
-        else:
-            return 1
+    @property
+    def comm(self):
+        return self._comm
 
-    def get_communicator(self):
-        if self._parallel == MPI_PARALLEL:
-            return self._comm
-        else:
-            raise ValueError("Not running in MPI mode")
+    def is_parallel(self):
+        return self._parallel != SERIAL
 
     def is_mpi(self):
         return self._parallel == MPI_PARALLEL
@@ -110,7 +106,6 @@ class PipelineStage:
         stage_name = sys.argv[1]
         stage = cls.get_stage(stage_name)
         args = stage._parse_command_line()
-        print(f"running stage: {stage.name}")
         stage.execute(args)
 
     @classmethod
@@ -150,12 +145,7 @@ class PipelineStage:
 
 
     @classmethod
-    def parsl_outputs(cls, future):
-        outputs = {tag: future[i] for i,tag in enumerate(self.outputs)}
-
-
-    @classmethod
-    def generate(cls, dfk, launcher=None, nprocess=0):
+    def generate(cls, dfk, nprocess=1):
         """
         Build a parsl bash app that executes this pipeline stage
         """
@@ -171,17 +161,17 @@ class PipelineStage:
         flags = "   ".join(flags)
 
         # Parallelism - simple for now
-        if launcher is None:
-            launcher = ""
-            mpi_flag = ""
-        else:
+        if nprocess > 1:
             launcher = f"mpirun -n {nprocess}"
             mpi_flag = "--mpi"
+        else:
+            launcher = ""
+            mpi_flag = ""
 
         template = f"""
 @parsl.App('bash', dfk)
 def function(inputs, outputs):
-    return '{launcher} python3 {path} {mpi_flag} {flags}'.format(inputs=inputs,outputs=outputs)
+    return '{launcher} python3 {path} {flags} {mpi_flag}'.format(inputs=inputs,outputs=outputs)
 """
         return cls._generate(template, dfk)
 

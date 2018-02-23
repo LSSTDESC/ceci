@@ -11,20 +11,30 @@ launcher:
 
 
 
-stage_names:
-    - WLGCSummaryStatistic
-    - SysMapMaker
-    - shearMeasurementPipe
-    - PZEstimationPipe
-    - WLGCRandoms
-    - WLGCSelector
-    - SourceSummarizer
-    - WLGCTwoPoint
-    - WLGCCov
+stages:
+    - name: WLGCSummaryStatistic
+      nprocess: 1
+    - name: SysMapMaker
+      nprocess: 1
+    - name: shearMeasurementPipe
+      nprocess: 1
+    - name: PZEstimationPipe
+      nprocess: 1
+    - name: WLGCRandoms
+      nprocess: 1
+    - name: WLGCSelector
+      nprocess: 1
+    - name: SourceSummarizer
+      nprocess: 1
+    - name: WLGCTwoPoint
+      nprocess: 1
+    - name: WLGCCov
+      nprocess: 2
 
 output_dir: ./test/outputs/
 
 inputs:
     DM: ./test/inputs/dm.txt
     fiducial_cosmology: ./test/inputs/fiducial_cosmology.txt
+
 
