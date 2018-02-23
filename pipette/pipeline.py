@@ -4,10 +4,9 @@ from .base import PipelineStage
 
 
 class Pipeline:
-    def __init__(self, stage_names):
+    def __init__(self, stage_names, launcher_config):
         self.stage_names = stage_names
-        workers = parsl.ThreadPoolExecutor(max_workers=4)
-        self.dfk = parsl.DataFlowKernel(executors=[workers])
+        self.dfk = parsl.DataFlowKernel(launcher_config)
 
 
     def find_outputs(self, stage, outdir):

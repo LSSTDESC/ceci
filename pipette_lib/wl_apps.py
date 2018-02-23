@@ -4,6 +4,7 @@ class shearMeasurementPipe(PipelineStage):
     name='shearMeasurementPipe'
     inputs = ['DM']
     outputs = ['shear_catalog']
+
     
     def run(self):
         for inp in self.inputs:
@@ -140,6 +141,7 @@ class WLGCSummaryStatistic(PipelineStage):
     name='WLGCSummaryStatistic'
     inputs = ['twopoint_data','covariance','source_summary_data']
     outputs = ['wlgc_summary_data']
+    parallel = False
     
     def run(self):
         for inp in self.inputs:

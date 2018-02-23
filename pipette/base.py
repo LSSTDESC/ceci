@@ -4,12 +4,52 @@ from parsl.data_provider.files import File
 import pathlib
 import sys
 
+SERIAL = 'serial'
+MPI_PARALLEL = 'mpi'
 
 class PipelineStage:
+    # By default all stages are assumed to be able to be run
+    # in parallel
+    parallel = True
     def __init__(self, args):
         args = vars(args)
         self._inputs = {x:args[x] for x in self.inputs}
         self._outputs = {x:args[x] for x in self.outputs}
+        self.memory_limit = args['mem']
+        self._setup_parallelism(args)
+
+    def _setup_parallelism(self, args):
+        if args['mpi']:
+            import mpi4py.MPI
+            self._parallel = MPI_PARALLEL
+            self._comm = mpi4py.MPI.COMM_WORLD
+        else:
+            self._parallel = SERIAL
+
+
+    def iter_fits_chunks(self, hdr, cols):
+        n = hdr.get_nrows()
+        ncol = len(cols)
+        meg_per_row = ncol * 8 * 1000 * 1000.0
+        self.ncore = self.get_nprocess()
+        nrow_max = self.memory_limit / meg_per_row
+        
+
+    def get_nprocess(self):
+        if self._parallel == MPI_PARALLEL:
+            comm = self.get_communicator()
+            return comm.Get_size()
+        else:
+            return 1
+
+    def get_communicator(self):
+        if self._parallel == MPI_PARALLEL:
+            return self._comm
+        else:
+            raise ValueError("Not running in MPI mode")
+
+    def is_mpi(self):
+        return self._parallel == MPI_PARALLEL
 
     def get_input(self, tag):
         return self._inputs[tag]
@@ -84,6 +124,8 @@ class PipelineStage:
             parser.add_argument('--{}'.format(inp))
         for out in cls.outputs:
             parser.add_argument('--{}'.format(out))
+        parser.add_argument('--mpi', action='store_true', help="Set up MPI parallelism")
+        parser.add_argument('--mem', type=float, default=2.0, help="Max size of data to read in GB")
         args = parser.parse_args()
         return args
 
@@ -98,6 +140,8 @@ class PipelineStage:
 
     @classmethod
     def _generate(cls, template, dfk):
+        # dfk needs to be an argument here because it is
+        # referenced in the template that is exec'd.
         d = locals().copy()
         exec(template, globals(), d)
         function = d['function']
@@ -111,11 +155,12 @@ class PipelineStage:
 
 
     @classmethod
-    def generate(cls, dfk):
+    def generate(cls, dfk, launcher=None, nprocess=0):
         """
         Build a parsl bash app that executes this pipeline stage
         """
         path = cls.get_executable()
+
         flags = [cls.name]
         for i,inp in enumerate(cls.inputs):
             flag = '--{}={{inputs[{}]}}'.format(inp,i)
@@ -124,10 +169,19 @@ class PipelineStage:
             flag = '--{}={{outputs[{}]}}'.format(out,i)
             flags.append(flag)
         flags = "   ".join(flags)
+
+        # Parallelism - simple for now
+        if launcher is None:
+            launcher = ""
+            mpi_flag = ""
+        else:
+            launcher = f"mpirun -n {nprocess}"
+            mpi_flag = "--mpi"
+
         template = f"""
 @parsl.App('bash', dfk)
 def function(inputs, outputs):
-    return 'python3 {path} {flags}'.format(inputs=inputs,outputs=outputs)
+    return '{launcher} python3 {path} {mpi_flag} {flags}'.format(inputs=inputs,outputs=outputs)
 """
         return cls._generate(template, dfk)
 

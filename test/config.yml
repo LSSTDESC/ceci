@@ -1,0 +1,30 @@
+launcher:
+    globals: {lazyErrors: true}
+    sites:
+    - auth: {channel: null}
+      execution: {
+        executor: threads, 
+        maxThreads: 4, 
+        provider: null
+    }
+      site: Local_Threads
+
+
+
+stage_names:
+    - WLGCSummaryStatistic
+    - SysMapMaker
+    - shearMeasurementPipe
+    - PZEstimationPipe
+    - WLGCRandoms
+    - WLGCSelector
+    - SourceSummarizer
+    - WLGCTwoPoint
+    - WLGCCov
+
+output_dir: ./test/outputs/
+
+inputs:
+    DM: ./test/inputs/dm.txt
+    fiducial_cosmology: ./test/inputs/fiducial_cosmology.txt
+

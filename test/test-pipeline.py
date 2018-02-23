@@ -2,26 +2,26 @@ from pipette import Pipeline
 import pipette_lib.wl_apps
 import pathlib
 import os
-
+import yaml
 
 
 def test_pipeline():
-    stage_names = [
-         'WLGCSummaryStatistic','SysMapMaker',
-         'shearMeasurementPipe', 'PZEstimationPipe',
-        'WLGCRandoms', 'WLGCSelector', 'SourceSummarizer', 
-        'WLGCTwoPoint', 'WLGCCov',
-    ]
+    config = yaml.load(open("./test/config.yml"))
+    # Required configuration information
 
-    pipeline = Pipeline(stage_names)
+    # List of stage names, must be imported somewhere
+    stage_names = config['stage_names']
 
+    # parsl execution/launcher configuration information
+    launcher_config = config['launcher']
 
-    output_dir = './test/outputs/'
-    overall_inputs = {
-        "DM": "./test/inputs/dm.txt",
-        "fiducial_cosmology": "./test/inputs/fiducial_cosmology.txt",
-    }
-    pipeline.run(overall_inputs, output_dir)
+    # Inputs and outputs
+    output_dir = config['output_dir']
+    inputs = config['inputs']
+
+    # Create and run pipeline
+    pipeline = Pipeline(stage_names, launcher_config)
+    pipeline.run(inputs, output_dir)
 
 
 if __name__ == '__main__':
