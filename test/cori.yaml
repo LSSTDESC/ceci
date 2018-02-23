@@ -1,0 +1,42 @@
+launcher:
+  globals: {lazyErrors: true}
+  sites:
+  - auth: {channel: local}
+    execution:
+      block:
+        initBlocks: 1
+        maxBlocks: 1
+        minBlocks: 0
+        nodes: 1
+        options: {overrides: '#SBATCH --constraint=haswell
+  
+            module load python/3.5-anaconda ;
+  	  source /global/projecta/projectdirs/lsst/groups/WL/users/zuntz/env/bin/activate
+  	  export PYTHONPATH=$PYTHONPATH:/global/cscratch1/sd/zuntz/pipe/pipette
+  	  ', partition: debug}
+        scriptDir: .
+        taskBlocks: 1
+        walltime: 00:10:00
+      executor: ipp
+      provider: slurm
+    site: Cori.Remote.IPP
+
+
+
+stage_names:
+    - WLGCSummaryStatistic
+    - SysMapMaker
+    - shearMeasurementPipe
+    - PZEstimationPipe
+    - WLGCRandoms
+    - WLGCSelector
+    - SourceSummarizer
+    - WLGCTwoPoint
+    - WLGCCov
+
+output_dir: ./test/outputs/
+
+inputs:
+    DM: ./test/inputs/dm.txt
+    fiducial_cosmology: ./test/inputs/fiducial_cosmology.txt
+
