@@ -4,8 +4,28 @@ import pathlib
 import os
 import yaml
 import sys
+import parsl
+
+localIPP = {
+    "sites": [
+        {"site": "Local_IPP",
+         "auth": {
+             "channel": None,
+         },
+         "execution": {
+             "executor": "ipp",
+             "provider": "local",  # LIKELY SHOULD BE BOUND TO SITE
+             "block": {  # Definition of a block
+                 "taskBlocks": 4,       # total tasks in a block
+                 "initBlocks": 4,
+             }
+         }
+         }]
+}
+
 
 def test_pipeline(config_filename="./test/config.yml"):
+    parsl.set_file_logger('log.txt')
     config = yaml.load(open(config_filename))
     # Required configuration information
 
@@ -13,7 +33,8 @@ def test_pipeline(config_filename="./test/config.yml"):
     stages = config['stages']
 
     # parsl execution/launcher configuration information
-    launcher_config = config['launcher']
+    launcher_config = localIPP
+    # launcher_config = config['launcher']
 
     # Inputs and outputs
     output_dir = config['output_dir']
