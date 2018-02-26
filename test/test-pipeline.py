@@ -33,8 +33,8 @@ def test_pipeline(config_filename="./test/config.yml"):
     stages = config['stages']
 
     # parsl execution/launcher configuration information
-    launcher_config = localIPP
-    # launcher_config = config['launcher']
+    # launcher_config = localIPP
+    launcher_config = config['launcher']
 
     # Inputs and outputs
     output_dir = config['output_dir']

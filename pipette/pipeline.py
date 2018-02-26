@@ -57,7 +57,7 @@ class Pipeline:
         data_elements = overall_inputs.copy()
         for stage in stages:
             sec = self.stage_execution_config[stage.name]
-            print(f"Pipeline running stage {stage.name} with {sec.nprocess} processes")
+            print(f"Pipeline queuing stage {stage.name} with {sec.nprocess} processes")
             app = stage.generate(self.dfk, sec.nprocess)
             inputs = stage.find_inputs(data_elements)
             outputs = self.find_outputs(stage, output_dir)
