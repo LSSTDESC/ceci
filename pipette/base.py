@@ -139,8 +139,7 @@ class PipelineStage:
         # referenced in the template that is exec'd.
         d = locals().copy()
         exec(template, globals(), d)
-        function = d['function']
-        function.__name__ = cls.name
+        function = d[cls.name]
         return function
 
 
@@ -170,7 +169,7 @@ class PipelineStage:
 
         template = f"""
 @parsl.App('bash', dfk)
-def function(inputs, outputs):
+def {cls.name}(inputs, outputs):
     return '{launcher} python3 {path} {flags} {mpi_flag}'.format(inputs=inputs,outputs=outputs)
 """
         return cls._generate(template, dfk)
