@@ -1,18 +1,21 @@
 from pipette import PipelineStage
+from pipette.types import TextFile
 
 class shearMeasurementPipe(PipelineStage):
     name='shearMeasurementPipe'
-    inputs = ['DM']
-    outputs = ['shear_catalog']
+    inputs = [
+        ('DM', TextFile),
+        ]
+    outputs = [('shear_catalog',TextFile)]
 
     
     def run(self):
-        for inp in self.inputs:
+        for inp,_ in self.inputs:
             filename = self.get_input(inp)
             print(f"    shearMeasurementPipe reading from {filename}")
             open(filename)
 
-        for out in self.outputs:
+        for out,_ in self.outputs:
             filename = self.get_output(out)
             print(f"    shearMeasurementPipe writing to {filename}")
             open(filename,'w').write("shearMeasurementPipe was here \n")
@@ -20,16 +23,16 @@ class shearMeasurementPipe(PipelineStage):
 
 class PZEstimationPipe(PipelineStage):
     name='PZEstimationPipe'
-    inputs = ['DM','fiducial_cosmology']
-    outputs = ['photoz_pdfs']
+    inputs = [('DM',TextFile),('fiducial_cosmology',TextFile)]
+    outputs = [('photoz_pdfs',TextFile)]
     
     def run(self):
-        for inp in self.inputs:
+        for inp,_ in self.inputs:
             filename = self.get_input(inp)
             print(f"    PZEstimationPipe reading from {filename}")
             open(filename)
 
-        for out in self.outputs:
+        for out,_ in self.outputs:
             filename = self.get_output(out)
             print(f"    PZEstimationPipe writing to {filename}")
             open(filename,'w').write("PZEstimationPipe was here \n")
@@ -37,16 +40,16 @@ class PZEstimationPipe(PipelineStage):
 
 class WLGCRandoms(PipelineStage):
     name='WLGCRandoms'
-    inputs = ['diagnostic_maps']
-    outputs = ['random_catalog']
+    inputs = [('diagnostic_maps',TextFile)]
+    outputs = [('random_catalog',TextFile)]
     
     def run(self):
-        for inp in self.inputs:
+        for inp,_ in self.inputs:
             filename = self.get_input(inp)
             print(f"    WLGCRandoms reading from {filename}")
             open(filename)
 
-        for out in self.outputs:
+        for out,_ in self.outputs:
             filename = self.get_output(out)
             print(f"    WLGCRandoms writing to {filename}")
             open(filename,'w').write("WLGCRandoms was here \n")
@@ -54,16 +57,16 @@ class WLGCRandoms(PipelineStage):
 
 class WLGCSelector(PipelineStage):
     name='WLGCSelector'
-    inputs = ['shear_catalog','photoz_pdfs']
-    outputs = ['tomography_catalog']
+    inputs = [('shear_catalog',TextFile),('photoz_pdfs',TextFile)]
+    outputs = [('tomography_catalog',TextFile)]
     
     def run(self):
-        for inp in self.inputs:
+        for inp,_ in self.inputs:
             filename = self.get_input(inp)
             print(f"    WLGCSelector reading from {filename}")
             open(filename)
 
-        for out in self.outputs:
+        for out,_ in self.outputs:
             filename = self.get_output(out)
             print(f"    WLGCSelector writing to {filename}")
             open(filename,'w').write("WLGCSelector was here \n")
@@ -71,16 +74,16 @@ class WLGCSelector(PipelineStage):
 
 class SourceSummarizer(PipelineStage):
     name='SourceSummarizer'
-    inputs = ['tomography_catalog','photoz_pdfs','diagnostic_maps']
-    outputs = ['source_summary_data']
+    inputs = [('tomography_catalog',TextFile),('photoz_pdfs',TextFile),('diagnostic_maps',TextFile)]
+    outputs = [('source_summary_data',TextFile)]
     
     def run(self):
-        for inp in self.inputs:
+        for inp,_ in self.inputs:
             filename = self.get_input(inp)
             print(f"    SourceSummarizer reading from {filename}")
             open(filename)
 
-        for out in self.outputs:
+        for out,_ in self.outputs:
             filename = self.get_output(out)
             print(f"    SourceSummarizer writing to {filename}")
             open(filename,'w').write("SourceSummarizer was here \n")
@@ -88,16 +91,16 @@ class SourceSummarizer(PipelineStage):
 
 class SysMapMaker(PipelineStage):
     name='SysMapMaker'
-    inputs = ['DM']
-    outputs = ['diagnostic_maps']
+    inputs = [('DM',TextFile)]
+    outputs = [('diagnostic_maps',TextFile)]
     
     def run(self):
-        for inp in self.inputs:
+        for inp,_ in self.inputs:
             filename = self.get_input(inp)
             print(f"    SysMapMaker reading from {filename}")
             open(filename)
 
-        for out in self.outputs:
+        for out,_ in self.outputs:
             filename = self.get_output(out)
             print(f"    SysMapMaker writing to {filename}")
             open(filename,'w').write("SysMapMaker was here \n")
@@ -105,16 +108,19 @@ class SysMapMaker(PipelineStage):
 
 class WLGCTwoPoint(PipelineStage):
     name='WLGCTwoPoint'
-    inputs = ['tomography_catalog','shear_catalog','diagnostic_maps','random_catalog']
-    outputs = ['twopoint_data']
+    inputs = [('tomography_catalog',TextFile),
+        ('shear_catalog',TextFile),
+        ('diagnostic_maps',TextFile),
+        ('random_catalog',TextFile)]
+    outputs = [('twopoint_data',TextFile)]
     
     def run(self):
-        for inp in self.inputs:
+        for inp,_ in self.inputs:
             filename = self.get_input(inp)
             print(f"    WLGCTwoPoint reading from {filename}")
             open(filename)
 
-        for out in self.outputs:
+        for out,_ in self.outputs:
             filename = self.get_output(out)
             print(f"    WLGCTwoPoint writing to {filename}")
             open(filename,'w').write("WLGCTwoPoint was here \n")
@@ -122,8 +128,13 @@ class WLGCTwoPoint(PipelineStage):
 
 class WLGCCov(PipelineStage):
     name='WLGCCov'
-    inputs = ['fiducial_cosmology','tomography_catalog','shear_catalog','source_summary_data','diagnostic_maps']
-    outputs = ['covariance']
+    inputs = [('fiducial_cosmology',TextFile),
+            ('tomography_catalog',TextFile),
+            ('shear_catalog',TextFile),
+            ('source_summary_data',TextFile),
+            ('diagnostic_maps',TextFile),
+            ]
+    outputs = [('covariance',TextFile)]
 
     def rank_filename(self, rank, size):
         filename = self.get_output('covariance')
@@ -141,7 +152,7 @@ class WLGCCov(PipelineStage):
         size = self.size
         comm = self.comm
 
-        for inp in self.inputs:
+        for inp,_ in self.inputs:
             filename = self.get_input(inp)
             print(f"    WLGCCov rank {rank}/{size} reading from {filename}")
             open(filename)
@@ -169,17 +180,17 @@ class WLGCCov(PipelineStage):
 
 class WLGCSummaryStatistic(PipelineStage):
     name='WLGCSummaryStatistic'
-    inputs = ['twopoint_data','covariance','source_summary_data']
-    outputs = ['wlgc_summary_data']
+    inputs = [('twopoint_data',TextFile),('covariance',TextFile),('source_summary_data',TextFile)]
+    outputs = [('wlgc_summary_data',TextFile)]
     parallel = False
     
     def run(self):
-        for inp in self.inputs:
+        for inp,_ in self.inputs:
             filename = self.get_input(inp)
             print(f"    WLGCSummaryStatistic reading from {filename}")
             open(filename)
 
-        for out in self.outputs:
+        for out,_ in self.outputs:
             filename = self.get_output(out)
             print(f"    WLGCSummaryStatistic writing to {filename}")
             open(filename,'w').write("WLGCSummaryStatistic was here \n")

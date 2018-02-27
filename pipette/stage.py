@@ -1,5 +1,4 @@
 import parsl
-from parsl.data_provider.files import File
 
 import pathlib
 import sys
@@ -13,9 +12,10 @@ class PipelineStage:
     parallel = True
     def __init__(self, args):
         args = vars(args)
-        self._inputs = {x:args[x] for x in self.inputs}
-        self._outputs = {x:args[x] for x in self.outputs}
+        self._inputs = {x:args[x] for x in self.input_tags()}
+        self._outputs = {x:args[x] for x in self.output_tags()}
         self.memory_limit = args['mem']
+        print(self._inputs)
 
         if args['mpi']:
             import mpi4py.MPI
@@ -87,6 +87,14 @@ class PipelineStage:
         cls.pipeline_stages[cls.name] = (cls, path)
 
     @classmethod
+    def output_tags(cls):
+        return [tag for tag,_ in cls.outputs]
+
+    @classmethod
+    def input_tags(cls):
+        return [tag for tag,_ in cls.inputs]
+
+    @classmethod
     def get_stage(cls, name):
         return cls.pipeline_stages[name][0]
     
@@ -115,9 +123,9 @@ class PipelineStage:
         import argparse
         parser = argparse.ArgumentParser(description="Run a stage or something")
         parser.add_argument("stage_name")
-        for inp in cls.inputs:
+        for inp in cls.input_tags():
             parser.add_argument('--{}'.format(inp))
-        for out in cls.outputs:
+        for out in cls.output_tags():
             parser.add_argument('--{}'.format(out))
         parser.add_argument('--mpi', action='store_true', help="Set up MPI parallelism")
         parser.add_argument('--mem', type=float, default=2.0, help="Max size of data to read in GB")
@@ -151,10 +159,10 @@ class PipelineStage:
         path = cls.get_executable()
 
         flags = [cls.name]
-        for i,inp in enumerate(cls.inputs):
+        for i,inp in enumerate(cls.input_tags()):
             flag = '--{}={{inputs[{}]}}'.format(inp,i)
             flags.append(flag)
-        for i,out in enumerate(cls.outputs):
+        for i,out in enumerate(cls.output_tags()):
             flag = '--{}={{outputs[{}]}}'.format(out,i)
             flags.append(flag)
         flags = "   ".join(flags)
@@ -173,13 +181,3 @@ def {cls.name}(inputs, outputs):
     return '{launcher} python3 {path} {flags} {mpi_flag}'.format(inputs=inputs,outputs=outputs)
 """
         return cls._generate(template, dfk)
-
-    @classmethod
-    def find_inputs(cls, data_elements):
-        inputs = []
-        for inp in cls.inputs:
-            item = data_elements[inp]
-            if isinstance(item,str):
-                item = File(item)
-            inputs.append(item)
-        return inputs

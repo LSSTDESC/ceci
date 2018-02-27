@@ -12,11 +12,10 @@ launcher:
         minBlocks: 0
         nodes: 1
         options: {overrides: '#SBATCH --constraint=haswell
-  
             module load python/3.5-anaconda ;
-  	  source /global/projecta/projectdirs/lsst/groups/WL/users/zuntz/env/bin/activate ;
-  	  export PYTHONPATH=$PYTHONPATH:/global/cscratch1/sd/zuntz/pipe/pipette
-  	  ', partition: debug}
+            source /global/projecta/projectdirs/lsst/groups/WL/users/zuntz/env/bin/activate ;
+            export PYTHONPATH=$PYTHONPATH:/global/cscratch1/sd/zuntz/pipe/pipette', 
+        partition: debug}
         scriptDir: .
         taskBlocks: 1
         walltime: 00:10:00
@@ -26,16 +25,24 @@ launcher:
 
 
 
-stage_names:
-    - WLGCSummaryStatistic
-    - SysMapMaker
-    - shearMeasurementPipe
-    - PZEstimationPipe
-    - WLGCRandoms
-    - WLGCSelector
-    - SourceSummarizer
-    - WLGCTwoPoint
-    - WLGCCov
+stages:
+    - name: WLGCSummaryStatistic
+      nprocess: 1
+    - name: SysMapMaker
+      nprocess: 1
+    - name: shearMeasurementPipe
+      nprocess: 1
+    - name: PZEstimationPipe
+      nprocess: 1
+    - name: WLGCRandoms
+      nprocess: 1
+    - name: WLGCSelector
+      nprocess: 1
+    - name: SourceSummarizer
+      nprocess: 1
+    - name: WLGCTwoPoint
+      nprocess: 1
+    - name: WLGCCov
 
 output_dir: ./test/outputs/
 

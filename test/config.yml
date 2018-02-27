@@ -31,7 +31,7 @@ stages:
     - name: WLGCCov
       nprocess: 2
 
-output_dir: ./test/outputs/
+output_dir: ./test/outputs
 
 inputs:
     DM: ./test/inputs/dm.txt

@@ -1,5 +1,6 @@
 import parsl
-from .base import PipelineStage
+from parsl.data_provider.files import File
+from .stage import PipelineStage
 
 class StageExecutionConfig:
     def __init__(self, config):
@@ -24,7 +25,16 @@ class Pipeline:
         del self.stage_execution_config[name]
 
     def find_outputs(self, stage, outdir):
-        return [outdir+out+".txt" for out in stage.outputs]
+        return [f'{outdir}/{tag}.{ftype.suffix}' for tag,ftype in stage.outputs]
+
+    def find_inputs(self, stage, data_elements):
+        inputs = []
+        for inp in stage.input_tags():
+            item = data_elements[inp]
+            if isinstance(item,str):
+                item = File(item)
+            inputs.append(item)
+        return inputs
 
 
     def ordered_stages(self, overall_inputs):
@@ -36,13 +46,13 @@ class Pipeline:
         
         for i in range(n):
             for stage in stages[:]:
-                if all(inp in known_inputs for inp in stage.inputs):
+                if all(inp in known_inputs for inp in stage.input_tags()):
                     ordered_stages.append(stage)
-                    known_inputs += stage.outputs
+                    known_inputs += stage.output_tags()
                     stages.remove(stage)
 
         if stages:
-            missing = sum([s.inputs for s in stages], [])
+            missing = sum([s.input_tags() for s in stages], [])
             msg = f"""
             Some required inputs to the pipeline could not be found,
             (or possibly your pipeline is cyclic).
@@ -59,11 +69,11 @@ class Pipeline:
             sec = self.stage_execution_config[stage.name]
             print(f"Pipeline queuing stage {stage.name} with {sec.nprocess} processes")
             app = stage.generate(self.dfk, sec.nprocess)
-            inputs = stage.find_inputs(data_elements)
+            inputs = self.find_inputs(stage, data_elements)
             outputs = self.find_outputs(stage, output_dir)
             future = app(inputs=inputs, outputs=outputs)
             
-            for i,output in enumerate(stage.outputs):
+            for i, output in enumerate(stage.output_tags()):
                 data_elements[output] = future.outputs[i]
 
         # Wait for the final result
