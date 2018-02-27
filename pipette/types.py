@@ -10,3 +10,6 @@ class FitsFile(DataFile):
 class TextFile(DataFile):
     suffix = 'txt'
 
+class YamlFile(DataFile):
+    suffix = 'yml'
+
