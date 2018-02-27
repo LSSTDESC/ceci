@@ -52,10 +52,19 @@ class Pipeline:
                     stages.remove(stage)
 
         if stages:
-            missing = sum([s.input_tags() for s in stages], [])
+            missing_inputs = []
+            for stage in stages:
+                missing_inputs += [s for s in stage.input_tags() if s not in known_inputs]
+            missing_stages = [s.name for s in stages]
             msg = f"""
             Some required inputs to the pipeline could not be found,
             (or possibly your pipeline is cyclic).
+
+            Stages with missing inputs:
+            {missing_stages}
+
+            Missing stages:
+            {missing_inputs}
             """
             raise ValueError(msg)
         return ordered_stages
