@@ -80,7 +80,7 @@ class PipelineStage:
         # Check for two stages with the same name.
         # Not sure if we actually do want to allow this?
         if cls.name in cls.pipeline_stages:
-            raise ValueError(f"Pipeline stage {name} already defined")
+            raise ValueError(f"Pipeline stage {cls.name} already defined")
         
         # Find the absolute path to the class defining the file
         path = pathlib.Path(filename).resolve()
