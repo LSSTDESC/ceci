@@ -74,17 +74,21 @@ class Pipeline:
     def run(self, overall_inputs, output_dir):
         stages = self.ordered_stages(overall_inputs)
         data_elements = overall_inputs.copy()
+        futures = []
         for stage in stages:
             sec = self.stage_execution_config[stage.name]
             print(f"Pipeline queuing stage {stage.name} with {sec.nprocess} processes")
             app = stage.generate(self.dfk, sec.nprocess)
             inputs = self.find_inputs(stage, data_elements)
             outputs = self.find_outputs(stage, output_dir)
+            print(inputs, outputs)
+            print(app)
             future = app(inputs=inputs, outputs=outputs)
-            
+            futures.append(future)
             for i, output in enumerate(stage.output_tags()):
                 data_elements[output] = future.outputs[i]
-
+        print(data_elements)
         # Wait for the final result
-        future.result()
+        for future in futures:
+            future.result()
         return data_elements

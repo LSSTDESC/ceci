@@ -15,7 +15,6 @@ class PipelineStage:
         self._inputs = {x:args[x] for x in self.input_tags()}
         self._outputs = {x:args[x] for x in self.output_tags()}
         self.memory_limit = args['mem']
-        print(self._inputs)
 
         if args['mpi']:
             import mpi4py.MPI
@@ -52,6 +51,30 @@ class PipelineStage:
 
     def get_output(self, tag):
         return self._outputs[tag]
+
+    def get_input_type(self, tag):
+        for t,dt in self.inputs:
+            if t==tag:
+                return dt
+        raise ValueError(f"Tag {tag} is not a known input")
+
+    def get_output_type(self, tag):
+        for t,dt in self.outputs:
+            if t==tag:
+                return dt
+        raise ValueError(f"Tag {tag} is not a known input")
+
+    def open_input(self, tag, **kwargs):
+        path = self.get_input(tag)
+        dtype = self.get_input_type(tag)
+        return dtype.open(path, 'r', **kwargs)
+
+    def open_output(self, tag, **kwargs):
+        path = self.get_output(tag)
+        dtype = self.get_output_type(tag)
+        return dtype.open(path, 'w', **kwargs)
+
+
 
     pipeline_stages = {}
     def __init_subclass__(cls, **kwargs):
@@ -119,7 +142,7 @@ class PipelineStage:
     @classmethod
     def _parse_command_line(cls):
         cmd = " ".join(sys.argv[:])
-        print(f"Executing command line: {cmd}")
+        print(f"Executing stage: {cls.name}")
         import argparse
         parser = argparse.ArgumentParser(description="Run a stage or something")
         parser.add_argument("stage_name")
@@ -178,6 +201,9 @@ class PipelineStage:
         template = f"""
 @parsl.App('bash', dfk)
 def {cls.name}(inputs, outputs):
-    return '{launcher} python3 {path} {flags} {mpi_flag}'.format(inputs=inputs,outputs=outputs)
+    cmd = '{launcher} python3 {path} {flags} {mpi_flag}'.format(inputs=inputs,outputs=outputs)
+    print("Compiling command:")
+    print(cmd)
+    return cmd
 """
         return cls._generate(template, dfk)

@@ -1,11 +1,24 @@
 class DataFile:
-    pass
+    @staticmethod
+    def open(path, mode):
+        return open(path, mode)
 
 class HDFFile(DataFile):
     suffix = 'hdf'
+    @staticmethod
+    def open(path, mode, **kwargs):
+        import h5py
+        return h5py.File(path, mode, **kwargs)
 
 class FitsFile(DataFile):
     suffix = 'fits'
+
+    @staticmethod
+    def open(path, mode, **kwargs):
+        import fitsio
+        if mode == 'w':
+            mode = 'rw'
+        return fitsio.FITS(path, mode=mode, **kwargs)
 
 class TextFile(DataFile):
     suffix = 'txt'
