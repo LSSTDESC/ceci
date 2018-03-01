@@ -1,7 +1,7 @@
 import parsl
-
 import pathlib
 import sys
+from . import types as dtypes
 
 SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'
@@ -10,13 +10,14 @@ class PipelineStage:
     # By default all stages are assumed to be able to be run
     # in parallel
     parallel = True
+    config_options = {}
+
     def __init__(self, args):
         args = vars(args)
         self._inputs = {x:args[x] for x in self.input_tags()}
         self._outputs = {x:args[x] for x in self.output_tags()}
-        self.memory_limit = args['mem']
 
-        if args['mpi']:
+        if args.get('mpi', False):
             import mpi4py.MPI
             self._parallel = MPI_PARALLEL
             self._comm = mpi4py.MPI.COMM_WORLD
@@ -72,7 +73,64 @@ class PipelineStage:
     def open_output(self, tag, **kwargs):
         path = self.get_output(tag)
         dtype = self.get_output_type(tag)
+        if issubclass(dtype,dtypes.HDFFile) and kwargs.pop('parallel', False) and self.is_mpi():
+            kwargs['driver'] = 'mpio'
+            kwargs['comm'] = self.comm
         return dtype.open(path, 'w', **kwargs)
+
+    def split_tasks_by_rank(self, n_chunks):
+        for i in range(n_chunks):
+            if i%self.size==self.rank:
+                yield i
+
+    def data_ranges_by_rank(self, n_rows, chunk_rows):
+        n_chunks = n_rows//chunk_rows
+        if n_chunks*chunk_rows<n_rows:
+            n_chunks += 1
+        for i in self.split_tasks_by_rank(n_chunks):
+            start = i*chunk_rows
+            end = min((i+1)*chunk_rows, n_rows)
+            yield start, end
+
+
+    def iterate_fits(self, tag, hdunum, cols, chunk_rows):
+        "Loop through chunks of the input data"
+        fits = self.open_input(tag)
+        ext = fits[hdunum]
+        n = ext.get_nrows()
+        for start,end in self.data_ranges_by_rank(n, chunk_rows):
+            data = ext.read_columns(cols, rows=range(start, end))
+            yield start, end, data
+
+    def iterate_hdf(self, tag, group_name, cols, chunk_rows):
+        "Loop through chunks of the input data"
+        import numpy as np
+        hdf = self.open_input(tag)
+        group = hdf[group_name]
+
+        # Check all the columns are the same length
+        N = [len(group[col]) for col in cols]
+        n = N[0]
+        if not np.equal(N,n).all():
+            raise ValueError(f"Different columns among {cols} in file {tag}\
+            group {group_name} are different sizes - cannot use iterate_hdf")
+
+        # Iterate through the data providing chunks
+        for start, end in self.data_ranges_by_rank(n, chunk_rows):
+            data = {col: group[col][start:end] for col in cols}
+            yield start, end, data
+
+
+    def read_config(self):
+        import yaml
+        input_config = yaml.load(open(self.get_input('config')))
+        my_config = input_config[self.name]
+        for opt, default in self.config_options.items():
+            if opt not in my_config:
+                if default is None:
+                    raise ValueError(f"Missing configuration option {opt} for stage {self.name}")
+                my_config[opt] = default
+        return my_config
 
 
 
@@ -151,7 +209,6 @@ class PipelineStage:
         for out in cls.output_tags():
             parser.add_argument('--{}'.format(out))
         parser.add_argument('--mpi', action='store_true', help="Set up MPI parallelism")
-        parser.add_argument('--mem', type=float, default=2.0, help="Max size of data to read in GB")
         args = parser.parse_args()
         return args
 

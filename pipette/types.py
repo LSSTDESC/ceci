@@ -7,7 +7,10 @@ class HDFFile(DataFile):
     suffix = 'hdf'
     @staticmethod
     def open(path, mode, **kwargs):
-        import h5py
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            import h5py
         return h5py.File(path, mode, **kwargs)
 
 class FitsFile(DataFile):
