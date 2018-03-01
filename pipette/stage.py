@@ -7,8 +7,66 @@ SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'
 
 class PipelineStage:
-    # By default all stages are assumed to be able to be run
-    # in parallel
+    """
+    Overview
+    --------
+    A PipelineStage implements a single calculation step within a wider pipeline.
+
+    Each different type of analysis stge is represented by a subclass of this 
+    base class.  The base class handles the connection between different pipeline
+    stages, and the execution of the stages within a workflow system (parsl),
+    potentially in parallel (MPI).
+
+    The subclasses must:
+    -  define their name
+     - define their inputs and outputs
+     - provide a "run" method which does the actual execution of the pipeline step.
+
+    They must use base class methods within the run method to find their input 
+    and output file paths.  They can optionally use further methods in this 
+    class to open and prepare those files too.
+
+    Inputs/Outputs and Tags
+    -----------------------
+    The I/O system for pipette uses the concept of "tags".
+    A tag is a string which corresponds to a single input or output file.
+    Using it allows us to easily connect together pipeline stages by matching
+    output tags from earlier stages to input tags for later ones. 
+    Tags must be unique across a pipeline.
+    
+    API
+    ---
+    # Basic tools to find the file path:
+    PipelineStage.get_input(tag)
+    PipelineStage.get_output(tag)
+
+    # Get base class to find and open the file for you:
+    PipelineStage.open_input(tag, **kwargs)
+    PipelineStage.open_output(tag, **kwargs)
+
+    # Look for a section in a yaml input file tagged "config"
+    # and read it.  If the config_options class variable exists in the class
+    # then it checks those options are set or uses any supplied defaults
+    Pipeline.read_config()
+
+    # Parallelization tools - MPI attributes
+    Pipeline.rank
+    Pipeline.size
+    Pipeline.comm
+
+    # (Parallel) IO tools - reading data in chunks, splitting up 
+    # according to MPI rank
+    # PipelineStage.iterate_fits(tag, hdunum, cols, chunk_rows)
+    # PipelineStage.iterate_hdf(tag, group_name, cols, chunk_rows)
+
+    Execution
+    ---------
+    Pipeline stages can be automatically run as part of a pipeline,
+    or manually run on the command line, using the syntax
+    python </path/to/pipeline_implementation.py> <StageName> --<input_name1>=</path/to/input1.dat>
+        --<input_name2>=</path/to/input2.dat>  --<output_name1>=</path/to/output1.dat>
+
+    """
     parallel = True
     config_options = {}
 
@@ -31,46 +89,68 @@ class PipelineStage:
 
     @property
     def rank(self):
+        """The rank of this process under MPI (0 if not running under MPI)"""
         return self._rank
 
     @property
     def size(self):
+        """The number or processes under MPI (1 if not running under MPI)"""
         return self._size
 
     @property
     def comm(self):
+        """The MPI communicator object (None if not running under MPI)"""
         return self._comm
 
     def is_parallel(self):
+        """
+        Returns True if the code is being run in parallel.
+        Right now is_parallel() will return the same value as is_mpi(),
+        but that may change in future if we implement other forms of 
+        parallelization.
+        """
         return self._parallel != SERIAL
 
     def is_mpi(self):
+        """
+        Returns True if the stage is being run under MPI.
+        """
         return self._parallel == MPI_PARALLEL
 
     def get_input(self, tag):
+        """Return the path of an input file with the given tag"""
         return self._inputs[tag]
 
     def get_output(self, tag):
+        """Return the path of an output file with the given tag"""
         return self._outputs[tag]
 
-    def get_input_type(self, tag):
-        for t,dt in self.inputs:
-            if t==tag:
-                return dt
-        raise ValueError(f"Tag {tag} is not a known input")
-
-    def get_output_type(self, tag):
-        for t,dt in self.outputs:
-            if t==tag:
-                return dt
-        raise ValueError(f"Tag {tag} is not a known input")
-
     def open_input(self, tag, **kwargs):
+        """
+        Find and open an input file with the given tag, in read-only mode.
+
+        For general files this will simply return a standard
+        python file object.
+
+        For specialized file types like FITS or HDF5 it will return
+        a more specific object - see the types.py file for more info.
+
+        """
         path = self.get_input(tag)
         dtype = self.get_input_type(tag)
         return dtype.open(path, 'r', **kwargs)
 
     def open_output(self, tag, **kwargs):
+        """
+        Find and open an output file with the given tag, in write mode.
+
+        For general files this will simply return a standard
+        python file object.
+
+        For specialized file types like FITS or HDF5 it will return
+        a more specific object - see the types.py file for more info.
+
+        """
         path = self.get_output(tag)
         dtype = self.get_output_type(tag)
         if issubclass(dtype,dtypes.HDFFile) and kwargs.pop('parallel', False) and self.is_mpi():
@@ -78,23 +158,33 @@ class PipelineStage:
             kwargs['comm'] = self.comm
         return dtype.open(path, 'w', **kwargs)
 
-    def split_tasks_by_rank(self, n_chunks):
-        for i in range(n_chunks):
-            if i%self.size==self.rank:
-                yield i
 
-    def data_ranges_by_rank(self, n_rows, chunk_rows):
-        n_chunks = n_rows//chunk_rows
-        if n_chunks*chunk_rows<n_rows:
-            n_chunks += 1
-        for i in self.split_tasks_by_rank(n_chunks):
-            start = i*chunk_rows
-            end = min((i+1)*chunk_rows, n_rows)
-            yield start, end
+    def read_config(self):
+        """
+        Read the file that has the tag "config".
+        Find the section within that file with the same name as the stage,
+        and return the contents.
+
+        This method also checks that any options in the "config_options"
+        dictionary that the class can define are present in the config.
+        If they are not, then if they have a default value set there (not None)
+        then this value is filled in instead.
+        """
+        import yaml
+        input_config = yaml.load(open(self.get_input('config')))
+        my_config = input_config[self.name]
+        for opt, default in self.config_options.items():
+            if opt not in my_config:
+                if default is None:
+                    raise ValueError(f"Missing configuration option {opt} for stage {self.name}")
+                my_config[opt] = default
+        return my_config
 
 
     def iterate_fits(self, tag, hdunum, cols, chunk_rows):
-        "Loop through chunks of the input data"
+        """
+        Loop through chunks of the input data from a FITS file with the given tag
+        """
         fits = self.open_input(tag)
         ext = fits[hdunum]
         n = ext.get_nrows()
@@ -103,7 +193,12 @@ class PipelineStage:
             yield start, end, data
 
     def iterate_hdf(self, tag, group_name, cols, chunk_rows):
-        "Loop through chunks of the input data"
+        """
+        Loop through chunks of the input data from an HDF5 file with the given tag.
+
+        All the selected columns must have the same length.
+
+        """
         import numpy as np
         hdf = self.open_input(tag)
         group = hdf[group_name]
@@ -121,16 +216,37 @@ class PipelineStage:
             yield start, end, data
 
 
-    def read_config(self):
-        import yaml
-        input_config = yaml.load(open(self.get_input('config')))
-        my_config = input_config[self.name]
-        for opt, default in self.config_options.items():
-            if opt not in my_config:
-                if default is None:
-                    raise ValueError(f"Missing configuration option {opt} for stage {self.name}")
-                my_config[opt] = default
-        return my_config
+
+
+    def get_input_type(self, tag):
+        """Return the file type class of an input file with the given tag."""
+        for t,dt in self.inputs:
+            if t==tag:
+                return dt
+        raise ValueError(f"Tag {tag} is not a known input")
+
+    def get_output_type(self, tag):
+        """Return the file type class of an output file with the given tag."""
+        for t,dt in self.outputs:
+            if t==tag:
+                return dt
+        raise ValueError(f"Tag {tag} is not a known output")
+
+
+
+    def split_tasks_by_rank(self, n_chunks):
+        for i in range(n_chunks):
+            if i%self.size==self.rank:
+                yield i
+
+    def data_ranges_by_rank(self, n_rows, chunk_rows):
+        n_chunks = n_rows//chunk_rows
+        if n_chunks*chunk_rows<n_rows:
+            n_chunks += 1
+        for i in self.split_tasks_by_rank(n_chunks):
+            start = i*chunk_rows
+            end = min((i+1)*chunk_rows, n_rows)
+            yield start, end
 
 
 
@@ -169,14 +285,23 @@ class PipelineStage:
 
     @classmethod
     def output_tags(cls):
+        """
+        Return the list of output tags required by this stage
+        """
         return [tag for tag,_ in cls.outputs]
 
     @classmethod
     def input_tags(cls):
+        """
+        Return the list of input tags required by this stage
+        """
         return [tag for tag,_ in cls.inputs]
 
     @classmethod
     def get_stage(cls, name):
+        """
+        Return the PipelineStage subclass with the given name.
+        """
         return cls.pipeline_stages[name][0]
     
     @classmethod
