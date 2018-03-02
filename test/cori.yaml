@@ -19,6 +19,7 @@ launcher:
         scriptDir: .
         taskBlocks: 1
         walltime: 00:10:00
+        mpirun: 'srun -np'
       executor: ipp
       provider: slurm
     site: Cori.Remote.IPP  # This appears to just be a tag included in output files

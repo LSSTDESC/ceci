@@ -357,7 +357,7 @@ class PipelineStage:
 
 
     @classmethod
-    def generate(cls, dfk, nprocess=1):
+    def generate(cls, dfk, nprocess=1, mpi_command='mpirun -n'):
         """
         Build a parsl bash app that executes this pipeline stage
         """
@@ -374,7 +374,7 @@ class PipelineStage:
 
         # Parallelism - simple for now
         if nprocess > 1:
-            launcher = f"mpirun -n {nprocess}"
+            launcher = f"{mpi_command} {nprocess}"
             mpi_flag = "--mpi"
         else:
             launcher = ""
