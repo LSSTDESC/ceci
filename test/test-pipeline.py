@@ -39,10 +39,11 @@ def test_pipeline(config_filename="./test/config.yml"):
     # Inputs and outputs
     output_dir = config['output_dir']
     inputs = config['inputs']
+    log_dir = config.get('log_dir', output_dir)
 
     # Create and run pipeline
     pipeline = Pipeline(launcher_config, stages)
-    pipeline.run(inputs, output_dir)
+    pipeline.run(inputs, output_dir, log_dir)
 
 
 if __name__ == '__main__':

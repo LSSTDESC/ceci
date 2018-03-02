@@ -357,7 +357,7 @@ class PipelineStage:
 
 
     @classmethod
-    def generate(cls, dfk, nprocess=1, mpi_command='mpirun -n'):
+    def generate(cls, dfk, nprocess, log_dir, mpi_command='mpirun -n'):
         """
         Build a parsl bash app that executes this pipeline stage
         """
@@ -382,7 +382,7 @@ class PipelineStage:
 
         template = f"""
 @parsl.App('bash', dfk)
-def {cls.name}(inputs, outputs):
+def {cls.name}(inputs, outputs, stdout='{log_dir}/{cls.name}.out', stderr='{log_dir}/{cls.name}.err'):
     cmd = '{launcher} python3 {path} {flags} {mpi_flag}'.format(inputs=inputs,outputs=outputs)
     print("Compiling command:")
     print(cmd)

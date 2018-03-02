@@ -12,6 +12,7 @@ class Pipeline:
         self.stage_execution_config = {}
         self.stage_names = []
         self.dfk = parsl.DataFlowKernel(launcher_config)
+        self.mpi_command = launcher_config['sites'][0].get('mpi_command', '')
         for info in stages:
             self.add_stage(info)
 
@@ -71,14 +72,14 @@ class Pipeline:
             
 
 
-    def run(self, overall_inputs, output_dir):
+    def run(self, overall_inputs, output_dir, log_dir):
         stages = self.ordered_stages(overall_inputs)
         data_elements = overall_inputs.copy()
         futures = []
         for stage in stages:
             sec = self.stage_execution_config[stage.name]
             print(f"Pipeline queuing stage {stage.name} with {sec.nprocess} processes")
-            app = stage.generate(self.dfk, sec.nprocess)
+            app = stage.generate(self.dfk, sec.nprocess, log_dir, mpi_command=self.mpi_command)
             inputs = self.find_inputs(stage, data_elements)
             outputs = self.find_outputs(stage, output_dir)
             future = app(inputs=inputs, outputs=outputs)

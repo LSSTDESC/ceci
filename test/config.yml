@@ -29,10 +29,10 @@ stages:
     - name: WLGCTwoPoint
       nprocess: 1
     - name: WLGCCov
-      nprocess: 2
+      nprocess: 1
 
 output_dir: ./test/outputs
-
+log_dir: ./test/logs
 inputs:
     DM: ./test/inputs/dm.txt
     fiducial_cosmology: ./test/inputs/fiducial_cosmology.txt
