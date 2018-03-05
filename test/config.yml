@@ -1,7 +1,11 @@
+# Launcher info
 launcher:
     globals: {lazyErrors: true}
     sites:
+      # Name
+      # Can put SSH info here to launch remotely
     - auth: {channel: null}
+      # Execution system
       execution: {
         executor: threads, 
         maxThreads: 4, 
@@ -10,7 +14,11 @@ launcher:
       site: Local_Threads
 
 
+# Python modules that are imported to find 
+# stage classes
+modules: pipette_lib.wl_apps
 
+# Stages to run
 stages:
     - name: WLGCSummaryStatistic
       nprocess: 1
@@ -31,10 +39,12 @@ stages:
     - name: WLGCCov
       nprocess: 1
 
-output_dir: ./test/outputs
-log_dir: ./test/logs
 inputs:
     DM: ./test/inputs/dm.txt
     fiducial_cosmology: ./test/inputs/fiducial_cosmology.txt
+
+output_dir: ./test/outputs
+log_dir: ./test/logs
+pipeline_log: log.txt
 
 

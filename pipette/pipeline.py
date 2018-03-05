@@ -1,6 +1,7 @@
 import parsl
 from parsl.data_provider.files import File
 from .stage import PipelineStage
+import os
 
 class StageExecutionConfig:
     def __init__(self, config):
@@ -76,6 +77,10 @@ class Pipeline:
         stages = self.ordered_stages(overall_inputs)
         data_elements = overall_inputs.copy()
         futures = []
+
+        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(log_dir, exist_ok=True)
+
         for stage in stages:
             sec = self.stage_execution_config[stage.name]
             print(f"Pipeline queuing stage {stage.name} with {sec.nprocess} processes")
