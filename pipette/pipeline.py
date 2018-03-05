@@ -13,7 +13,7 @@ class Pipeline:
         self.stage_execution_config = {}
         self.stage_names = []
         self.dfk = parsl.DataFlowKernel(launcher_config)
-        self.mpi_command = launcher_config['sites'][0].get('mpi_command', '')
+        self.mpi_command = launcher_config['sites'][0].get('mpi_command', 'mpirun -n')
         for info in stages:
             self.add_stage(info)
 

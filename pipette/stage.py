@@ -312,6 +312,14 @@ class PipelineStage:
         return cls.pipeline_stages[cls.name][1]
 
     @classmethod
+    def get_module(cls):
+        """
+        Return the path to the executable code for this pipeline stage.
+        """
+        return cls.pipeline_stages[cls.name][0].__module__
+
+
+    @classmethod
     def main(cls):
         """
         Create an instance of this stage and run it with 
@@ -334,6 +342,7 @@ class PipelineStage:
         for out in cls.output_tags():
             parser.add_argument('--{}'.format(out))
         parser.add_argument('--mpi', action='store_true', help="Set up MPI parallelism")
+        parser.add_argument('--pdb', action='store_true', help="Run under the python debugger")
         args = parser.parse_args()
         return args
 
@@ -344,7 +353,17 @@ class PipelineStage:
         with the specified inputs and outputs
         """
         stage = cls(args)
-        stage.run()
+        try:
+            stage.run()
+        except Exception as error:
+            if args.pdb:
+                print("There was an exception - starting python debugger because you ran with --pdb")
+                print(error)
+                pdb.post_mortem()
+            else:
+                raise
+        
+        
 
     @classmethod
     def _generate(cls, template, dfk):
@@ -361,7 +380,7 @@ class PipelineStage:
         """
         Build a parsl bash app that executes this pipeline stage
         """
-        path = cls.get_executable()
+        module = cls.get_module()
 
         flags = [cls.name]
         for i,inp in enumerate(cls.input_tags()):
@@ -383,7 +402,7 @@ class PipelineStage:
         template = f"""
 @parsl.App('bash', dfk)
 def {cls.name}(inputs, outputs, stdout='{log_dir}/{cls.name}.out', stderr='{log_dir}/{cls.name}.err'):
-    cmd = '{launcher} python3 {path} {flags} {mpi_flag}'.format(inputs=inputs,outputs=outputs)
+    cmd = '{launcher} python3 -m {module} {flags} {mpi_flag}'.format(inputs=inputs,outputs=outputs)
     print("Compiling command:")
     print(cmd)
     return cmd
