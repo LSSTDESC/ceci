@@ -24,6 +24,7 @@ launcher:
       provider: slurm
     site: Cori.Remote.IPP  # This appears to just be a tag included in output files
 
+modules: pipette_lib.wl_apps
 
 
 stages:
@@ -46,8 +47,11 @@ stages:
     - name: WLGCCov
 
 output_dir: ./test/outputs/
-
+log_dir: ./test/logs
+pipeline_log: log.txt
+resume: False
 inputs:
     DM: ./test/inputs/dm.txt
     fiducial_cosmology: ./test/inputs/fiducial_cosmology.txt
+
 

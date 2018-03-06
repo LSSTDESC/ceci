@@ -73,7 +73,7 @@ class Pipeline:
             
 
 
-    def run(self, overall_inputs, output_dir, log_dir):
+    def run(self, overall_inputs, output_dir, log_dir, resume):
         stages = self.ordered_stages(overall_inputs)
         data_elements = overall_inputs.copy()
         futures = []
@@ -81,17 +81,35 @@ class Pipeline:
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs(log_dir, exist_ok=True)
 
+        if resume:
+            print("Since parameter 'resume' is True we will skip steps whose outputs exist already")
+
         for stage in stages:
             sec = self.stage_execution_config[stage.name]
-            print(f"Pipeline queuing stage {stage.name} with {sec.nprocess} processes")
             app = stage.generate(self.dfk, sec.nprocess, log_dir, mpi_command=self.mpi_command)
             inputs = self.find_inputs(stage, data_elements)
             outputs = self.find_outputs(stage, output_dir)
-            future = app(inputs=inputs, outputs=outputs)
-            futures.append(future)
-            for i, output in enumerate(stage.output_tags()):
-                data_elements[output] = future.outputs[i]
-        # Wait for the final result
+            already_run_stage = all(os.path.exists(output) for output in outputs)
+            # If we are in "resume" mode and the pipeline has already been run
+            # then we re-use any existing outputs.  User is responsible for making 
+            # sure they are complete!
+            if resume and already_run_stage:
+                print(f"Skipping stage {stage.name} because its outputs exist already")
+                for (tag,_),filename in zip(stage.outputs, outputs):
+                    data_elements[tag] = filename
+            # Otherwise, run the pipeline and register any outputs from the 
+            # pipe element as a "future" - a file that the pipeline will 
+            # create later
+            else:
+                print(f"Pipeline queuing stage {stage.name} with {sec.nprocess} processes")            
+                future = app(inputs=inputs, outputs=outputs)
+                futures.append(future)
+                for i, output in enumerate(stage.output_tags()):
+                    data_elements[output] = future.outputs[i]
+
+        # Wait for the final results, from all files
         for future in futures:
             future.result()
+
+        # Return a dictionary of the resulting file outputs
         return data_elements

@@ -42,9 +42,13 @@ stages:
 inputs:
     DM: ./test/inputs/dm.txt
     fiducial_cosmology: ./test/inputs/fiducial_cosmology.txt
-
+# If all the outputs for a stage already exist then do not re-run that stage
+resume: True
+# Put all the outputs in this directory
 output_dir: ./test/outputs
+# Put the stage logs in this directory
 log_dir: ./test/logs
+# Put the log for the overall pipeline infrastructure in this file
 pipeline_log: log.txt
 
 

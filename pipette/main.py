@@ -33,13 +33,14 @@ def run(config_filename):
     output_dir = config['output_dir']
     inputs = config['inputs']
     log_dir = config['log_dir']
+    resume = config['resume']
 
     for module in modules:
         __import__(module)
 
     # Create and run pipeline
     pipeline = Pipeline(launcher_config, stages)
-    pipeline.run(inputs, output_dir, log_dir)
+    pipeline.run(inputs, output_dir, log_dir, resume)
 
 
 
