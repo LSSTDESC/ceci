@@ -72,8 +72,30 @@ class PipelineStage:
 
     def __init__(self, args):
         args = vars(args)
+        self._inputs = {}
+        self._outputs = {}
+        missing_inputs = []
+        missing_outputs = []
+        for x in self.input_tags():
+            val = args[x]
+            if val is None:
+                missing_inputs.append(f'--{x}')
+        for x in self.output_tags():
+            val = args[x]
+            if val is None:
+                missing_outputs.append(f'--{x}')
+        if missing_inputs or missing_outputs:
+            missing_inputs = '  '.join(missing_inputs)
+            missing_outputs = '  '.join(missing_outputs)
+            raise ValueError(f"""
+
+Missing these names on the command line:
+    Input names: {missing_inputs}
+    Output names: {missing_outputs}""")
+
         self._inputs = {x:args[x] for x in self.input_tags()}
         self._outputs = {x:args[x] for x in self.output_tags()}
+
 
         if args.get('mpi', False):
             import mpi4py.MPI
@@ -338,9 +360,9 @@ class PipelineStage:
         parser = argparse.ArgumentParser(description="Run a stage or something")
         parser.add_argument("stage_name")
         for inp in cls.input_tags():
-            parser.add_argument('--{}'.format(inp))
+            parser.add_argument(f'--{inp}')
         for out in cls.output_tags():
-            parser.add_argument('--{}'.format(out))
+            parser.add_argument(f'--{out}')
         parser.add_argument('--mpi', action='store_true', help="Set up MPI parallelism")
         parser.add_argument('--pdb', action='store_true', help="Run under the python debugger")
         args = parser.parse_args()
@@ -362,7 +384,7 @@ class PipelineStage:
                 pdb.post_mortem()
             else:
                 raise
-        
+
         
 
     @classmethod
