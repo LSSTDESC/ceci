@@ -1,6 +1,7 @@
 import parsl
 import pathlib
 import sys
+import cwlgen
 from . import types as dtypes
 
 SERIAL = 'serial'
@@ -12,7 +13,7 @@ class PipelineStage:
     --------
     A PipelineStage implements a single calculation step within a wider pipeline.
 
-    Each different type of analysis stge is represented by a subclass of this 
+    Each different type of analysis stge is represented by a subclass of this
     base class.  The base class handles the connection between different pipeline
     stages, and the execution of the stages within a workflow system (parsl),
     potentially in parallel (MPI).
@@ -22,8 +23,8 @@ class PipelineStage:
      - define their inputs and outputs
      - provide a "run" method which does the actual execution of the pipeline step.
 
-    They must use base class methods within the run method to find their input 
-    and output file paths.  They can optionally use further methods in this 
+    They must use base class methods within the run method to find their input
+    and output file paths.  They can optionally use further methods in this
     class to open and prepare those files too.
 
     Inputs/Outputs and Tags
@@ -31,9 +32,9 @@ class PipelineStage:
     The I/O system for pipette uses the concept of "tags".
     A tag is a string which corresponds to a single input or output file.
     Using it allows us to easily connect together pipeline stages by matching
-    output tags from earlier stages to input tags for later ones. 
+    output tags from earlier stages to input tags for later ones.
     Tags must be unique across a pipeline.
-    
+
     API
     ---
     # Basic tools to find the file path:
@@ -54,7 +55,7 @@ class PipelineStage:
     Pipeline.size
     Pipeline.comm
 
-    # (Parallel) IO tools - reading data in chunks, splitting up 
+    # (Parallel) IO tools - reading data in chunks, splitting up
     # according to MPI rank
     # PipelineStage.iterate_fits(tag, hdunum, cols, chunk_rows)
     # PipelineStage.iterate_hdf(tag, group_name, cols, chunk_rows)
@@ -128,7 +129,7 @@ Missing these names on the command line:
         """
         Returns True if the code is being run in parallel.
         Right now is_parallel() will return the same value as is_mpi(),
-        but that may change in future if we implement other forms of 
+        but that may change in future if we implement other forms of
         parallelization.
         """
         return self._parallel != SERIAL
@@ -202,6 +203,46 @@ Missing these names on the command line:
                 my_config[opt] = default
         return my_config
 
+    @classmethod
+    def generate_cwl(cls):
+        """
+        Produces a CWL App object which can then be exported to yaml
+        """
+        module = cls.get_module()
+        # Basic definition of the tool
+        cwl_tool = cwlgen.CommandLineTool(tool_id=cls.name,
+                                          label=cls.name,
+                                          base_command=f'python3 -m {module}')
+
+        #TODO: Add documentation in pipette elements
+        cwl_tool.doc = "Pipeline element from pipette"
+
+        # Add the inputs of the tool
+        for i,inp in enumerate(cls.input_tags()):
+            input_binding = cwlgen.CommandLineBinding(position=(i+1))
+            input_param   = cwlgen.CommandInputParameter(inp,
+                                                         param_type='File',
+                                                         input_binding=input_binding,
+                                                         doc='Some documentation about the input')
+            cwl_tool.inputs.append(input_param)
+
+        # Add the definition of the outputs
+        for i,out in enumerate(cls.output_tags()):
+            output_binding = cwlgen.CommandOutputBinding(glob=out)
+            output = cwlgen.CommandOutputParameter(out, param_type='File',
+                                            output_binding=output_binding,
+                                            param_format='http://edamontology.org/format_2330',
+                                            doc='Some results produced by the pipeline element')
+            cwl_tool.outputs.append(output)
+
+        # Potentially add more metadata
+        metadata = {'name': cls.name,
+                'about': 'I let you guess',
+                'publication': [{'id': 'one_doi'}, {'id': 'another_doi'}],
+                'license': ['MIT']}
+        cwl_tool.metadata = cwlgen.Metadata(**metadata)
+
+        return cwl_tool
 
     def iterate_fits(self, tag, hdunum, cols, chunk_rows):
         """
@@ -275,7 +316,7 @@ Missing these names on the command line:
     pipeline_stages = {}
     def __init_subclass__(cls, **kwargs):
         """
-        Python 3.6+ provides a facility to automatically 
+        Python 3.6+ provides a facility to automatically
         call a method (this one) whenever a new subclass
         is defined.  In this case we use that feature to keep
         track of all available pipeline stages, each of which is
@@ -284,7 +325,7 @@ Missing these names on the command line:
         """
         super().__init_subclass__(**kwargs)
 
-        # This is a hacky way of finding the file 
+        # This is a hacky way of finding the file
         # where our stage was defined
         filename = sys.modules[cls.__module__].__file__
 
@@ -300,7 +341,7 @@ Missing these names on the command line:
         # Not sure if we actually do want to allow this?
         if cls.name in cls.pipeline_stages:
             raise ValueError(f"Pipeline stage {cls.name} already defined")
-        
+
         # Find the absolute path to the class defining the file
         path = pathlib.Path(filename).resolve()
         cls.pipeline_stages[cls.name] = (cls, path)
@@ -325,7 +366,7 @@ Missing these names on the command line:
         Return the PipelineStage subclass with the given name.
         """
         return cls.pipeline_stages[name][0]
-    
+
     @classmethod
     def get_executable(cls):
         """
@@ -344,7 +385,7 @@ Missing these names on the command line:
     @classmethod
     def main(cls):
         """
-        Create an instance of this stage and run it with 
+        Create an instance of this stage and run it with
         inputs and outputs taken from the command line
         """
         stage_name = sys.argv[1]
@@ -371,7 +412,7 @@ Missing these names on the command line:
     @classmethod
     def execute(cls, args):
         """
-        Create an instance of this stage and run it 
+        Create an instance of this stage and run it
         with the specified inputs and outputs
         """
         stage = cls(args)
@@ -385,7 +426,7 @@ Missing these names on the command line:
             else:
                 raise
 
-        
+
 
     @classmethod
     def _generate(cls, template, dfk):
