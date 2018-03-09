@@ -7,6 +7,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Run a pipette pipeline from a configuration file')
 parser.add_argument('config_filename', help='Configuration file in YAML format.')
+parser.add_argument('--export_cwl', type=str, help='Exports pipeline in CWL format to provided path and exits')
 
 def run(config_filename):
     """
@@ -49,6 +50,7 @@ def export_cwl(args):
     """
     Function exports pipeline or pipeline stages into CWL format.
     """
+    path = args.export_cwl
     # YAML input file.
     config = yaml.load(open(args.config_filename))
 
@@ -60,7 +62,7 @@ def export_cwl(args):
     # Export each pipeline stage as a CWL app
     for k in PipelineStage.pipeline_stages:
         tool = PipelineStage.pipeline_stages[k][0].generate_cwl()
-        tool.export(f'cwl/{k}.cwl')
+        tool.export(f'{path}/{k}.cwl')
 
     # Exports the pipeline itself
     launcher_config = config['launcher']
@@ -68,11 +70,13 @@ def export_cwl(args):
     inputs = config['inputs']
     pipeline = Pipeline(launcher_config, stages)
     cwl_wf = pipeline.generate_cwl(inputs)
-    cwl_wf.export(f'cwl/txpipe.cwl')
+    cwl_wf.export(f'{path}/pipeline.cwl')
 
 def main(args):
-    export_cwl(args)
-    run(args.config_filename)
+    if args.export_cwl is not None:
+        export_cwl(args)
+    else:
+        run(args.config_filename)
 
 if __name__ == '__main__':
     args = parser.parse_args()
