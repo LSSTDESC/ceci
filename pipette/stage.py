@@ -424,6 +424,7 @@ Missing these names on the command line:
         Build a parsl bash app that executes this pipeline stage
         """
         module = cls.get_module()
+        module = module.split('.')[0]
 
         flags = [cls.name]
         for i,inp in enumerate(cls.input_tags()):
