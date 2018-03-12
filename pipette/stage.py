@@ -353,6 +353,27 @@ Missing these names on the command line:
         stage.execute(args)
 
     @classmethod
+    def export(cls, all_stages=True):
+        """
+        Export a dictionary representation of known stages 
+        (if all==True, the default) or just this stage (all==False).
+
+        
+        """
+
+    @classmethod
+    def export_yaml(cls, filename, all_stages=True):
+        """
+        Export a YAML file representation of known stages
+        (if all==True, the default) or just this stage (all==False).
+        """
+        outfile = open(filename, 'w')
+        d = cls.export(all_stages=all_stages)
+        yaml.dump(d, outfile)
+        outfile.close()
+
+
+    @classmethod
     def _parse_command_line(cls):
         cmd = " ".join(sys.argv[:])
         print(f"Executing stage: {cls.name}")
