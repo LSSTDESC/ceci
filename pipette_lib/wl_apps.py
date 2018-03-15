@@ -1,5 +1,5 @@
 from pipette import PipelineStage
-from descformats import TextFile
+from .types import TextFile
 
 class shearMeasurementPipe(PipelineStage):
     name='shearMeasurementPipe'
