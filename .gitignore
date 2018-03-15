@@ -2,3 +2,4 @@ runinfo
 */__pycache__
 *.pyc
 test/outputs
+.ropeproject/
