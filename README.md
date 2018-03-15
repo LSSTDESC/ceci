@@ -1,5 +1,6 @@
-Pipette
+Pipette 
 -------
+[![Build Status](https://travis-ci.org/EiffL/pipette.svg?branch=master)](https://travis-ci.org/EiffL/pipette)
 
 A framework for running DESC pipelines.
 
