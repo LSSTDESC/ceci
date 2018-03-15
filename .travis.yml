@@ -9,4 +9,4 @@ install:
   - python setup.py install
 
 script:
-  - pipette test/test.yaml
+  - pipette test/test.yml
