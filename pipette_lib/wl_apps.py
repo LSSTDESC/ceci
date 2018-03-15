@@ -1,5 +1,5 @@
 from pipette import PipelineStage
-from pipette.types import TextFile
+from descformats import TextFile
 
 class shearMeasurementPipe(PipelineStage):
     name='shearMeasurementPipe'
@@ -8,7 +8,7 @@ class shearMeasurementPipe(PipelineStage):
         ]
     outputs = [('shear_catalog',TextFile)]
 
-    
+
     def run(self):
         for inp,_ in self.inputs:
             filename = self.get_input(inp)
@@ -25,7 +25,7 @@ class PZEstimationPipe(PipelineStage):
     name='PZEstimationPipe'
     inputs = [('DM',TextFile),('fiducial_cosmology',TextFile)]
     outputs = [('photoz_pdfs',TextFile)]
-    
+
     def run(self):
         for inp,_ in self.inputs:
             filename = self.get_input(inp)
@@ -42,7 +42,7 @@ class WLGCRandoms(PipelineStage):
     name='WLGCRandoms'
     inputs = [('diagnostic_maps',TextFile)]
     outputs = [('random_catalog',TextFile)]
-    
+
     def run(self):
         for inp,_ in self.inputs:
             filename = self.get_input(inp)
@@ -59,7 +59,7 @@ class WLGCSelector(PipelineStage):
     name='WLGCSelector'
     inputs = [('shear_catalog',TextFile),('photoz_pdfs',TextFile)]
     outputs = [('tomography_catalog',TextFile)]
-    
+
     def run(self):
         for inp,_ in self.inputs:
             filename = self.get_input(inp)
@@ -76,7 +76,7 @@ class SourceSummarizer(PipelineStage):
     name='SourceSummarizer'
     inputs = [('tomography_catalog',TextFile),('photoz_pdfs',TextFile),('diagnostic_maps',TextFile)]
     outputs = [('source_summary_data',TextFile)]
-    
+
     def run(self):
         for inp,_ in self.inputs:
             filename = self.get_input(inp)
@@ -93,7 +93,7 @@ class SysMapMaker(PipelineStage):
     name='SysMapMaker'
     inputs = [('DM',TextFile)]
     outputs = [('diagnostic_maps',TextFile)]
-    
+
     def run(self):
         for inp,_ in self.inputs:
             filename = self.get_input(inp)
@@ -113,7 +113,7 @@ class WLGCTwoPoint(PipelineStage):
         ('diagnostic_maps',TextFile),
         ('random_catalog',TextFile)]
     outputs = [('twopoint_data',TextFile)]
-    
+
     def run(self):
         for inp,_ in self.inputs:
             filename = self.get_input(inp)
@@ -144,7 +144,7 @@ class WLGCCov(PipelineStage):
             fname = f"{filename}.{rank}"
         return fname
 
-    
+
     def run(self):
 
         # MPI Information
@@ -162,7 +162,7 @@ class WLGCCov(PipelineStage):
         print(f"    WLGCCov rank {rank}/{size} writing to {my_filename}")
         open(my_filename,'w').write(f"WLGCCov rank {rank} was here \n")
 
-        # 
+        #
         if comm:
             comm.Barrier()
 
@@ -183,7 +183,7 @@ class WLGCSummaryStatistic(PipelineStage):
     inputs = [('twopoint_data',TextFile),('covariance',TextFile),('source_summary_data',TextFile)]
     outputs = [('wlgc_summary_data',TextFile)]
     parallel = False
-    
+
     def run(self):
         for inp,_ in self.inputs:
             filename = self.get_input(inp)
