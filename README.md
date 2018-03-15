@@ -1,23 +1,26 @@
-Pipette 
+Pipette
 -------
 [![Build Status](https://travis-ci.org/EiffL/pipette.svg?branch=master)](https://travis-ci.org/EiffL/pipette)
 
-A framework for running DESC pipelines.
+A lightweight parsl-based framework for running DESC pipelines.
 
 This is now alpha status.
 
-You can run an example pipeline from the pipette_lib directory using:
+## Install
+
+```bash
+pip install git+git://github.com/common-workflow-language/python-cwlgen.git
+python setup.py install
+```
+
+You can then run an example pipeline from the pipette_lib directory using:
 
 ```bash
 export PYTHONPATH=$PYTHONPATH:$PWD
-export PATH=$PATH:$PWD/bin
-pipettte test/test.yaml
-
+pipette test/test.yml
 ```
 
-
-Roadmap
--------
+## Roadmap
 
 - MPI on cori and site generation for parsl
 - Generating a marker file when a task is completely complete to allow resuming better
