@@ -1,6 +1,6 @@
 Pipette
 -------
-[![Build Status](https://travis-ci.org/EiffL/pipette.svg?branch=master)](https://travis-ci.org/EiffL/pipette)
+[![Build Status](https://travis-ci.org/LSSTDESC/pipette.svg?branch=master)](https://travis-ci.org/LSSTDESC/pipette)
 
 A lightweight parsl-based framework for running DESC pipelines.
 
