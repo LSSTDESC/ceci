@@ -1,9 +1,7 @@
 import parsl
 import pathlib
 import sys
-
 import cwlgen
-import descformats
 
 SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'
@@ -185,13 +183,11 @@ Missing these names on the command line:
 
         # HDF files can be opened for parallel writing
         # under MPI.  This checks if:
-        # - we are using an HDF5 file
         # - we have been told to open in parallel
         # - we are actually running under MPI
         # and adds the flags required if all these are true
-        is_hdf = issubclass(output_class, descformats.HDFFile)
         run_parallel = kwargs.pop('parallel', False) and self.is_mpi()
-        if is_hdf and run_parallel:
+        if run_parallel:
             kwargs['driver'] = 'mpio'
             kwargs['comm'] = self.comm
 
