@@ -2,7 +2,7 @@ Pipette
 -------
 [![Build Status](https://travis-ci.org/LSSTDESC/pipette.svg?branch=master)](https://travis-ci.org/LSSTDESC/pipette)
 
-A lightweight parsl-based framework for running DESC pipelines.
+A lightweight parsl-based framework for running DESC pipelines. Documentation available here: http://pipette.readthedocs.io
 
 This is now alpha status.
 
