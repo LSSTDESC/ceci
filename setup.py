@@ -20,6 +20,8 @@ setup(
         'Programming Language :: Python :: 3.6',
     ],
     packages=['pipette'],
-    scripts=['bin/pipette'],
+    entry_points={
+        'console_scripts':['pipette=pipette.main:main']
+    },
     install_requires=['cwlgen','pyyaml','parsl']
 )

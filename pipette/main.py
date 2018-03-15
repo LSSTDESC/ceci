@@ -72,12 +72,12 @@ def export_cwl(args):
     cwl_wf = pipeline.generate_cwl(inputs)
     cwl_wf.export(f'{path}/pipeline.cwl')
 
-def main(args):
+def main():
+    args = parser.parse_args()
     if args.export_cwl is not None:
         export_cwl(args)
     else:
         run(args.config_filename)
 
 if __name__ == '__main__':
-    args = parser.parse_args()
-    main(args)
+    main()

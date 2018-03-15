@@ -1,5 +1,0 @@
-#!/usr/bin/env python3
-
-import pipette.main
-args = pipette.main.parser.parse_args()
-pipette.main.main(args)
