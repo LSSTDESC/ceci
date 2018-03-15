@@ -3,3 +3,5 @@ runinfo
 *.pyc
 test/outputs
 .ropeproject/
+build/
+cwl/
