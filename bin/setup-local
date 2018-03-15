@@ -1,0 +1,4 @@
+#!/usr/bin/env echo "Please source this file from the main pipette directory: source ./bin/setup-local   (ignore rest of this line)"
+export PYTHONPATH=$PYTHONPATH:$PWD
+export PATH=$PATH:$PWD/bin
+

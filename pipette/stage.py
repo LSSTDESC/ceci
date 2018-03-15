@@ -1,8 +1,9 @@
 import parsl
 import pathlib
 import sys
+
 import cwlgen
-from . import types as dtypes
+import descformats
 
 SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'
@@ -148,7 +149,7 @@ Missing these names on the command line:
         """Return the path of an output file with the given tag"""
         return self._outputs[tag]
 
-    def open_input(self, tag, **kwargs):
+    def open_input(self, tag, wrapper=False, **kwargs):
         """
         Find and open an input file with the given tag, in read-only mode.
 
@@ -160,10 +161,15 @@ Missing these names on the command line:
 
         """
         path = self.get_input(tag)
-        dtype = self.get_input_type(tag)
-        return dtype.open(path, 'r', **kwargs)
+        input_class = self.get_input_type(tag)
+        obj = input_class(path, 'r', **kwargs)
 
-    def open_output(self, tag, **kwargs):
+        if wrapper:
+            return obj
+        else:
+            return obj.file
+
+    def open_output(self, tag, wrapper=False, **kwargs):
         """
         Find and open an output file with the given tag, in write mode.
 
@@ -175,11 +181,26 @@ Missing these names on the command line:
 
         """
         path = self.get_output(tag)
-        dtype = self.get_output_type(tag)
-        if issubclass(dtype,dtypes.HDFFile) and kwargs.pop('parallel', False) and self.is_mpi():
+        output_class = self.get_output_type(tag)
+
+        # HDF files can be opened for parallel writing
+        # under MPI.  This checks if:
+        # - we are using an HDF5 file
+        # - we have been told to open in parallel
+        # - we are actually running under MPI
+        # and adds the flags required if all these are true
+        is_hdf = issubclass(output_class, descformats.HDFFile)
+        run_parallel = kwargs.pop('parallel', False) and self.is_mpi()
+        if is_hdf and run_parallel:
             kwargs['driver'] = 'mpio'
             kwargs['comm'] = self.comm
-        return dtype.open(path, 'w', **kwargs)
+
+        # Return an opened object representing the file
+        obj = output_class(path, 'w', **kwargs)
+        if wrapper:
+            return obj
+        else:
+            return obj.file
 
 
     def read_config(self):
@@ -394,6 +415,27 @@ Missing these names on the command line:
         stage.execute(args)
 
     @classmethod
+    def export(cls, all_stages=True):
+        """
+        Export a dictionary representation of known stages
+        (if all==True, the default) or just this stage (all==False).
+
+
+        """
+
+    @classmethod
+    def export_yaml(cls, filename, all_stages=True):
+        """
+        Export a YAML file representation of known stages
+        (if all==True, the default) or just this stage (all==False).
+        """
+        outfile = open(filename, 'w')
+        d = cls.export(all_stages=all_stages)
+        yaml.dump(d, outfile)
+        outfile.close()
+
+
+    @classmethod
     def _parse_command_line(cls):
         cmd = " ".join(sys.argv[:])
         print(f"Executing stage: {cls.name}")
@@ -444,6 +486,7 @@ Missing these names on the command line:
         Build a parsl bash app that executes this pipeline stage
         """
         module = cls.get_module()
+        module = module.split('.')[0]
 
         flags = [cls.name]
         for i,inp in enumerate(cls.input_tags()):
