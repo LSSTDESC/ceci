@@ -1,7 +1,6 @@
 import parsl
 from parsl.data_provider.files import File
 import cwlgen
-import cwlgen.workflow
 from .stage import PipelineStage
 import os
 
@@ -118,6 +117,7 @@ class Pipeline:
         """
         Exports the pipeline as a CWL object
         """
+        import cwlgen.workflow
         wf = cwlgen.workflow.Workflow()
 
         # List all the workflow steps
