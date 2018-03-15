@@ -1,5 +1,6 @@
 import parsl
 from parsl.data_provider.files import File
+import cwlgen
 from .stage import PipelineStage
 import os
 
@@ -45,7 +46,7 @@ class Pipeline:
         known_inputs = list(overall_inputs.keys())
         ordered_stages = []
         n = len(stage_names)
-        
+
         for i in range(n):
             for stage in stages[:]:
                 if all(inp in known_inputs for inp in stage.input_tags()):
@@ -70,8 +71,6 @@ class Pipeline:
             """
             raise ValueError(msg)
         return ordered_stages
-            
-
 
     def run(self, overall_inputs, output_dir, log_dir, resume):
         stages = self.ordered_stages(overall_inputs)
@@ -91,17 +90,17 @@ class Pipeline:
             outputs = self.find_outputs(stage, output_dir)
             already_run_stage = all(os.path.exists(output) for output in outputs)
             # If we are in "resume" mode and the pipeline has already been run
-            # then we re-use any existing outputs.  User is responsible for making 
+            # then we re-use any existing outputs.  User is responsible for making
             # sure they are complete!
             if resume and already_run_stage:
                 print(f"Skipping stage {stage.name} because its outputs exist already")
                 for (tag,_),filename in zip(stage.outputs, outputs):
                     data_elements[tag] = filename
-            # Otherwise, run the pipeline and register any outputs from the 
-            # pipe element as a "future" - a file that the pipeline will 
+            # Otherwise, run the pipeline and register any outputs from the
+            # pipe element as a "future" - a file that the pipeline will
             # create later
             else:
-                print(f"Pipeline queuing stage {stage.name} with {sec.nprocess} processes")            
+                print(f"Pipeline queuing stage {stage.name} with {sec.nprocess} processes")
                 future = app(inputs=inputs, outputs=outputs)
                 futures.append(future)
                 for i, output in enumerate(stage.output_tags()):
@@ -113,3 +112,49 @@ class Pipeline:
 
         # Return a dictionary of the resulting file outputs
         return data_elements
+
+    def generate_cwl(self, overall_inputs):
+        """
+        Exports the pipeline as a CWL object
+        """
+        import cwlgen.workflow
+        wf = cwlgen.workflow.Workflow()
+
+        # List all the workflow steps
+        stages = self.ordered_stages(overall_inputs)
+
+        known_outputs ={}
+        cwl_steps = []
+        for stage in stages:
+            # Get the CWL tool for that stage
+            cwl_tool = stage.generate_cwl()
+            cwl_inputs = []
+
+            for i in stage.input_tags():
+                if i in known_outputs:
+                    src = known_outputs[i]+'/'+i
+                else:
+                    src=None
+
+                inp = cwlgen.workflow.WorkflowStepInput(id=i, src=src)
+                cwl_inputs.append(inp)
+
+            cwl_outputs = []
+            for o in stage.outputs:
+                cwl_outputs.append(o[0])
+
+            step = cwlgen.workflow.WorkflowStep(stage.name,
+                                       inputs=cwl_inputs,
+                                       outputs=cwl_outputs,
+                                       run='%s.cwl'%cwl_tool.id)
+
+            # Keeping track of known output providers
+            for o in stage.outputs:
+                known_outputs[o[0]] = step.id
+
+            cwl_steps.append(step)
+
+        wf.steps = cwl_steps
+
+        # TODO: add inputs and outputs for the workflow
+        return wf

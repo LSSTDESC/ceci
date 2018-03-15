@@ -1,0 +1,13 @@
+language: python
+python:
+  - "3.6"
+
+before_install:
+  - pip install git+git://github.com/common-workflow-language/python-cwlgen.git
+
+install:
+  - python setup.py install
+
+script:
+  - export PYTHONPATH=$PYTHONPATH:$PWD
+  - pipette test/test.yml
