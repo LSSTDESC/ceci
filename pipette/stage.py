@@ -1,7 +1,6 @@
 import parsl
 import pathlib
 import sys
-import cwlgen
 
 SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'
@@ -225,6 +224,7 @@ Missing these names on the command line:
         """
         Produces a CWL App object which can then be exported to yaml
         """
+        import cwlgen
         module = cls.get_module()
         # Basic definition of the tool
         cwl_tool = cwlgen.CommandLineTool(tool_id=cls.name,

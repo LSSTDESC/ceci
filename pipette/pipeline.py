@@ -1,6 +1,5 @@
 import parsl
 from parsl.data_provider.files import File
-import cwlgen
 from .stage import PipelineStage
 import os
 
@@ -13,8 +12,8 @@ class Pipeline:
     def __init__(self, launcher_config, stages):
         self.stage_execution_config = {}
         self.stage_names = []
-        self.dfk = parsl.DataFlowKernel(launcher_config)
         self.mpi_command = launcher_config['sites'][0].get('mpi_command', 'mpirun -n')
+        self.dfk = parsl.DataFlowKernel(launcher_config)
         for info in stages:
             self.add_stage(info)
 
@@ -117,7 +116,7 @@ class Pipeline:
         """
         Exports the pipeline as a CWL object
         """
-        import cwlgen.workflow
+        import cwlgen
         wf = cwlgen.workflow.Workflow()
 
         # List all the workflow steps
