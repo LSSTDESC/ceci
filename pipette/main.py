@@ -5,9 +5,12 @@ import sys
 import parsl
 import argparse
 
+# Add the current dir to the path - often very useful
+sys.path.append(os.getcwd())
+
 parser = argparse.ArgumentParser(description='Run a pipette pipeline from a configuration file')
 parser.add_argument('config_filename', help='Configuration file in YAML format.')
-parser.add_argument('--export_cwl', type=str, help='Exports pipeline in CWL format to provided path and exits')
+parser.add_argument('--export-cwl', type=str, help='Exports pipeline in CWL format to provided path and exits')
 
 def run(config_filename):
     """
