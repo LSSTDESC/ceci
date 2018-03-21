@@ -6,64 +6,14 @@ SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'
 
 class PipelineStage:
-    """
-    Overview
-    --------
-    A PipelineStage implements a single calculation step within a wider pipeline.
+    """A PipelineStage implements a single calculation step within a wider pipeline.
 
     Each different type of analysis stge is represented by a subclass of this
     base class.  The base class handles the connection between different pipeline
     stages, and the execution of the stages within a workflow system (parsl),
     potentially in parallel (MPI).
 
-    The subclasses must:
-    -  define their name
-     - define their inputs and outputs
-     - provide a "run" method which does the actual execution of the pipeline step.
-
-    They must use base class methods within the run method to find their input
-    and output file paths.  They can optionally use further methods in this
-    class to open and prepare those files too.
-
-    Inputs/Outputs and Tags
-    -----------------------
-    The I/O system for pipette uses the concept of "tags".
-    A tag is a string which corresponds to a single input or output file.
-    Using it allows us to easily connect together pipeline stages by matching
-    output tags from earlier stages to input tags for later ones.
-    Tags must be unique across a pipeline.
-
-    API
-    ---
-    # Basic tools to find the file path:
-    PipelineStage.get_input(tag)
-    PipelineStage.get_output(tag)
-
-    # Get base class to find and open the file for you:
-    PipelineStage.open_input(tag, **kwargs)
-    PipelineStage.open_output(tag, **kwargs)
-
-    # Look for a section in a yaml input file tagged "config"
-    # and read it.  If the config_options class variable exists in the class
-    # then it checks those options are set or uses any supplied defaults
-    Pipeline.read_config()
-
-    # Parallelization tools - MPI attributes
-    Pipeline.rank
-    Pipeline.size
-    Pipeline.comm
-
-    # (Parallel) IO tools - reading data in chunks, splitting up
-    # according to MPI rank
-    # PipelineStage.iterate_fits(tag, hdunum, cols, chunk_rows)
-    # PipelineStage.iterate_hdf(tag, group_name, cols, chunk_rows)
-
-    Execution
-    ---------
-    Pipeline stages can be automatically run as part of a pipeline,
-    or manually run on the command line, using the syntax
-    python </path/to/pipeline_implementation.py> <StageName> --<input_name1>=</path/to/input1.dat>
-        --<input_name2>=</path/to/input2.dat>  --<output_name1>=</path/to/output1.dat>
+    See documentation pages for more details.
 
     """
     parallel = True

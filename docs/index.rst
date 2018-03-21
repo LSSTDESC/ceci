@@ -6,11 +6,18 @@
 Welcome to pipette's documentation!
 ===================================
 
+Pipette is a framework for defining and running DESC pipelines under the Parsl workflow management system.  This means it connects together individual tasks that depend on each other's outputs and runs them, potentially in parallel, passing the outputs of one onto the next.
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
    
+   installation
+   overview
    tutorial
+   config
+   api
+
 
 
 Indices and tables
