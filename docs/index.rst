@@ -16,7 +16,7 @@ Pipette is a framework for defining and running DESC pipelines under the Parsl w
    overview
    tutorial
    config
-   api
+   stages
 
 
 

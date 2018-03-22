@@ -1,5 +1,5 @@
-Pipeline Stage API
-==================
+Pipeline Stages
+===============
 
 Overview
 --------

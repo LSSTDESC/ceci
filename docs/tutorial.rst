@@ -17,10 +17,12 @@ A mock pipeline, which just reads from and writes to a series of small text file
 Making a new pipeline
 ---------------------
 
-To make new pipeline stages, you:
+You can use a cookiecutter template to make new pipeline stages.  You can install cookiecutter with ``pip install cookiecutter`` and then run:
 
-- make a new python package somewhere else, to contain your stages.
-- the package must have an __init__.py file that should import from . all the stages you want to use.
-- it must also have a file __main__.py with the same contents as the example in pipete_lib.
-- each stage is its own class inheriting from pipette.PipelineStage. Each must define its name, inputs, and outputs, and a run method.
-- the run method should use the parent methods from PipelineStage to get its inputs and outputs etc.
+.. code-block:: bash
+
+    cookiecutter https://github.com/LSSTDESC/pipeline-package-template
+
+And enter a name for your pipeline collection.
+
+This will create a template for your new pipeline stages.  You design your pipeline stages in python files in this new repo - the example in  ``<repo_name>/<repo_name>stage1.py`` shows a template for this, and you can see the "Stages" section for more details.
