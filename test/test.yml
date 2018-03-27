@@ -2,7 +2,7 @@
 # stage classes.  Any stages imported in these 
 # modules are automatically detected and their names can 
 # be used below
-modules: ceci_lib
+modules: ceci_example
 
 # The list of stages to run and the number of processors
 # to use for each.
