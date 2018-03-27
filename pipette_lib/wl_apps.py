@@ -1,4 +1,4 @@
-from pipette import PipelineStage
+from ceci import PipelineStage
 from .types import TextFile
 
 class shearMeasurementPipe(PipelineStage):

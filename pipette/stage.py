@@ -181,8 +181,8 @@ Missing these names on the command line:
                                           label=cls.name,
                                           base_command=f'python3 -m {module}')
 
-        #TODO: Add documentation in pipette elements
-        cwl_tool.doc = "Pipeline element from pipette"
+        #TODO: Add documentation in ceci elements
+        cwl_tool.doc = "Pipeline element from ceci"
 
         # Add the inputs of the tool
         for i,inp in enumerate(cls.input_tags()):

@@ -7,10 +7,10 @@ http://opensource.org/licenses/MIT
 from setuptools import setup
 
 setup(
-    name='pipette',
+    name='ceci',
     version='0.0.1',
     description='Lightweight pipeline engine for LSST DESC',
-    url='https://github.com/LSSTDESC/pipette',
+    url='https://github.com/LSSTDESC/ceci',
     maintainer='Joe Zuntz',
     license='MIT',
     classifiers=[
@@ -19,9 +19,9 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.6',
     ],
-    packages=['pipette'],
+    packages=['ceci'],
     entry_points={
-        'console_scripts':['pipette=pipette.main:main']
+        'console_scripts':['ceci=ceci.main:main']
     },
-    install_requires=['cwlgen','pyyaml','parsl']
+    install_requires=['cwlgen','pyyaml','parsl','descformats']
 )

@@ -14,7 +14,7 @@ launcher:
         options: {overrides: '#SBATCH --constraint=haswell
             module load python/3.5-anaconda ;
             source /global/projecta/projectdirs/lsst/groups/WL/users/zuntz/env/bin/activate ;
-            export PYTHONPATH=$PYTHONPATH:/global/cscratch1/sd/zuntz/pipe/pipette', 
+            export PYTHONPATH=$PYTHONPATH:/global/cscratch1/sd/zuntz/pipe/ceci', 
         partition: debug}
         scriptDir: .
         taskBlocks: 1
@@ -24,7 +24,7 @@ launcher:
       provider: slurm
     site: Cori.Remote.IPP  # This appears to just be a tag included in output files
 
-modules: pipette_lib.wl_apps
+modules: ceci_lib.wl_apps
 
 
 stages:

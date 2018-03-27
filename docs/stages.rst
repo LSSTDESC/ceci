@@ -21,7 +21,7 @@ class to open and prepare those files too.
 
 Inputs/Outputs and Tags
 -----------------------
-The I/O system for pipette uses the concept of "tags".
+The I/O system for Ceci uses the concept of "tags".
 A tag is a string which corresponds to a single input or output file.
 Using it allows us to easily connect together pipeline stages by matching
 output tags from earlier stages to input tags for later ones.
@@ -95,6 +95,6 @@ API
 The complete pipeline stage API is below - stages not described above 
 are mostly used internally by the pipeline system.
 
- .. autoclass:: pipette.PipelineStage
+ .. autoclass:: ceci.PipelineStage
     :members:
     :member-order: by-source

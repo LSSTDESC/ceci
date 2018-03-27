@@ -2,7 +2,7 @@ default_cori_setup = """
 #SBATCH --constraint=haswell
 module load python/3.5-anaconda ;
 source /global/projecta/projectdirs/lsst/groups/WL/users/zuntz/env/bin/activate ;
-export PYTHONPATH=$PYTHONPATH:/global/cscratch1/sd/zuntz/pipe/pipette'
+export PYTHONPATH=$PYTHONPATH:/global/cscratch1/sd/zuntz/pipe/ceci'
 """
 
 

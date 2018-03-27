@@ -12,7 +12,7 @@ Here is an example, from test/test.yml:
     # stage classes.  Any stages imported in these 
     # modules are automatically detected and their names can 
     # be used below
-    modules: pipette_lib
+    modules: ceci_example_lib
 
     # The list of stages to run and the number of processors
     # to use for each.

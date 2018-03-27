@@ -1,8 +1,8 @@
-Pipette
--------
-[![Build Status](https://travis-ci.org/LSSTDESC/pipette.svg?branch=master)](https://travis-ci.org/LSSTDESC/pipette)
+Ceci Pipeline Software
+----------------------
+[![Build Status](https://travis-ci.org/LSSTDESC/ceci.svg?branch=master)](https://travis-ci.org/LSSTDESC/ceci)
 
-A lightweight parsl-based framework for running DESC pipelines. Documentation available here: http://pipette.readthedocs.io
+A lightweight parsl-based framework for running DESC pipelines. Documentation available here: http://ceci.readthedocs.io
 
 This is now alpha status.
 
@@ -13,11 +13,11 @@ pip install git+git://github.com/common-workflow-language/python-cwlgen.git
 python setup.py install
 ```
 
-You can then run an example pipeline from the pipette_lib directory using:
+You can then run an example pipeline from the ceci_lib directory using:
 
 ```bash
 export PYTHONPATH=$PYTHONPATH:$PWD
-pipette test/test.yml
+ceci test/test.yml
 ```
 
 ## Roadmap
@@ -39,5 +39,5 @@ To make new pipeline stages, you must:
 - make a new python package somewhere else, to contain your stages.
 - the package must have an `__init__.py` file that should import from `.` all the stages you want to use.
 - it must also have a file `__main__.py` with the same contents as the example in `pipete_lib`.
-- each stage is its own class inheriting from `pipette.PipelineStage`. Each must define its name, inputs, and outputs, and a run method.
+- each stage is its own class inheriting from `ceci.PipelineStage`. Each must define its name, inputs, and outputs, and a run method.
 - the run method should use the parent methods from `PipelineStage` to get its inputs and outputs etc.

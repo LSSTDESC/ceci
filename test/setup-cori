@@ -1,4 +1,4 @@
-#!/usr/bin/echo "Please source this file from the main pipette directory: source ./bin/setup-cori   (ignore rest of this line)"
+#!/usr/bin/echo "Please source this file from the main ceci directory: source ./bin/setup-cori   (ignore rest of this line)"
 module swap PrgEnv-intel  PrgEnv-gnu
 module unload darshan
 module load hdf5-parallel/1.10.1
