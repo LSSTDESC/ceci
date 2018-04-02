@@ -7,6 +7,7 @@ class shearMeasurementPipe(PipelineStage):
         ('DM', TextFile),
         ]
     outputs = [('shear_catalog',TextFile)]
+    config_options = {'metacalibration':True}
 
 
     def run(self):

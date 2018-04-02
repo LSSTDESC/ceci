@@ -117,6 +117,7 @@ class Pipeline:
         Exports the pipeline as a CWL object
         """
         import cwlgen
+        import cwlgen.workflow
         wf = cwlgen.workflow.Workflow()
 
         # List all the workflow steps

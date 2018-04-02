@@ -5,3 +5,7 @@ test/outputs
 .ropeproject/
 build/
 cwl/
+ceci.egg-info*
+dist
+log.txt
+test/log*
