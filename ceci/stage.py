@@ -33,7 +33,7 @@ class PipelineStage:
         if 'config' not in self.input_tags():
             for x in self.config_options:
                 val = args[x]
-                if (val is None) and (config_options[x] is None):
+                if (val is None) and (self.config_options[x] is None):
                     missing_configs.append(f'--{x}')
         for x in self.input_tags():
             val = args[x]
@@ -50,8 +50,8 @@ Missing these names on the command line:
 
         self._inputs = {x:args[x] for x in self.input_tags()}
         # Outputs using providing output for tag, or defaults to current folder
-        self._outputs = {x:args[x] if x in args else f'{x}.{cls.outputs[i][1].suffix}' for i,x in enumerate(self.output_tags())}
-        self._configs = {x:args[x] if x in args else self.config_options[x] for x in self.config_options}
+        self._outputs = {x:args[x] if args[x] is not None else f'{x}.{self.outputs[i][1].suffix}' for i,x in enumerate(self.output_tags())}
+        self._configs = {x:args[x] if args[x] is not None else self.config_options[x] for x in self.config_options}
         if 'config' in self.input_tags():
             self._read_config()
 
@@ -204,9 +204,15 @@ Missing these names on the command line:
         # Basic definition of the tool
         cwl_tool = cwlgen.CommandLineTool(tool_id=cls.name,
                                           label=cls.name,
-                                          base_command=f'python3 -m {module}',
+                                          base_command='python3',
                                           cwl_version='v1.0',
                                           doc=cls.doc)
+
+        # Adds the first input binding with the name of the module and pipeline stage
+        input_arg = cwlgen.CommandLineBinding(position=-1, value_from=f'-m{module}')
+        cwl_tool.arguments.append(input_arg)
+        input_arg = cwlgen.CommandLineBinding(position=0, value_from=f'{cls.name}')
+        cwl_tool.arguments.append(input_arg)
 
         type_dict={int: 'int', float:'float', str:'string', bool:'boolean'}
         # Adds the parameters of the tool
@@ -216,6 +222,7 @@ Missing these names on the command line:
             input_param = cwlgen.CommandInputParameter(opt,
                                                        param_type=None if opt is None else type_dict[type(def_val)],
                                                        input_binding=input_binding,
+                                                       default=def_val,
                                                        doc='Some documentation about this parameter')
             cwl_tool.inputs.append(input_param)
 
@@ -242,11 +249,12 @@ Missing these names on the command line:
             cwl_tool.outputs.append(output)
 
         # Potentially add more metadata
-        metadata = {'name': cls.name,
-                'about': 'Some additional info',
-                'publication': [{'id': 'one_doi'}, {'id': 'another_doi'}],
-                'license': ['MIT']}
-        cwl_tool.metadata = cwlgen.Metadata(**metadata)
+        # This requires a schema however...
+        # metadata = {'name': cls.name,
+        #         'about': 'Some additional info',
+        #         'publication': [{'id': 'one_doi'}, {'id': 'another_doi'}],
+        #         'license': ['MIT']}
+        # cwl_tool.metadata = cwlgen.Metadata(**metadata)
 
         return cwl_tool
 
@@ -428,7 +436,11 @@ Missing these names on the command line:
         parser = argparse.ArgumentParser(description="Run a stage or something")
         parser.add_argument("stage_name")
         for conf in cls.config_options:
-            parser.add_argument(f'--{conf}')
+            def_val = cls.config_options[conf]
+            if type(def_val) is bool:
+                parser.add_argument(f'--{conf}', action='store_true')
+            else:
+                parser.add_argument(f'--{conf}')
         for inp in cls.input_tags():
             parser.add_argument(f'--{inp}')
         for out in cls.output_tags():

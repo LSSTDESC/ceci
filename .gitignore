@@ -10,3 +10,4 @@ dist
 log.txt
 test/log*
 .ipynb*
+*.txt
