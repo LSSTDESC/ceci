@@ -39,23 +39,18 @@ class PipelineStage:
             val = args[x]
             if val is None:
                 missing_inputs.append(f'--{x}')
-        for x in self.output_tags():
-            val = args[x]
-            if val is None:
-                missing_outputs.append(f'--{x}')
         if missing_inputs or missing_outputs:
             missing_configs = '  '.join(missing_configs)
             missing_inputs = '  '.join(missing_inputs)
-            missing_outputs = '  '.join(missing_outputs)
             raise ValueError(f"""
 
 Missing these names on the command line:
     Config names: {missing_configs}
-    Input names: {missing_inputs}
-    Output names: {missing_outputs}""")
+    Input names: {missing_inputs}""")
 
         self._inputs = {x:args[x] for x in self.input_tags()}
-        self._outputs = {x:args[x] for x in self.output_tags()}
+        # Outputs using providing output for tag, or defaults to current folder
+        self._outputs = {x:args[x] if x in args else f'{x}.{cls.outputs[i][1].suffix}' for i,x in enumerate(self.output_tags())}
         self._configs = {x:args[x] if x in args else self.config_options[x] for x in self.config_options}
         if 'config' in self.input_tags():
             self._read_config()
@@ -169,6 +164,15 @@ Missing these names on the command line:
         """
         return self._configs
 
+    def read_config(self):
+        """ Deprecated method
+        TODO: remove in future release
+        """
+        import warnings
+        warnings.warn("This method has been replaced by self.config",
+                      category=DeprecationWarning, stacklevel=2)
+        return self.config
+
     def _read_config(self):
         """
         Read the file that has the tag "config".
@@ -200,12 +204,25 @@ Missing these names on the command line:
         # Basic definition of the tool
         cwl_tool = cwlgen.CommandLineTool(tool_id=cls.name,
                                           label=cls.name,
-                                          base_command=f'python3 -m {module}')
-        cwl_tool.doc = cls.doc
+                                          base_command=f'python3 -m {module}',
+                                          cwl_version='v1.0',
+                                          doc=cls.doc)
+
+        type_dict={int: 'int', float:'float', str:'string', bool:'boolean'}
+        # Adds the parameters of the tool
+        for opt in cls.config_options:
+            input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(opt))
+            def_val = cls.config_options[opt]
+            input_param = cwlgen.CommandInputParameter(opt,
+                                                       param_type=None if opt is None else type_dict[type(def_val)],
+                                                       input_binding=input_binding,
+                                                       doc='Some documentation about this parameter')
+            cwl_tool.inputs.append(input_param)
+
 
         # Add the inputs of the tool
         for i,inp in enumerate(cls.input_tags()):
-            input_binding = cwlgen.CommandLineBinding(position=(i+1))
+            input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(inp))
             input_param   = cwlgen.CommandInputParameter(inp,
                                                          param_type='File',
                                                          param_format=cls.inputs[i][1].__name__,
@@ -215,16 +232,18 @@ Missing these names on the command line:
 
         # Add the definition of the outputs
         for i,out in enumerate(cls.output_tags()):
-            output_binding = cwlgen.CommandOutputBinding(glob=out)
-            output = cwlgen.CommandOutputParameter(out, param_type='File',
+            output_name = f'{out}.{cls.outputs[i][1].suffix}'
+            output_binding = cwlgen.CommandOutputBinding(glob=output_name)
+            output = cwlgen.CommandOutputParameter(out,
+                                            param_type='File',
                                             output_binding=output_binding,
-                                            param_format='http://edamontology.org/format_2330',
+                                            param_format=cls.outputs[i][1].__name__,
                                             doc='Some results produced by the pipeline element')
             cwl_tool.outputs.append(output)
 
         # Potentially add more metadata
         metadata = {'name': cls.name,
-                'about': 'I let you guess',
+                'about': 'Some additional info',
                 'publication': [{'id': 'one_doi'}, {'id': 'another_doi'}],
                 'license': ['MIT']}
         cwl_tool.metadata = cwlgen.Metadata(**metadata)

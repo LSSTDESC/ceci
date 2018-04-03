@@ -103,6 +103,7 @@ class Pipeline:
             # pipe element as a "future" - a file that the pipeline will
             # create later
             else:
+                print(inputs, outputs)
                 print(f"Pipeline queuing stage {stage.name} with {sec.nprocess} processes")
                 future = app(inputs=inputs, outputs=outputs)
                 futures.append(future)
