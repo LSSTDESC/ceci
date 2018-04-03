@@ -15,4 +15,4 @@ script:
   # Now testing some CWL magic
   - mkdir cwl
   - ceci --export-cwl cwl test/test.yml test/config.yml
-  - cwltool cwl/pipeline.cwl --DM test/inputs/dm.txt --fiducial_cosmology test/inputs/fiducial_cosmology.txt
+  - cwltool cwl/pipeline.cwl cwl/cwl_inputs.yml

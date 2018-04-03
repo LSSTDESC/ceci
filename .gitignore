@@ -10,3 +10,4 @@ log.txt
 test/log*
 .ipynb*
 *.txt
+cwl/*.cwl
