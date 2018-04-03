@@ -125,28 +125,23 @@ class Pipeline:
         import cwlgen.workflow
         wf = cwlgen.workflow.Workflow()
 
-        # Defines the inputs of the workflow
-        for inp in overall_inputs:
-            cwl_inp = cwlgen.workflow.InputParameter(inp, label=inp,
-                                                     param_type='File',
-                                                     doc="some documentation about the input")
-            wf.inputs.append(cwl_inp)
-
         # List all the workflow steps
         stages = self.ordered_stages(overall_inputs)
 
         known_outputs ={}
+        inputs_types = {}
         cwl_steps = []
         for stage in stages:
             # Get the CWL tool for that stage
             cwl_tool = stage.generate_cwl()
             cwl_inputs = []
 
-            for i in stage.input_tags():
+            for k,i in enumerate(stage.input_tags()):
                 if i in known_outputs:
                     src = known_outputs[i]+'/'+i
                 else:
                     if i in overall_inputs:
+                        inputs_types[i] = stage.inputs[k][1].__name__
                         src=i
                     else:
                         src=None
@@ -170,6 +165,15 @@ class Pipeline:
             cwl_steps.append(step)
 
         wf.steps = cwl_steps
+
+        # Defines the inputs of the workflow
+        for inp in overall_inputs:
+            cwl_inp = cwlgen.workflow.InputParameter(inp, label=inp,
+                                                     param_type='File',
+                                                     param_format=inputs_types[inp],
+                                                     doc="some documentation about the input")
+            wf.inputs.append(cwl_inp)
+
 
         # By default only keep the output of the last stage as output
         last_stage = stages[-1]

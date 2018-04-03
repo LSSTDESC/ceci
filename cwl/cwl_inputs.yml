@@ -1,0 +1,12 @@
+{
+    "DM": {
+        "class": "File",
+        "path": "../test/inputs/dm.txt",
+        "format": "TextFile"
+    },
+    "fiducial_cosmology": {
+        "class": "File",
+        "path": "../test/inputs/fiducial_cosmology.txt",
+        "format": "TextFile"
+    }
+}
