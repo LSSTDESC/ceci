@@ -1,6 +1,6 @@
-# Python modules that are imported to find 
-# stage classes.  Any stages imported in these 
-# modules are automatically detected and their names can 
+# Python modules that are imported to find
+# stage classes.  Any stages imported in these
+# modules are automatically detected and their names can
 # be used below
 modules: ceci_example
 
@@ -34,7 +34,7 @@ inputs:
     fiducial_cosmology: ./test/inputs/fiducial_cosmology.txt
 
 # If all the outputs for a stage already exist then do not re-run that stage
-resume: True
+resume: False
 
 # Put all the output files in this directory:
 output_dir: ./test/outputs
@@ -56,9 +56,8 @@ launcher:
     - auth: {channel: null}
       # Execution system
       execution: {
-        executor: threads, 
-        maxThreads: 4, 
+        executor: threads,
+        maxThreads: 4,
         provider: null
     }
       site: Local_Threads
-

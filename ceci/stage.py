@@ -23,8 +23,17 @@ class PipelineStage:
         args = vars(args)
         self._inputs = {}
         self._outputs = {}
+        self._configs = {}
         missing_inputs = []
         missing_outputs = []
+        missing_configs =[]
+        # if the input contains a configuration file, we don't raise the alarm
+        # just yet and will try to read missing configuration from file
+        if 'config' not in self.input_tags():
+            for x in self.config_options:
+                val = args[x]
+                if (val is None) and (config_options[x] is None):
+                    missing_configs.append(f'--{x}')
         for x in self.input_tags():
             val = args[x]
             if val is None:
@@ -34,17 +43,21 @@ class PipelineStage:
             if val is None:
                 missing_outputs.append(f'--{x}')
         if missing_inputs or missing_outputs:
+            missing_configs = '  '.join(missing_configs)
             missing_inputs = '  '.join(missing_inputs)
             missing_outputs = '  '.join(missing_outputs)
             raise ValueError(f"""
 
 Missing these names on the command line:
+    Config names: {missing_configs}
     Input names: {missing_inputs}
     Output names: {missing_outputs}""")
 
         self._inputs = {x:args[x] for x in self.input_tags()}
         self._outputs = {x:args[x] for x in self.output_tags()}
-
+        self._configs = {x:args[x] if x in args else self.config_options[x] for x in self.config_options}
+        if 'config' in self.input_tags():
+            self._read_config()
 
         if args.get('mpi', False):
             import mpi4py.MPI
@@ -147,8 +160,15 @@ Missing these names on the command line:
         else:
             return obj.file
 
+    @property
+    def config(self):
+        """
+        Returns the configuration directory for this stage, aggregating command
+        line option and optional configuration file.
+        """
+        return self._configs
 
-    def read_config(self):
+    def _read_config(self):
         """
         Read the file that has the tag "config".
         Find the section within that file with the same name as the stage,
@@ -162,7 +182,7 @@ Missing these names on the command line:
         import yaml
         input_config = yaml.load(open(self.get_input('config')))
         my_config = input_config[self.name]
-        for opt, default in self.config_options.items():
+        for opt, default in self._configs.items():
             if opt not in my_config:
                 if default is None:
                     raise ValueError(f"Missing configuration option {opt} for stage {self.name}")
@@ -388,6 +408,8 @@ Missing these names on the command line:
         import argparse
         parser = argparse.ArgumentParser(description="Run a stage or something")
         parser.add_argument("stage_name")
+        for conf in cls.config_options:
+            parser.add_argument(f'--{conf}')
         for inp in cls.input_tags():
             parser.add_argument(f'--{inp}')
         for out in cls.output_tags():
@@ -427,7 +449,7 @@ Missing these names on the command line:
 
 
     @classmethod
-    def generate(cls, dfk, nprocess, log_dir, mpi_command='mpirun -n'):
+    def generate(cls, dfk, nprocess, config, log_dir, mpi_command='mpirun -n'):
         """
         Build a parsl bash app that executes this pipeline stage
         """
@@ -435,9 +457,15 @@ Missing these names on the command line:
         module = module.split('.')[0]
 
         flags = [cls.name]
+        # Adds non default options to the command line
+        if config is not None:
+            for opt in config:
+                flag = '--{}={}'.format(opt, config[opt])
+                flags.append(flag)
         for i,inp in enumerate(cls.input_tags()):
             flag = '--{}={{inputs[{}]}}'.format(inp,i)
             flags.append(flag)
+
         for i,out in enumerate(cls.output_tags()):
             flag = '--{}={{outputs[{}]}}'.format(out,i)
             flags.append(flag)

@@ -9,3 +9,4 @@ ceci.egg-info*
 dist
 log.txt
 test/log*
+.ipynb*

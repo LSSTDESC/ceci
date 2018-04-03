@@ -4,17 +4,20 @@ from .stage import PipelineStage
 import os
 
 class StageExecutionConfig:
-    def __init__(self, config):
-        self.name = config['name']
-        self.nprocess = config.get('nprocess', 1)
+    def __init__(self, info):
+        self.name = info['name']
+        self.nprocess = info.get('nprocess', 1)
+        self.config = info.get('config',None)
 
 class Pipeline:
-    def __init__(self, launcher_config, stages):
+    def __init__(self, launcher_config, stages, stages_config=None):
         self.stage_execution_config = {}
         self.stage_names = []
         self.mpi_command = launcher_config['sites'][0].get('mpi_command', 'mpirun -n')
         self.dfk = parsl.DataFlowKernel(launcher_config)
         for info in stages:
+            if info['name'] in stages_config:
+                info['config'] = stages_config[info['name']]
             self.add_stage(info)
 
     def add_stage(self, stage_info):
@@ -84,7 +87,7 @@ class Pipeline:
 
         for stage in stages:
             sec = self.stage_execution_config[stage.name]
-            app = stage.generate(self.dfk, sec.nprocess, log_dir, mpi_command=self.mpi_command)
+            app = stage.generate(self.dfk, sec.nprocess, sec.config, log_dir, mpi_command=self.mpi_command)
             inputs = self.find_inputs(stage, data_elements)
             outputs = self.find_outputs(stage, output_dir)
             already_run_stage = all(os.path.exists(output) for output in outputs)
