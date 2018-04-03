@@ -8,6 +8,5 @@ ceci.egg-info*
 dist
 log.txt
 test/log*
-.ipynb*
-*.txt
-cwl/*.cwl
+test/cwl/*.cwl
+.ipynb_checkpoints/

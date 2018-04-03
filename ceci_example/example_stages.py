@@ -2,13 +2,15 @@ from ceci import PipelineStage
 from .types import TextFile
 
 class shearMeasurementPipe(PipelineStage):
+    """
+    This pipeline element is a template for a shape measurement tool
+    """
     name='shearMeasurementPipe'
     inputs = [
         ('DM', TextFile),
         ]
     outputs = [('shear_catalog',TextFile)]
     config_options = {'metacalibration':True}
-    doc = "This pipeline element is a template for a shape measurement tool"
 
     def run(self):
         # Retrieve configuration:

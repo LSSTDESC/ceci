@@ -201,12 +201,14 @@ Missing these names on the command line:
         """
         import cwlgen
         module = cls.get_module()
+        module = module.split('.')[0]
+
         # Basic definition of the tool
         cwl_tool = cwlgen.CommandLineTool(tool_id=cls.name,
                                           label=cls.name,
                                           base_command='python3',
                                           cwl_version='v1.0',
-                                          doc=cls.doc)
+                                          doc=cls.__doc__)
 
         # Adds the first input binding with the name of the module and pipeline stage
         input_arg = cwlgen.CommandLineBinding(position=-1, value_from=f'-m{module}')

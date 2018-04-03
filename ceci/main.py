@@ -10,10 +10,9 @@ sys.path.append(os.getcwd())
 
 parser = argparse.ArgumentParser(description='Run a Ceci pipeline from a configuration file')
 parser.add_argument('pipeline_config', help='Pipeline configuration file in YAML format.')
-parser.add_argument('run_config',      help='Stages configuration file in YAML format.')
 parser.add_argument('--export-cwl', type=str, help='Exports pipeline in CWL format to provided path and exits')
 
-def run(pipeline_config_filename, stages_config_filename=None):
+def run(pipeline_config_filename):
     """
     Runs the pipeline
     """
@@ -47,10 +46,10 @@ def run(pipeline_config_filename, stages_config_filename=None):
         __import__(module)
 
     # Loads an optional configuration file for the pipeline
-    if stages_config_filename is None:
-        stages_config = None
+    if 'config' in inputs:
+        stages_config = yaml.load(open(inputs['config']))
     else:
-        stages_config = yaml.load(open(stages_config_filename))
+        stages_config = None
 
     # Create and run pipeline
     pipeline = Pipeline(launcher_config, stages, stages_config)
@@ -78,6 +77,7 @@ def export_cwl(args):
     launcher_config = config['launcher']
     stages = config['stages']
     inputs = config['inputs']
+
     pipeline = Pipeline(launcher_config, stages, None)
     cwl_wf = pipeline.generate_cwl(inputs)
     cwl_wf.export(f'{path}/pipeline.cwl')
@@ -87,7 +87,7 @@ def main():
     if args.export_cwl is not None:
         export_cwl(args)
     else:
-        run(args.pipeline_config, args.run_config)
+        run(args.pipeline_config)
 
 if __name__ == '__main__':
     main()
