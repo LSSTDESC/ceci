@@ -3,7 +3,8 @@ python:
   - "3.6"
 
 before_install:
-  - pip install git+git://github.com/common-workflow-language/python-cwlgen.git
+  - pip install git+git://github.com/EiffL/python-cwlgen.git
+  - pip install cwltool
 
 install:
   - python setup.py install
@@ -11,3 +12,7 @@ install:
 script:
   - export PYTHONPATH=$PYTHONPATH:$PWD
   - ceci test/test.yml test/config.yml
+  # Now testing some CWL magic
+  - mkdir cwl
+  - ceci --export-cwl cwl test/test.yml test/config.yml
+  - cwltool cwl/pipeline.cwl --DM test/inputs/dm.txt --fiducial_cosmology test/inputs/fiducial_cosmology.txt

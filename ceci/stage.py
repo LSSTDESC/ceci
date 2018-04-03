@@ -491,8 +491,13 @@ Missing these names on the command line:
         # Adds non default options to the command line
         if config is not None:
             for opt in config:
-                flag = '--{}={}'.format(opt, config[opt])
-                flags.append(flag)
+                if type(config[opt]) == bool:
+                    if config[opt]:
+                        flag = '--{opt}'
+                        flags.append(flag)
+                else:
+                    flag = '--{}={}'.format(opt, config[opt])
+                    flags.append(flag)
         for i,inp in enumerate(cls.input_tags()):
             flag = '--{}={{inputs[{}]}}'.format(inp,i)
             flags.append(flag)
