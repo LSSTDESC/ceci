@@ -1,5 +1,5 @@
 from ceci import PipelineStage
-from .types import TextFile
+from .types import TextFile, YamlFile
 
 class shearMeasurementPipe(PipelineStage):
     """
@@ -8,6 +8,7 @@ class shearMeasurementPipe(PipelineStage):
     name='shearMeasurementPipe'
     inputs = [
         ('DM', TextFile),
+        ('config', YamlFile)
         ]
     outputs = [('shear_catalog',TextFile)]
     config_options = {'metacalibration':True}

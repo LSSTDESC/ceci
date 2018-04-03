@@ -32,6 +32,7 @@ stages:
 inputs:
     DM: ./test/inputs/dm.txt
     fiducial_cosmology: ./test/inputs/fiducial_cosmology.txt
+    config: ./test/config.yml
 
 # If all the outputs for a stage already exist then do not re-run that stage
 resume: False

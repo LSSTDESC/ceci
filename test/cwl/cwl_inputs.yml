@@ -8,5 +8,10 @@
         "class": "File",
         "path": "../inputs/fiducial_cosmology.txt",
         "format": "TextFile"
+    },
+    "config": {
+        "class": "File",
+        "path": "../config.yml",
+        "format": "YamlFile"
     }
 }
