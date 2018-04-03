@@ -62,7 +62,7 @@ def export_cwl(args):
     """
     path = args.export_cwl
     # YAML input file.
-    config = yaml.load(open(args.config_filename))
+    config = yaml.load(open(args.pipeline_config))
 
     # Python modules in which to search for pipeline stages
     modules = config['modules'].split()
@@ -78,7 +78,7 @@ def export_cwl(args):
     launcher_config = config['launcher']
     stages = config['stages']
     inputs = config['inputs']
-    pipeline = Pipeline(launcher_config, stages)
+    pipeline = Pipeline(launcher_config, stages, None)
     cwl_wf = pipeline.generate_cwl(inputs)
     cwl_wf.export(f'{path}/pipeline.cwl')
 

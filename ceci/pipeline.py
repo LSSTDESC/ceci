@@ -16,8 +16,9 @@ class Pipeline:
         self.mpi_command = launcher_config['sites'][0].get('mpi_command', 'mpirun -n')
         self.dfk = parsl.DataFlowKernel(launcher_config)
         for info in stages:
-            if info['name'] in stages_config:
-                info['config'] = stages_config[info['name']]
+            if stages_config is not None:
+                if info['name'] in stages_config:
+                    info['config'] = stages_config[info['name']]
             self.add_stage(info)
 
     def add_stage(self, stage_info):

@@ -18,6 +18,7 @@ class PipelineStage:
     """
     parallel = True
     config_options = {}
+    doc=""
 
     def __init__(self, args):
         args = vars(args)
@@ -200,15 +201,14 @@ Missing these names on the command line:
         cwl_tool = cwlgen.CommandLineTool(tool_id=cls.name,
                                           label=cls.name,
                                           base_command=f'python3 -m {module}')
-
-        #TODO: Add documentation in ceci elements
-        cwl_tool.doc = "Pipeline element from ceci"
+        cwl_tool.doc = cls.doc
 
         # Add the inputs of the tool
         for i,inp in enumerate(cls.input_tags()):
             input_binding = cwlgen.CommandLineBinding(position=(i+1))
             input_param   = cwlgen.CommandInputParameter(inp,
                                                          param_type='File',
+                                                         param_format=cls.inputs[i][1].__name__,
                                                          input_binding=input_binding,
                                                          doc='Some documentation about the input')
             cwl_tool.inputs.append(input_param)

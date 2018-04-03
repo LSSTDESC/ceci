@@ -8,9 +8,13 @@ class shearMeasurementPipe(PipelineStage):
         ]
     outputs = [('shear_catalog',TextFile)]
     config_options = {'metacalibration':True}
-
+    doc = "This pipeline element is a template for a shape measurement tool"
 
     def run(self):
+        # Retrieve configuration:
+        my_config = self.config
+        print("Here is my configuration :", my_config)
+
         for inp,_ in self.inputs:
             filename = self.get_input(inp)
             print(f"    shearMeasurementPipe reading from {filename}")
