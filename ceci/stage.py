@@ -255,14 +255,31 @@ Missing these names on the command line:
         type_dict={int: 'int', float:'float', str:'string', bool:'boolean'}
         # Adds the parameters of the tool
         for opt in cls.config_options:
-            input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(opt))
             def_val = cls.config_options[opt]
+
+            # Handles special case of lists:
+            if type(def_val) is list:
+                v = def_val[0] # We don't support empty lists
+                param_type = {'type':'array', 'items': type_dict[v] if type(v) == type else type_dict[type(v)] }
+                default = def_val if type(v) != type else None
+                input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(opt), item_separator=',')
+            else:
+                param_type=type_dict[def_val] if type(def_val) == type else type_dict[type(def_val)]
+                default=def_val if type(def_val) != type else None
+                input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(opt))
+
             input_param = cwlgen.CommandInputParameter(opt,
                                                        label=opt,
-                                                       param_type=type_dict[def_val] if type(def_val) == type else type_dict[type(def_val)],
+                                                       param_type=param_type,
                                                        input_binding=input_binding,
-                                                       default=def_val if type(def_val) != type else None,
+                                                       default=default,
                                                        doc='Some documentation about this parameter')
+
+            # We are bypassing the cwlgen builtin type check for the special case
+            # of arrays until that gets added to the standard
+            if type(def_val) is list:
+                input_param.type = param_type
+
             cwl_tool.inputs.append(input_param)
 
 
@@ -533,10 +550,15 @@ Missing these names on the command line:
         # Adds non default options to the command line
         if config is not None:
             for opt in config:
+                # Handles special case of boolean flags
                 if type(config[opt]) == bool:
                     if config[opt]:
                         flag = f'--{opt}'
                         flags.append(flag)
+                # Handles special case of lists
+                elif type(config[opt]) == list:
+                    flag = f'--{opt}='+','.join(str(c) for c in config[opt])
+                # Handles general case
                 else:
                     flag = '--{}={}'.format(opt, config[opt])
                     flags.append(flag)

@@ -15,5 +15,6 @@
         "format": "YamlFile"
     },
     "apply_flag@shearMeasurementPipe": False,
-    "metacalibration@shearMeasurementPipe": True
+    "metacalibration@shearMeasurementPipe": True,
+    "zbin_edges@WLGCSelector": [0.2, 0.3, 0.5]
 }

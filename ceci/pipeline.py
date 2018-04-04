@@ -183,6 +183,8 @@ class Pipeline:
                                                      param_type=workflow_inputs[inp].type,
                                                      param_format=workflow_inputs[inp].format,
                                                      default=workflow_inputs[inp].default)
+            if type(workflow_inputs[inp].type) == dict:
+                cwl_inp.type = workflow_inputs[inp].type
             wf.inputs.append(cwl_inp)
 
 
