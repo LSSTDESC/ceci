@@ -181,8 +181,9 @@ class Pipeline:
             cwl_inp = cwlgen.workflow.InputParameter(inp,
                                                      label=workflow_inputs[inp].label,
                                                      param_type=workflow_inputs[inp].type,
-                                                     param_format=workflow_inputs[inp].format,
-                                                     default=workflow_inputs[inp].default)
+                                                     param_format=workflow_inputs[inp].format)
+            cwl_inp.default = workflow_inputs[inp].default
+            # Bypassing cwlgen type check in case of arrays
             if type(workflow_inputs[inp].type) == dict:
                 cwl_inp.type = workflow_inputs[inp].type
             wf.inputs.append(cwl_inp)

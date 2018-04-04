@@ -67,9 +67,10 @@ class WLGCSelector(PipelineStage):
     name='WLGCSelector'
     inputs = [('shear_catalog',TextFile),('photoz_pdfs',TextFile)]
     outputs = [('tomography_catalog',TextFile)]
-    config_options = {'zbin_edges': [float]}
+    config_options = {'zbin_edges': [float], 'ra_range':[-5.,5.]}
 
     def run(self):
+        print(self.config)
         for inp,_ in self.inputs:
             filename = self.get_input(inp)
             print(f"    WLGCSelector reading from {filename}")

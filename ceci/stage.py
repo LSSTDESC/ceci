@@ -201,8 +201,16 @@ Missing these names on the command line:
             # if a type (like int) is provided as the default it indicates that
             # this option doesn't have a default (i.e. is mandatory) and should
             # be explicitly provided with the specified type
-            if (type(self.config_options[x]) == type):
+            if type(self.config_options[x]) is type:
                 opt_type = self.config_options[x]
+
+            elif type(self.config_options[x]) is list:
+                v = self.config_options[x][0]
+                if type(v) is type:
+                    opt_type = self.config_options[x]
+                else:
+                    opt = self.config_options[x]
+                    opt_type = [type(v)]
             else:
                 opt = self.config_options[x]
                 opt_type = type(opt)
@@ -259,14 +267,17 @@ Missing these names on the command line:
 
             # Handles special case of lists:
             if type(def_val) is list:
-                v = def_val[0] # We don't support empty lists
+                v = def_val[0]
                 param_type = {'type':'array', 'items': type_dict[v] if type(v) == type else type_dict[type(v)] }
                 default = def_val if type(v) != type else None
-                input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(opt), item_separator=',')
+                input_binding = cwlgen.CommandLineBinding(prefix='--{}='.format(opt), item_separator=',', separate=False)
             else:
                 param_type=type_dict[def_val] if type(def_val) == type else type_dict[type(def_val)]
                 default=def_val if type(def_val) != type else None
-                input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(opt))
+                if param_type is 'boolean':
+                    input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(opt))
+                else:
+                    input_binding = cwlgen.CommandLineBinding(prefix='--{}='.format(opt), separate=False)
 
             input_param = cwlgen.CommandInputParameter(opt,
                                                        label=opt,
@@ -496,9 +507,19 @@ Missing these names on the command line:
         for conf in cls.config_options:
             def_val = cls.config_options[conf]
             opt_type = def_val if type(def_val) == type else type(def_val)
-            print(def_val, opt_type)
+
             if opt_type == bool:
                 parser.add_argument(f'--{conf}', action='store_true')
+            elif opt_type == list:
+                out_type = def_val[0] if type(def_val[0]) == type else type(def_val[0])
+                if out_type is str:
+                    parser.add_argument(f'--{conf}', type=lambda string: string.split(',') )
+                elif out_type is int:
+                    parser.add_argument(f'--{conf}', type=lambda string: [int(i) for i in string.split(',')])
+                elif out_type is float:
+                    parser.add_argument(f'--{conf}', type=lambda string: [float(i) for i in string.split(',')])
+                else:
+                    raise NotImplementedError("Only handles str, int and float list arguments")
             else:
                 parser.add_argument(f'--{conf}', type=opt_type)
         for inp in cls.input_tags():
@@ -558,10 +579,12 @@ Missing these names on the command line:
                 # Handles special case of lists
                 elif type(config[opt]) == list:
                     flag = f'--{opt}='+','.join(str(c) for c in config[opt])
+                    flags.append(flag)
                 # Handles general case
                 else:
                     flag = '--{}={}'.format(opt, config[opt])
                     flags.append(flag)
+
         for i,inp in enumerate(cls.input_tags()):
             flag = '--{}={{inputs[{}]}}'.format(inp,i)
             flags.append(flag)
