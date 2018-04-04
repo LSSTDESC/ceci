@@ -207,7 +207,7 @@ Missing these names on the command line:
             elif type(self.config_options[x]) is list:
                 v = self.config_options[x][0]
                 if type(v) is type:
-                    opt_type = self.config_options[x]
+                    opt_type = v 
                 else:
                     opt = self.config_options[x]
                     opt_type = type(v)
@@ -216,13 +216,10 @@ Missing these names on the command line:
                 opt_type = type(opt)
 
             # Second, look for the option in the configuration file and override
-            # default if provided (also crude check type)
+            # default if provided TODO: Check types
             if input_config is not None:
                 if x in input_config:
                     opt = input_config[x]
-                    if (type(opt) != opt_type) or (opt is list and (type(opt[0]) != opt_type)):
-                        raise ValueError(f"Value provided in configuration file for option {x} of stage {self.name} is of wrong type"
-                                         f"Expected {opt_type} and got {type(opt)}")
 
             # Finally check for command line option that would override the value
             # in the configuration file. Note that the argument parser should
