@@ -4,7 +4,7 @@ Pipeline Stages
 Overview
 --------
 A PipelineStage implements a single calculation step within a wider pipeline.
-Each different type of analysis stge is represented by a subclass of PipelineStage.  
+Each different type of analysis stge is represented by a subclass of PipelineStage.
 
 The base class handles the connection between different pipeline
 stages, and the execution of the stages within a workflow system (parsl or cwl),
@@ -31,7 +31,7 @@ Pipeline Methods
 ----------------
 
 The full set of pipeline methods is documented below.
-Of particular note are the methods described here, which are designed to be used 
+Of particular note are the methods described here, which are designed to be used
 by subclasses.
 
 Return the path to input or output files:
@@ -52,13 +52,13 @@ optionally returning a wrapper class instead of the file:
 
 Look for a section in a yaml input file tagged "config"
 and read it.  If the config_options class variable exists in the class
-then it checks those options are set or uses any supplied defaults
+then it checks those options are set or uses any supplied defaults.
 
 .. code-block:: python
 
-    self.read_config()
+    self.get_config()
 
-MPI attributes for parallelization. 
+MPI attributes for parallelization.
 
 .. code-block:: python
 
@@ -66,7 +66,7 @@ MPI attributes for parallelization.
     self.size
     self.comm
 
-If the code is not being run in parallel, comm will be None, rank will be 0, 
+If the code is not being run in parallel, comm will be None, rank will be 0,
 and size will be 1.
 
 
@@ -92,7 +92,7 @@ or manually run on the command line, using the syntax:
 API
 ---
 
-The complete pipeline stage API is below - stages not described above 
+The complete pipeline stage API is below - stages not described above
 are mostly used internally by the pipeline system.
 
  .. autoclass:: ceci.PipelineStage

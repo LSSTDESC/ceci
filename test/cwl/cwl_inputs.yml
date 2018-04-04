@@ -13,5 +13,7 @@
         "class": "File",
         "path": "../config.yml",
         "format": "YamlFile"
-    }
+    },
+    "apply_flag@shearMeasurementPipe": False,
+    "metacalibration@shearMeasurementPipe": True
 }

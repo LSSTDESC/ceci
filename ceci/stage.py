@@ -258,6 +258,7 @@ Missing these names on the command line:
             input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(opt))
             def_val = cls.config_options[opt]
             input_param = cwlgen.CommandInputParameter(opt,
+                                                       label=opt,
                                                        param_type=type_dict[def_val] if type(def_val) == type else type_dict[type(def_val)],
                                                        input_binding=input_binding,
                                                        default=def_val if type(def_val) != type else None,
@@ -269,6 +270,7 @@ Missing these names on the command line:
         for i,inp in enumerate(cls.input_tags()):
             input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(inp))
             input_param   = cwlgen.CommandInputParameter(inp,
+                                                         label=inp,
                                                          param_type='File',
                                                          param_format=cls.inputs[i][1].__name__,
                                                          input_binding=input_binding,
@@ -280,6 +282,7 @@ Missing these names on the command line:
             output_name = f'{out}.{cls.outputs[i][1].suffix}'
             output_binding = cwlgen.CommandOutputBinding(glob=output_name)
             output = cwlgen.CommandOutputParameter(out,
+                                            label=out,
                                             param_type='File',
                                             output_binding=output_binding,
                                             param_format=cls.outputs[i][1].__name__,
