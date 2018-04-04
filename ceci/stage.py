@@ -210,17 +210,17 @@ Missing these names on the command line:
                     opt_type = self.config_options[x]
                 else:
                     opt = self.config_options[x]
-                    opt_type = [type(v)]
+                    opt_type = type(v)
             else:
                 opt = self.config_options[x]
                 opt_type = type(opt)
 
             # Second, look for the option in the configuration file and override
-            # default if provided (also checks type)
+            # default if provided (also crude check type)
             if input_config is not None:
                 if x in input_config:
                     opt = input_config[x]
-                    if type(opt) != opt_type :
+                    if (type(opt) != opt_type) or (opt is list and (type(opt[0]) != opt_type)):
                         raise ValueError(f"Value provided in configuration file for option {x} of stage {self.name} is of wrong type"
                                          f"Expected {opt_type} and got {type(opt)}")
 
