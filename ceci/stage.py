@@ -25,35 +25,29 @@ class PipelineStage:
         self._inputs = {}
         self._outputs = {}
         self._configs = {}
+
+        # We first check for missing input files, that's a show stopper
         missing_inputs = []
-        missing_outputs = []
-        missing_configs =[]
-        # if the input contains a configuration file, we don't raise the alarm
-        # just yet and will try to read missing configuration from file
-        if 'config' not in self.input_tags():
-            for x in self.config_options:
-                val = args[x]
-                if (val is None) and (self.config_options[x] is None):
-                    missing_configs.append(f'--{x}')
         for x in self.input_tags():
             val = args[x]
             if val is None:
                 missing_inputs.append(f'--{x}')
-        if missing_inputs or missing_outputs:
-            missing_configs = '  '.join(missing_configs)
+        if missing_inputs:
             missing_inputs = '  '.join(missing_inputs)
             raise ValueError(f"""
 
 Missing these names on the command line:
-    Config names: {missing_configs}
     Input names: {missing_inputs}""")
-
         self._inputs = {x:args[x] for x in self.input_tags()}
-        # Outputs using providing output for tag, or defaults to current folder
+
+        # We prefer to receive explicit filenames for the outputs but will
+        # tolerate missing output filenames and will default to tag name in
+        # current folder (this is for CWL compliance)
         self._outputs = {x:args[x] if args[x] is not None else f'{x}.{self.outputs[i][1].suffix}' for i,x in enumerate(self.output_tags())}
-        self._configs = {x:args[x] if args[x] is not None else self.config_options[x] for x in self.config_options}
-        if 'config' in self.input_tags():
-            self._read_config()
+
+        # Finally, we extract configuration information from a combination of
+        # command line arguments and optional 'config' file
+        self._configs = self._get_config(args)
 
         if args.get('mpi', False):
             import mpi4py.MPI
@@ -173,25 +167,67 @@ Missing these names on the command line:
                       category=DeprecationWarning, stacklevel=2)
         return self.config
 
-    def _read_config(self):
+    def _get_config(self, args):
         """
-        Read the file that has the tag "config".
-        Find the section within that file with the same name as the stage,
-        and return the contents.
+        This function looks for the arguments of the pipeline stage using a
+        combination of default values, command line options and separate
+        configuration file.
 
-        This method also checks that any options in the "config_options"
-        dictionary that the class can define are present in the config.
-        If they are not, then if they have a default value set there (not None)
-        then this value is filled in instead.
+        The order for resolving config options is first looking for a default
+        value, then looking for a
+
+        In case a mandatory argument (argument with no default) is missing,
+        an exception is raised.
+
+        Note that we recognize arguments with no default as the ones where
+        self.config_options holds a type instead of a value.
         """
-        import yaml
-        input_config = yaml.load(open(self.get_input('config')))
-        my_config = input_config[self.name]
-        for opt, default in self._configs.items():
-            if opt not in my_config:
-                if default is None:
-                    raise ValueError(f"Missing configuration option {opt} for stage {self.name}")
-                my_config[opt] = default
+        # Try to load configuration file if provided
+        input_config = None
+        if 'config' in self.input_tags():
+            import yaml
+            input_config = yaml.load(open(self.get_input('config')))
+            if self.name in input_config:
+                input_config = input_config[self.name]
+
+        my_config = {}
+
+        # Loop over the options of the pipeline stage
+        for x in self.config_options:
+            opt = None
+            opt_type = None
+
+            # First look for a default value,
+            # if a type (like int) is provided as the default it indicates that
+            # this option doesn't have a default (i.e. is mandatory) and should
+            # be explicitly provided with the specified type
+            if (type(self.config_options[x]) == type):
+                opt_type = self.config_options[x]
+            else:
+                opt = self.config_options[x]
+                opt_type = type(opt)
+
+            # Second, look for the option in the configuration file and override
+            # default if provided (also checks type)
+            if input_config is not None:
+                if x in input_config:
+                    opt = input_config[x]
+                    if type(opt) != opt_type :
+                        raise ValueError(f"Value provided in configuration file for option {x} of stage {self.name} is of wrong type"
+                                         f"Expected {opt_type} and got {type(opt)}")
+
+            # Finally check for command line option that would override the value
+            # in the configuration file. Note that the argument parser should
+            # already have taken care of type
+            if args[x] is not None:
+                opt = args[x]
+
+            # Finally, check that we got at least some value for this option
+            if opt is None:
+                raise ValueError(f"Missing configuration option {x} for stage {self.name}")
+
+            my_config[x] = opt
+
         return my_config
 
     @classmethod
@@ -222,9 +258,9 @@ Missing these names on the command line:
             input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(opt))
             def_val = cls.config_options[opt]
             input_param = cwlgen.CommandInputParameter(opt,
-                                                       param_type=None if opt is None else type_dict[type(def_val)],
+                                                       param_type=type_dict[def_val] if type(def_val) == type else type_dict[type(def_val)],
                                                        input_binding=input_binding,
-                                                       default=def_val,
+                                                       default=def_val if type(def_val) != type else None,
                                                        doc='Some documentation about this parameter')
             cwl_tool.inputs.append(input_param)
 
@@ -439,10 +475,12 @@ Missing these names on the command line:
         parser.add_argument("stage_name")
         for conf in cls.config_options:
             def_val = cls.config_options[conf]
-            if type(def_val) is bool:
+            opt_type = def_val if type(def_val) == type else type(def_val)
+            print(def_val, opt_type)
+            if opt_type == bool:
                 parser.add_argument(f'--{conf}', action='store_true')
             else:
-                parser.add_argument(f'--{conf}')
+                parser.add_argument(f'--{conf}', type=opt_type)
         for inp in cls.input_tags():
             parser.add_argument(f'--{inp}')
         for out in cls.output_tags():
@@ -469,8 +507,6 @@ Missing these names on the command line:
             else:
                 raise
 
-
-
     @classmethod
     def _generate(cls, template, dfk):
         # dfk needs to be an argument here because it is
@@ -490,12 +526,13 @@ Missing these names on the command line:
         module = module.split('.')[0]
 
         flags = [cls.name]
+
         # Adds non default options to the command line
         if config is not None:
             for opt in config:
                 if type(config[opt]) == bool:
                     if config[opt]:
-                        flag = '--{opt}'
+                        flag = f'--{opt}'
                         flags.append(flag)
                 else:
                     flag = '--{}={}'.format(opt, config[opt])

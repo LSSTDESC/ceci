@@ -1,2 +1,3 @@
 shearMeasurementPipe:
-    metacalibration: False
+    metacalibration: True
+    apply_flag: False

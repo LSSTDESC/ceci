@@ -168,11 +168,13 @@ class Pipeline:
 
         # Defines the inputs of the workflow
         for inp in overall_inputs:
-            cwl_inp = cwlgen.workflow.InputParameter(inp, label=inp,
+            # Check whether that input file is actually used by anyone
+            if inp in inputs_types:
+                cwl_inp = cwlgen.workflow.InputParameter(inp, label=inp,
                                                      param_type='File',
                                                      param_format=inputs_types[inp],
                                                      doc="some documentation about the input")
-            wf.inputs.append(cwl_inp)
+                wf.inputs.append(cwl_inp)
 
 
         # By default only keep the output of the last stage as output

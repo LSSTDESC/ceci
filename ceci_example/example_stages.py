@@ -7,11 +7,11 @@ class shearMeasurementPipe(PipelineStage):
     """
     name='shearMeasurementPipe'
     inputs = [
-        ('DM', TextFile),
-        ('config', YamlFile)
+        ('DM', TextFile)
         ]
     outputs = [('shear_catalog',TextFile)]
-    config_options = {'metacalibration':True}
+    config_options = {'metacalibration':True,
+                      'apply_flag':bool}
 
     def run(self):
         # Retrieve configuration:
