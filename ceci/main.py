@@ -9,44 +9,50 @@ import argparse
 sys.path.append(os.getcwd())
 
 parser = argparse.ArgumentParser(description='Run a Ceci pipeline from a configuration file')
-parser.add_argument('config_filename', help='Configuration file in YAML format.')
+parser.add_argument('pipeline_config', help='Pipeline configuration file in YAML format.')
 parser.add_argument('--export-cwl', type=str, help='Exports pipeline in CWL format to provided path and exits')
 
-def run(config_filename):
+def run(pipeline_config_filename):
     """
     Runs the pipeline
     """
     # YAML input file.
-    config = yaml.load(open(config_filename))
+    pipe_config = yaml.load(open(pipeline_config_filename))
 
     # Optional logging of pipeline infrastructure to
     # file.
-    log_file = config.get('pipeline_log')
+    log_file = pipe_config.get('pipeline_log')
     if log_file:
         parsl.set_file_logger(log_file)
 
     # Required configuration information
     # List of stage names, must be imported somewhere
-    stages = config['stages']
+    stages = pipe_config['stages']
 
     # Python modules in which to search for pipeline stages
-    modules = config['modules'].split()
+    modules = pipe_config['modules'].split()
 
     # parsl execution/launcher configuration information
     # launcher_config = localIPP
-    launcher_config = config['launcher']
+    launcher_config = pipe_config['launcher']
 
     # Inputs and outputs
-    output_dir = config['output_dir']
-    inputs = config['inputs']
-    log_dir = config['log_dir']
-    resume = config['resume']
+    output_dir = pipe_config['output_dir']
+    inputs = pipe_config['inputs']
+    log_dir = pipe_config['log_dir']
+    resume = pipe_config['resume']
 
     for module in modules:
         __import__(module)
 
+    # Loads an optional configuration file for the pipeline
+    if 'config' in inputs:
+        stages_config = yaml.load(open(inputs['config']))
+    else:
+        stages_config = None
+
     # Create and run pipeline
-    pipeline = Pipeline(launcher_config, stages)
+    pipeline = Pipeline(launcher_config, stages, stages_config)
     pipeline.run(inputs, output_dir, log_dir, resume)
 
 def export_cwl(args):
@@ -55,7 +61,7 @@ def export_cwl(args):
     """
     path = args.export_cwl
     # YAML input file.
-    config = yaml.load(open(args.config_filename))
+    config = yaml.load(open(args.pipeline_config))
 
     # Python modules in which to search for pipeline stages
     modules = config['modules'].split()
@@ -71,7 +77,8 @@ def export_cwl(args):
     launcher_config = config['launcher']
     stages = config['stages']
     inputs = config['inputs']
-    pipeline = Pipeline(launcher_config, stages)
+
+    pipeline = Pipeline(launcher_config, stages, None)
     cwl_wf = pipeline.generate_cwl(inputs)
     cwl_wf.export(f'{path}/pipeline.cwl')
 
@@ -80,7 +87,7 @@ def main():
     if args.export_cwl is not None:
         export_cwl(args)
     else:
-        run(args.config_filename)
+        run(args.pipeline_config)
 
 if __name__ == '__main__':
     main()

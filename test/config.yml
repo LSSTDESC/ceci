@@ -1,0 +1,7 @@
+shearMeasurementPipe:
+    metacalibration: True
+    apply_flag: False
+
+WLGCSelector:
+    zbin_edges: [0.2, 0.3, 0.5]
+    ra_range: [-5, 5]

@@ -1,0 +1,20 @@
+{
+    "DM": {
+        "class": "File",
+        "path": "../inputs/dm.txt",
+        "format": "TextFile"
+    },
+    "fiducial_cosmology": {
+        "class": "File",
+        "path": "../inputs/fiducial_cosmology.txt",
+        "format": "TextFile"
+    },
+    "config": {
+        "class": "File",
+        "path": "../config.yml",
+        "format": "YamlFile"
+    },
+    "apply_flag@shearMeasurementPipe": False,
+    "metacalibration@shearMeasurementPipe": True,
+    "zbin_edges@WLGCSelector": [0.2, 0.3, 0.5]
+}

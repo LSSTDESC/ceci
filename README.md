@@ -9,7 +9,7 @@ This is now alpha status.
 ## Install
 
 ```bash
-pip install git+git://github.com/common-workflow-language/python-cwlgen.git
+pip install git+git://github.com/EiffL/python-cwlgen.git
 python setup.py install
 ```
 

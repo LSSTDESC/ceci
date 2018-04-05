@@ -4,4 +4,9 @@ runinfo
 test/outputs
 .ropeproject/
 build/
-cwl/
+ceci.egg-info*
+dist
+log.txt
+test/log*
+test/cwl/*.cwl
+.ipynb_checkpoints/

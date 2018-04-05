@@ -1,15 +1,23 @@
 from ceci import PipelineStage
-from .types import TextFile
+from .types import TextFile, YamlFile
 
 class shearMeasurementPipe(PipelineStage):
+    """
+    This pipeline element is a template for a shape measurement tool
+    """
     name='shearMeasurementPipe'
     inputs = [
-        ('DM', TextFile),
+        ('DM', TextFile)
         ]
     outputs = [('shear_catalog',TextFile)]
-
+    config_options = {'metacalibration':True,
+                      'apply_flag':bool}
 
     def run(self):
+        # Retrieve configuration:
+        my_config = self.config
+        print("Here is my configuration :", my_config)
+
         for inp,_ in self.inputs:
             filename = self.get_input(inp)
             print(f"    shearMeasurementPipe reading from {filename}")
@@ -59,8 +67,10 @@ class WLGCSelector(PipelineStage):
     name='WLGCSelector'
     inputs = [('shear_catalog',TextFile),('photoz_pdfs',TextFile)]
     outputs = [('tomography_catalog',TextFile)]
+    config_options = {'zbin_edges': [float], 'ra_range':[-5.,5.]}
 
     def run(self):
+        print(self.config)
         for inp,_ in self.inputs:
             filename = self.get_input(inp)
             print(f"    WLGCSelector reading from {filename}")

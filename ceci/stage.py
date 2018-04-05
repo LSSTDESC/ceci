@@ -18,33 +18,36 @@ class PipelineStage:
     """
     parallel = True
     config_options = {}
+    doc=""
 
     def __init__(self, args):
         args = vars(args)
         self._inputs = {}
         self._outputs = {}
+        self._configs = {}
+
+        # We first check for missing input files, that's a show stopper
         missing_inputs = []
-        missing_outputs = []
         for x in self.input_tags():
             val = args[x]
             if val is None:
                 missing_inputs.append(f'--{x}')
-        for x in self.output_tags():
-            val = args[x]
-            if val is None:
-                missing_outputs.append(f'--{x}')
-        if missing_inputs or missing_outputs:
+        if missing_inputs:
             missing_inputs = '  '.join(missing_inputs)
-            missing_outputs = '  '.join(missing_outputs)
             raise ValueError(f"""
 
 Missing these names on the command line:
-    Input names: {missing_inputs}
-    Output names: {missing_outputs}""")
-
+    Input names: {missing_inputs}""")
         self._inputs = {x:args[x] for x in self.input_tags()}
-        self._outputs = {x:args[x] for x in self.output_tags()}
 
+        # We prefer to receive explicit filenames for the outputs but will
+        # tolerate missing output filenames and will default to tag name in
+        # current folder (this is for CWL compliance)
+        self._outputs = {x:args[x] if args[x] is not None else f'{x}.{self.outputs[i][1].suffix}' for i,x in enumerate(self.output_tags())}
+
+        # Finally, we extract configuration information from a combination of
+        # command line arguments and optional 'config' file
+        self._configs = self._get_config(args)
 
         if args.get('mpi', False):
             import mpi4py.MPI
@@ -147,26 +150,89 @@ Missing these names on the command line:
         else:
             return obj.file
 
+    @property
+    def config(self):
+        """
+        Returns the configuration directory for this stage, aggregating command
+        line option and optional configuration file.
+        """
+        return self._configs
 
     def read_config(self):
+        """ Deprecated method
+        TODO: remove in future release
         """
-        Read the file that has the tag "config".
-        Find the section within that file with the same name as the stage,
-        and return the contents.
+        import warnings
+        warnings.warn("This method has been replaced by self.config",
+                      category=DeprecationWarning, stacklevel=2)
+        return self.config
 
-        This method also checks that any options in the "config_options"
-        dictionary that the class can define are present in the config.
-        If they are not, then if they have a default value set there (not None)
-        then this value is filled in instead.
+    def _get_config(self, args):
         """
-        import yaml
-        input_config = yaml.load(open(self.get_input('config')))
-        my_config = input_config[self.name]
-        for opt, default in self.config_options.items():
-            if opt not in my_config:
-                if default is None:
-                    raise ValueError(f"Missing configuration option {opt} for stage {self.name}")
-                my_config[opt] = default
+        This function looks for the arguments of the pipeline stage using a
+        combination of default values, command line options and separate
+        configuration file.
+
+        The order for resolving config options is first looking for a default
+        value, then looking for a
+
+        In case a mandatory argument (argument with no default) is missing,
+        an exception is raised.
+
+        Note that we recognize arguments with no default as the ones where
+        self.config_options holds a type instead of a value.
+        """
+        # Try to load configuration file if provided
+        input_config = None
+        if 'config' in self.input_tags():
+            import yaml
+            input_config = yaml.load(open(self.get_input('config')))
+            if self.name in input_config:
+                input_config = input_config[self.name]
+
+        my_config = {}
+
+        # Loop over the options of the pipeline stage
+        for x in self.config_options:
+            opt = None
+            opt_type = None
+
+            # First look for a default value,
+            # if a type (like int) is provided as the default it indicates that
+            # this option doesn't have a default (i.e. is mandatory) and should
+            # be explicitly provided with the specified type
+            if type(self.config_options[x]) is type:
+                opt_type = self.config_options[x]
+
+            elif type(self.config_options[x]) is list:
+                v = self.config_options[x][0]
+                if type(v) is type:
+                    opt_type = v 
+                else:
+                    opt = self.config_options[x]
+                    opt_type = type(v)
+            else:
+                opt = self.config_options[x]
+                opt_type = type(opt)
+
+            # Second, look for the option in the configuration file and override
+            # default if provided TODO: Check types
+            if input_config is not None:
+                if x in input_config:
+                    opt = input_config[x]
+
+            # Finally check for command line option that would override the value
+            # in the configuration file. Note that the argument parser should
+            # already have taken care of type
+            if args[x] is not None:
+                opt = args[x]
+
+            # Finally, check that we got at least some value for this option
+            if opt is None:
+                raise ValueError(f"Missing configuration option {x} for stage {self.name}")
+
+            my_config[x] = opt
+
         return my_config
 
     @classmethod
@@ -176,38 +242,85 @@ Missing these names on the command line:
         """
         import cwlgen
         module = cls.get_module()
+        module = module.split('.')[0]
+
         # Basic definition of the tool
         cwl_tool = cwlgen.CommandLineTool(tool_id=cls.name,
                                           label=cls.name,
-                                          base_command=f'python3 -m {module}')
+                                          base_command='python3',
+                                          cwl_version='v1.0',
+                                          doc=cls.__doc__)
 
-        #TODO: Add documentation in ceci elements
-        cwl_tool.doc = "Pipeline element from ceci"
+        # Adds the first input binding with the name of the module and pipeline stage
+        input_arg = cwlgen.CommandLineBinding(position=-1, value_from=f'-m{module}')
+        cwl_tool.arguments.append(input_arg)
+        input_arg = cwlgen.CommandLineBinding(position=0, value_from=f'{cls.name}')
+        cwl_tool.arguments.append(input_arg)
+
+        type_dict={int: 'int', float:'float', str:'string', bool:'boolean'}
+        # Adds the parameters of the tool
+        for opt in cls.config_options:
+            def_val = cls.config_options[opt]
+
+            # Handles special case of lists:
+            if type(def_val) is list:
+                v = def_val[0]
+                param_type = {'type':'array', 'items': type_dict[v] if type(v) == type else type_dict[type(v)] }
+                default = def_val if type(v) != type else None
+                input_binding = cwlgen.CommandLineBinding(prefix='--{}='.format(opt), item_separator=',', separate=False)
+            else:
+                param_type=type_dict[def_val] if type(def_val) == type else type_dict[type(def_val)]
+                default=def_val if type(def_val) != type else None
+                if param_type is 'boolean':
+                    input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(opt))
+                else:
+                    input_binding = cwlgen.CommandLineBinding(prefix='--{}='.format(opt), separate=False)
+
+            input_param = cwlgen.CommandInputParameter(opt,
+                                                       label=opt,
+                                                       param_type=param_type,
+                                                       input_binding=input_binding,
+                                                       default=default,
+                                                       doc='Some documentation about this parameter')
+
+            # We are bypassing the cwlgen builtin type check for the special case
+            # of arrays until that gets added to the standard
+            if type(def_val) is list:
+                input_param.type = param_type
+
+            cwl_tool.inputs.append(input_param)
+
 
         # Add the inputs of the tool
         for i,inp in enumerate(cls.input_tags()):
-            input_binding = cwlgen.CommandLineBinding(position=(i+1))
+            input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(inp))
             input_param   = cwlgen.CommandInputParameter(inp,
+                                                         label=inp,
                                                          param_type='File',
+                                                         param_format=cls.inputs[i][1].__name__,
                                                          input_binding=input_binding,
                                                          doc='Some documentation about the input')
             cwl_tool.inputs.append(input_param)
 
         # Add the definition of the outputs
         for i,out in enumerate(cls.output_tags()):
-            output_binding = cwlgen.CommandOutputBinding(glob=out)
-            output = cwlgen.CommandOutputParameter(out, param_type='File',
+            output_name = f'{out}.{cls.outputs[i][1].suffix}'
+            output_binding = cwlgen.CommandOutputBinding(glob=output_name)
+            output = cwlgen.CommandOutputParameter(out,
+                                            label=out,
+                                            param_type='File',
                                             output_binding=output_binding,
-                                            param_format='http://edamontology.org/format_2330',
+                                            param_format=cls.outputs[i][1].__name__,
                                             doc='Some results produced by the pipeline element')
             cwl_tool.outputs.append(output)
 
         # Potentially add more metadata
-        metadata = {'name': cls.name,
-                'about': 'I let you guess',
-                'publication': [{'id': 'one_doi'}, {'id': 'another_doi'}],
-                'license': ['MIT']}
-        cwl_tool.metadata = cwlgen.Metadata(**metadata)
+        # This requires a schema however...
+        # metadata = {'name': cls.name,
+        #         'about': 'Some additional info',
+        #         'publication': [{'id': 'one_doi'}, {'id': 'another_doi'}],
+        #         'license': ['MIT']}
+        # cwl_tool.metadata = cwlgen.Metadata(**metadata)
 
         return cwl_tool
 
@@ -388,6 +501,24 @@ Missing these names on the command line:
         import argparse
         parser = argparse.ArgumentParser(description="Run a stage or something")
         parser.add_argument("stage_name")
+        for conf in cls.config_options:
+            def_val = cls.config_options[conf]
+            opt_type = def_val if type(def_val) == type else type(def_val)
+
+            if opt_type == bool:
+                parser.add_argument(f'--{conf}', action='store_true')
+            elif opt_type == list:
+                out_type = def_val[0] if type(def_val[0]) == type else type(def_val[0])
+                if out_type is str:
+                    parser.add_argument(f'--{conf}', type=lambda string: string.split(',') )
+                elif out_type is int:
+                    parser.add_argument(f'--{conf}', type=lambda string: [int(i) for i in string.split(',')])
+                elif out_type is float:
+                    parser.add_argument(f'--{conf}', type=lambda string: [float(i) for i in string.split(',')])
+                else:
+                    raise NotImplementedError("Only handles str, int and float list arguments")
+            else:
+                parser.add_argument(f'--{conf}', type=opt_type)
         for inp in cls.input_tags():
             parser.add_argument(f'--{inp}')
         for out in cls.output_tags():
@@ -414,8 +545,6 @@ Missing these names on the command line:
             else:
                 raise
 
-
-
     @classmethod
     def _generate(cls, template, dfk):
         # dfk needs to be an argument here because it is
@@ -427,7 +556,7 @@ Missing these names on the command line:
 
 
     @classmethod
-    def generate(cls, dfk, nprocess, log_dir, mpi_command='mpirun -n'):
+    def generate(cls, dfk, nprocess, config, log_dir, mpi_command='mpirun -n'):
         """
         Build a parsl bash app that executes this pipeline stage
         """
@@ -435,9 +564,28 @@ Missing these names on the command line:
         module = module.split('.')[0]
 
         flags = [cls.name]
+
+        # Adds non default options to the command line
+        if config is not None:
+            for opt in config:
+                # Handles special case of boolean flags
+                if type(config[opt]) == bool:
+                    if config[opt]:
+                        flag = f'--{opt}'
+                        flags.append(flag)
+                # Handles special case of lists
+                elif type(config[opt]) == list:
+                    flag = f'--{opt}='+','.join(str(c) for c in config[opt])
+                    flags.append(flag)
+                # Handles general case
+                else:
+                    flag = '--{}={}'.format(opt, config[opt])
+                    flags.append(flag)
+
         for i,inp in enumerate(cls.input_tags()):
             flag = '--{}={{inputs[{}]}}'.format(inp,i)
             flags.append(flag)
+
         for i,out in enumerate(cls.output_tags()):
             flag = '--{}={{outputs[{}]}}'.format(out,i)
             flags.append(flag)
