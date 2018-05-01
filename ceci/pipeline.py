@@ -2,23 +2,20 @@ import parsl
 from parsl.data_provider.files import File
 from .stage import PipelineStage
 import os
+import sys
 
 class StageExecutionConfig:
     def __init__(self, info):
         self.name = info['name']
         self.nprocess = info.get('nprocess', 1)
-        self.config = info.get('config',None)
 
 class Pipeline:
-    def __init__(self, launcher_config, stages, stages_config=None):
+    def __init__(self, launcher_config, stages):
         self.stage_execution_config = {}
         self.stage_names = []
         self.mpi_command = launcher_config['sites'][0].get('mpi_command', 'mpirun -n')
         self.dfk = parsl.DataFlowKernel(launcher_config)
         for info in stages:
-            if stages_config is not None:
-                if info['name'] in stages_config:
-                    info['config'] = stages_config[info['name']]
             self.add_stage(info)
 
     def add_stage(self, stage_info):
@@ -75,7 +72,7 @@ class Pipeline:
             raise ValueError(msg)
         return ordered_stages
 
-    def run(self, overall_inputs, output_dir, log_dir, resume):
+    def run(self, overall_inputs, output_dir, log_dir, resume, stages_config):
         stages = self.ordered_stages(overall_inputs)
         data_elements = overall_inputs.copy()
         futures = []
@@ -88,9 +85,11 @@ class Pipeline:
 
         for stage in stages:
             sec = self.stage_execution_config[stage.name]
-            app = stage.generate(self.dfk, sec.nprocess, sec.config, log_dir, mpi_command=self.mpi_command)
+            app = stage.generate(self.dfk, sec.nprocess, log_dir, mpi_command=self.mpi_command)
             inputs = self.find_inputs(stage, data_elements)
             outputs = self.find_outputs(stage, output_dir)
+            # All pipeline stages implicitly get the overall configuration file
+            inputs.append(File(stages_config))
             already_run_stage = all(os.path.exists(output) for output in outputs)
             # If we are in "resume" mode and the pipeline has already been run
             # then we re-use any existing outputs.  User is responsible for making
@@ -106,13 +105,50 @@ class Pipeline:
                 print(inputs, outputs)
                 print(f"Pipeline queuing stage {stage.name} with {sec.nprocess} processes")
                 future = app(inputs=inputs, outputs=outputs)
+                future._ceci_name = stage.name
                 futures.append(future)
                 for i, output in enumerate(stage.output_tags()):
                     data_elements[output] = future.outputs[i]
 
         # Wait for the final results, from all files
         for future in futures:
-            future.result()
+            try:
+                future.result()
+            except parsl.app.errors.AppFailure:
+                stdout_file = f'{log_dir}/{future._ceci_name}.err'
+                stderr_file = f'{log_dir}/{future._ceci_name}.out'
+                sys.stderr.write(f"""
+*************************************************
+Error running pipeline stage {future._ceci_name}.
+
+Standard output and error streams below.
+
+*************************************************
+
+Standard output:
+----------------
+
+""")
+                if os.path.exists(stdout_file):
+                    sys.stderr.write(open(stdout_file).read())
+                else:
+                    sys.stderr.write("STDOUT MISSING!\n\n")
+
+                sys.stderr.write(f"""
+*************************************************
+
+Standard error:
+----------------
+
+""")
+
+
+                if os.path.exists(stderr_file):
+                    sys.stderr.write(open(stderr_file).read())
+                else:
+                    sys.stderr.write("STDERR MISSING!\n\n")
+                
+                return None
 
         # Return a dictionary of the resulting file outputs
         return data_elements

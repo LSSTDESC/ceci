@@ -22,10 +22,6 @@ class PipelineStage:
 
     def __init__(self, args):
         args = vars(args)
-        self._inputs = {}
-        self._outputs = {}
-        self._configs = {}
-
         # We first check for missing input files, that's a show stopper
         missing_inputs = []
         for x in self.input_tags():
@@ -38,7 +34,11 @@ class PipelineStage:
 
 Missing these names on the command line:
     Input names: {missing_inputs}""")
+
+
         self._inputs = {x:args[x] for x in self.input_tags()}
+        # We alwys assume the config arg exists, whether it is in input_tags or not
+        self._inputs["config"] = args['config']
 
         # We prefer to receive explicit filenames for the outputs but will
         # tolerate missing output filenames and will default to tag name in
@@ -47,7 +47,7 @@ Missing these names on the command line:
 
         # Finally, we extract configuration information from a combination of
         # command line arguments and optional 'config' file
-        self._configs = self._get_config(args)
+        self._configs = self.read_config(args)
 
         if args.get('mpi', False):
             import mpi4py.MPI
@@ -158,16 +158,8 @@ Missing these names on the command line:
         """
         return self._configs
 
-    def read_config(self):
-        """ Deprecated method
-        TODO: remove in future release
-        """
-        import warnings
-        warnings.warn("This method has been replaced by self.config",
-                      category=DeprecationWarning, stacklevel=2)
-        return self.config
 
-    def _get_config(self, args):
+    def read_config(self, args):
         """
         This function looks for the arguments of the pipeline stage using a
         combination of default values, command line options and separate
@@ -183,13 +175,19 @@ Missing these names on the command line:
         self.config_options holds a type instead of a value.
         """
         # Try to load configuration file if provided
-        input_config = None
-        if 'config' in self.input_tags():
-            import yaml
-            input_config = yaml.load(open(self.get_input('config')))
-            if self.name in input_config:
-                input_config = input_config[self.name]
+        import yaml
 
+        # This is all the config information in the file, including
+        # things for other stages
+        overall_config = yaml.load(open(self.get_input('config')))
+
+        # This is just the config info in the file for this stage.
+        # It may be incomplete - there may be things specified on the
+        # command line instead, or just using their default values
+        input_config = overall_config.get(self.name, {})
+        
+        # Here we build up the actual configuration we use on this
+        # run from all these sources
         my_config = {}
 
         # Loop over the options of the pipeline stage
@@ -217,9 +215,8 @@ Missing these names on the command line:
 
             # Second, look for the option in the configuration file and override
             # default if provided TODO: Check types
-            if input_config is not None:
-                if x in input_config:
-                    opt = input_config[x]
+            if x in input_config:
+                opt = input_config[x]
 
             # Finally check for command line option that would override the value
             # in the configuration file. Note that the argument parser should
@@ -499,7 +496,7 @@ Missing these names on the command line:
         cmd = " ".join(sys.argv[:])
         print(f"Executing stage: {cls.name}")
         import argparse
-        parser = argparse.ArgumentParser(description="Run a stage or something")
+        parser = argparse.ArgumentParser(description=f"Run pipeline stage {cls.name}")
         parser.add_argument("stage_name")
         for conf in cls.config_options:
             def_val = cls.config_options[conf]
@@ -523,6 +520,7 @@ Missing these names on the command line:
             parser.add_argument(f'--{inp}')
         for out in cls.output_tags():
             parser.add_argument(f'--{out}')
+        parser.add_argument('--config')
         parser.add_argument('--mpi', action='store_true', help="Set up MPI parallelism")
         parser.add_argument('--pdb', action='store_true', help="Run under the python debugger")
         args = parser.parse_args()
@@ -556,7 +554,7 @@ Missing these names on the command line:
 
 
     @classmethod
-    def generate(cls, dfk, nprocess, config, log_dir, mpi_command='mpirun -n'):
+    def generate(cls, dfk, nprocess, log_dir, mpi_command='mpirun -n'):
         """
         Build a parsl bash app that executes this pipeline stage
         """
@@ -565,31 +563,21 @@ Missing these names on the command line:
 
         flags = [cls.name]
 
-        # Adds non default options to the command line
-        if config is not None:
-            for opt in config:
-                # Handles special case of boolean flags
-                if type(config[opt]) == bool:
-                    if config[opt]:
-                        flag = f'--{opt}'
-                        flags.append(flag)
-                # Handles special case of lists
-                elif type(config[opt]) == list:
-                    flag = f'--{opt}='+','.join(str(c) for c in config[opt])
-                    flags.append(flag)
-                # Handles general case
-                else:
-                    flag = '--{}={}'.format(opt, config[opt])
-                    flags.append(flag)
-
         for i,inp in enumerate(cls.input_tags()):
             flag = '--{}={{inputs[{}]}}'.format(inp,i)
             flags.append(flag)
 
+        config_index = len(cls.input_tags())
+        flags.append(f'--config={{inputs[{config_index}]}}')
+
         for i,out in enumerate(cls.output_tags()):
             flag = '--{}={{outputs[{}]}}'.format(out,i)
             flags.append(flag)
+
         flags = "   ".join(flags)
+
+        # The last input file is always the config
+
 
         # Parallelism - simple for now
         if nprocess > 1:
