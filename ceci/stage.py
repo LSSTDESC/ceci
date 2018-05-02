@@ -425,10 +425,19 @@ Missing these names on the command line:
         if not hasattr(cls, 'inputs'):
             raise ValueError(f"Pipeline stage {cls.name} defined in {filename} must be given a list of inputs.")
 
+
         # Check for two stages with the same name.
         # Not sure if we actually do want to allow this?
         if cls.name in cls.pipeline_stages:
             raise ValueError(f"Pipeline stage {cls.name} already defined")
+
+        # Check for "config" in the inputs list - this is now implicit
+        for name, _ in cls.inputs:
+            if name=='config':
+                raise ValueError(f"""An input called 'config' is now implicit in each pipeline stage
+and should not be added explicitly.  Please update your pipeline stage called {cls.name} to remove
+the input called 'config'.
+""")
 
         # Find the absolute path to the class defining the file
         path = pathlib.Path(filename).resolve()
