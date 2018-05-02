@@ -536,7 +536,7 @@ the input called 'config'.
             opt_type = def_val if type(def_val) == type else type(def_val)
 
             if opt_type == bool:
-                parser.add_argument(f'--{conf}', action='store_true')
+                parser.add_argument(f'--{conf}', action='store_const', const=True)
             elif opt_type == list:
                 out_type = def_val[0] if type(def_val[0]) == type else type(def_val[0])
                 if out_type is str:
