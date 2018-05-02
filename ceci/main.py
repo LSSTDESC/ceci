@@ -77,9 +77,17 @@ def export_cwl(args):
         tool = PipelineStage.pipeline_stages[k][0].generate_cwl()
         tool.export(f'{path}/{k}.cwl')
 
-    # Exports the pipeline itself
-    launcher_config = config['launcher']
     stages = config['stages']
+
+    # Exports the pipeline itself
+    launcher = config.get("launcher", "local")
+    if launcher == "local":
+        launcher_config = sites.local.make_launcher(stages)
+    elif launcher == "cori":
+        launcher_config = sites.cori.make_launcher(stages)
+    else:
+        raise ValueError(f"Unknown launcher {launcher}")
+
     inputs = config['inputs']
 
     pipeline = Pipeline(launcher_config, stages)
