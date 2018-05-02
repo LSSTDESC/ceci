@@ -1,9 +1,10 @@
-from . import Pipeline, PipelineStage
 import os
 import yaml
 import sys
 import parsl
 import argparse
+from . import Pipeline, PipelineStage
+from . import sites
 
 # Add the current dir to the path - often very useful
 sys.path.append(os.getcwd())
@@ -33,8 +34,15 @@ def run(pipeline_config_filename):
     modules = pipe_config['modules'].split()
 
     # parsl execution/launcher configuration information
-    # launcher_config = localIPP
-    launcher_config = pipe_config['launcher']
+    launcher = pipe_config.get("launcher", "local")
+    if launcher == "local":
+        launcher_config = sites.local.make_launcher(stages)
+    elif launcher == "cori":
+        launcher_config = sites.cori.make_launcher(stages)
+    else:
+        raise ValueError(f"Unknown launcher {launcher}")
+    # 
+    # launcher_config = pipe_config['launcher']
 
     # Inputs and outputs
     output_dir = pipe_config['output_dir']

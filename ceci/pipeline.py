@@ -7,13 +7,14 @@ import sys
 class StageExecutionConfig:
     def __init__(self, info):
         self.name = info['name']
+        self.site = info['site']
         self.nprocess = info.get('nprocess', 1)
 
 class Pipeline:
     def __init__(self, launcher_config, stages):
         self.stage_execution_config = {}
         self.stage_names = []
-        self.mpi_command = launcher_config['sites'][0].get('mpi_command', 'mpirun -n')
+        self.mpi_command = launcher_config['mpi_command']
         self.dfk = parsl.DataFlowKernel(launcher_config)
         for info in stages:
             self.add_stage(info)
@@ -85,7 +86,7 @@ class Pipeline:
 
         for stage in stages:
             sec = self.stage_execution_config[stage.name]
-            app = stage.generate(self.dfk, sec.nprocess, log_dir, mpi_command=self.mpi_command)
+            app = stage.generate(self.dfk, sec.nprocess, sec.site, log_dir, mpi_command=self.mpi_command)
             inputs = self.find_inputs(stage, data_elements)
             outputs = self.find_outputs(stage, output_dir)
             # All pipeline stages implicitly get the overall configuration file
