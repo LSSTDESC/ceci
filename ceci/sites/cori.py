@@ -59,14 +59,15 @@ def add_site_config(config, nodes, walltime_minutes, partition):
 
     if sitename not in known_sites:
         site = copy.deepcopy(coriBase)
-        site["site"]["auth"]["username"] = USERNAME
-        site["site"]["auth"]["scriptDir"] = script_dir
+        site["auth"]["username"] = USERNAME
+        site["auth"]["scriptDir"] = script_dir
         site["site"] = sitename
         site["execution"]["block"]["nodes"] = nodes
         site["execution"]["block"]["walltime"] = f"00:{walltime_minutes}:00"
         site["execution"]["block"]["options"]["overrides"] = setup_command
         site["execution"]["block"]["options"]["partition"] = partition
 
+        config['sites'].append(site)
 
     return sitename
 
@@ -75,7 +76,7 @@ def make_launcher(stages):
     launcher = copy.deepcopy(base_launcher)
     for stage in stages:
         nodes = stage.get("nodes", 1)
-        walltime = stage.get("walltime", 10)
+        walltime_minutes = stage.get("walltime", 10)
         partition = stage.get("partition", "debug")
         site_name = add_site_config(launcher, nodes, walltime_minutes, partition)
         stage['site'] = site_name
