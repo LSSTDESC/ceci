@@ -42,18 +42,14 @@ def run(pipeline_config_filename):
     log_dir = pipe_config['log_dir']
     resume = pipe_config['resume']
 
+    stages_config = pipe_config['config']
+
     for module in modules:
         __import__(module)
 
-    # Loads an optional configuration file for the pipeline
-    if 'config' in inputs:
-        stages_config = yaml.load(open(inputs['config']))
-    else:
-        stages_config = None
-
     # Create and run pipeline
-    pipeline = Pipeline(launcher_config, stages, stages_config)
-    pipeline.run(inputs, output_dir, log_dir, resume)
+    pipeline = Pipeline(launcher_config, stages)
+    pipeline.run(inputs, output_dir, log_dir, resume, stages_config)
 
 def export_cwl(args):
     """
@@ -78,7 +74,7 @@ def export_cwl(args):
     stages = config['stages']
     inputs = config['inputs']
 
-    pipeline = Pipeline(launcher_config, stages, None)
+    pipeline = Pipeline(launcher_config, stages)
     cwl_wf = pipeline.generate_cwl(inputs)
     cwl_wf.export(f'{path}/pipeline.cwl')
 
