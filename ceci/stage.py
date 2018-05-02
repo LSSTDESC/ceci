@@ -230,6 +230,19 @@ Missing these names on the command line:
 
             my_config[x] = opt
 
+        # Unspecified parameters can also be copied over.
+        # This will be needed for parameters that are more complicated, such
+        # as dictionaries or other more structured parameter information.
+        for x,val in input_config.items():
+            # Omit things we've already dealt with above
+            if x in self.config_options:
+                continue
+            # copy over everything else
+            else:
+                my_config[x] = val
+
+
+
         return my_config
 
     @classmethod

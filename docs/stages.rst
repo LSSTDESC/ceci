@@ -27,6 +27,47 @@ Using it allows us to easily connect together pipeline stages by matching
 output tags from earlier stages to input tags for later ones.
 Tags must be unique across a pipeline.
 
+Configuration Parameters
+------------------------
+
+Every stage has an additional implicit input: a configuration file in YAML format.
+
+Stage classes can define a dictionary as an instance variable listing what variables
+it needs in that configuration file and their types, or give default values in case
+they are not found in the parameter file.
+
+Here is an example:
+
+.. code-block:: python
+
+    class MyStage:
+        ...
+        config_options = {
+            'T_cut':float,
+            's2n_cut':float,
+            'delta_gamma': float,
+            'max_rows':0,
+            'chunk_rows':10000,
+            'zbin_edges':[float]
+        }
+
+Some parameters like ``T_cut`` have been given just a python type, indicating that there
+is no default value for them and the use should specify a value of type "float" in the
+parameter file.  Others like ``max_rows`` have a default value that will be used if the
+parameter is not otherwise specified.
+
+The parameter file will automatically be read and the results put into a dictionary that
+the stage can access via ``self.config``, for example: ``cut = self.config['T_cut']``.
+
+
+More complicated parameter types such as dictionaries can also be used, but they cannot currently be 
+specified in the ``config_option`` dictionary and so the system will not automatically check
+for their presence in the parameter file - you will have to do that yourself.
+
+Parameters can also be overridden when running a stage on its own on the command line,
+(see "Execution", below) by using them as flag: ``--T_cut=0.4``
+
+
 Pipeline Methods
 ----------------
 
