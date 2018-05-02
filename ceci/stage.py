@@ -185,7 +185,7 @@ Missing these names on the command line:
         # It may be incomplete - there may be things specified on the
         # command line instead, or just using their default values
         input_config = overall_config.get(self.name, {})
-        
+
         # Here we build up the actual configuration we use on this
         # run from all these sources
         my_config = {}
@@ -205,7 +205,7 @@ Missing these names on the command line:
             elif type(self.config_options[x]) is list:
                 v = self.config_options[x][0]
                 if type(v) is type:
-                    opt_type = v 
+                    opt_type = v
                 else:
                     opt = self.config_options[x]
                     opt_type = type(v)
@@ -298,6 +298,17 @@ Missing these names on the command line:
                                                          input_binding=input_binding,
                                                          doc='Some documentation about the input')
             cwl_tool.inputs.append(input_param)
+
+        # Adds the overall configuration file
+        input_binding = cwlgen.CommandLineBinding(prefix='--config')
+        input_param   = cwlgen.CommandInputParameter('config',
+                                                     label='config',
+                                                     param_type='File',
+                                                     param_format='YamlFile',
+                                                     input_binding=input_binding,
+                                                     doc='Configuration file')
+        cwl_tool.inputs.append(input_param)
+
 
         # Add the definition of the outputs
         for i,out in enumerate(cls.output_tags()):

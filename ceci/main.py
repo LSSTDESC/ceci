@@ -74,7 +74,7 @@ def export_cwl(args):
     stages = config['stages']
     inputs = config['inputs']
 
-    pipeline = Pipeline(launcher_config, stages, None)
+    pipeline = Pipeline(launcher_config, stages)
     cwl_wf = pipeline.generate_cwl(inputs)
     cwl_wf.export(f'{path}/pipeline.cwl')
 
