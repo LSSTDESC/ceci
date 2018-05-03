@@ -4,6 +4,11 @@
 # be used below
 modules: ceci_example
 
+# The launcher to use
+# These are defined in ceci/sites
+launcher: local
+
+
 # The list of stages to run and the number of processors
 # to use for each.
 stages:
@@ -48,19 +53,3 @@ log_dir: ./test/logs
 # Put the log for the overall pipeline infrastructure in this file:
 pipeline_log: log.txt
 
- # Information describing the "Launcher" that parsl will use to run jobs.
- # For now don't change this -
- # it is part of parsl.
-launcher:
-    globals: {lazyErrors: true}
-    sites:
-      # Name
-      # Can put SSH info here to launch remotely
-    - auth: {channel: null}
-      # Execution system
-      execution: {
-        executor: threads,
-        maxThreads: 4,
-        provider: null
-    }
-      site: Local_Threads

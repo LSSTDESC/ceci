@@ -536,7 +536,7 @@ the input called 'config'.
             opt_type = def_val if type(def_val) == type else type(def_val)
 
             if opt_type == bool:
-                parser.add_argument(f'--{conf}', action='store_true')
+                parser.add_argument(f'--{conf}', action='store_const', const=True)
             elif opt_type == list:
                 out_type = def_val[0] if type(def_val[0]) == type else type(def_val[0])
                 if out_type is str:
@@ -587,7 +587,7 @@ the input called 'config'.
 
 
     @classmethod
-    def generate(cls, dfk, nprocess, log_dir, mpi_command='mpirun -n'):
+    def generate(cls, dfk, nprocess, site_name, log_dir, mpi_command='mpirun -n'):
         """
         Build a parsl bash app that executes this pipeline stage
         """
@@ -621,11 +621,12 @@ the input called 'config'.
             mpi_flag = ""
 
         template = f"""
-@parsl.App('bash', dfk)
+@parsl.App('bash', dfk, sites=['{site_name}'])
 def {cls.name}(inputs, outputs, stdout='{log_dir}/{cls.name}.out', stderr='{log_dir}/{cls.name}.err'):
     cmd = '{launcher} python3 -m {module} {flags} {mpi_flag}'.format(inputs=inputs,outputs=outputs)
     print("Compiling command:")
     print(cmd)
     return cmd
 """
+
         return cls._generate(template, dfk)
