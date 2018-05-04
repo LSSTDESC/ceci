@@ -39,6 +39,8 @@ def run(pipeline_config_filename):
         launcher_config = sites.local.make_launcher(stages)
     elif launcher == "cori":
         launcher_config = sites.cori.make_launcher(stages)
+    elif launcher == "cori-interactive":
+        launcher_config = sites.cori_interactive.make_launcher(stages)
     else:
         raise ValueError(f"Unknown launcher {launcher}")
     # 
