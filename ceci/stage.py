@@ -527,7 +527,6 @@ the input called 'config'.
     @classmethod
     def _parse_command_line(cls):
         cmd = " ".join(sys.argv[:])
-        print(f"Executing stage: {cls.name}")
         import argparse
         parser = argparse.ArgumentParser(description=f"Run pipeline stage {cls.name}")
         parser.add_argument("stage_name")
@@ -567,6 +566,9 @@ the input called 'config'.
         with the specified inputs and outputs
         """
         stage = cls(args)
+        if stage.rank==0:
+            print(f"Executing stage: {cls.name}")
+
         try:
             stage.run()
         except Exception as error:
