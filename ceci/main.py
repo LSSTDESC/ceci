@@ -5,72 +5,18 @@ import parsl
 import argparse
 from . import Pipeline, PipelineStage
 from . import sites
+from .executor import ParslExecutor
 
-# Add the current dir to the path - often very useful
-sys.path.append(os.getcwd())
+def export_cwl():
+    """Exports pipeline tools"""
+    parser = argparse.ArgumentParser(description='Export pipeline elements in CWL format')
+    parser.add_argument('output_path', type=str, help='Path to export the CWL tools.')
+    parser.add_argument('module', type=str, help='Names of modules to export.')
+    args = parser.parse_args()
+    path = args.output_path
+    modules = args.modules
 
-parser = argparse.ArgumentParser(description='Run a Ceci pipeline from a configuration file')
-parser.add_argument('pipeline_config', help='Pipeline configuration file in YAML format.')
-parser.add_argument('--export-cwl', type=str, help='Exports pipeline in CWL format to provided path and exits')
-
-def run(pipeline_config_filename):
-    """
-    Runs the pipeline
-    """
-    # YAML input file.
-    pipe_config = yaml.load(open(pipeline_config_filename))
-
-    # Optional logging of pipeline infrastructure to
-    # file.
-    log_file = pipe_config.get('pipeline_log')
-    if log_file:
-        parsl.set_file_logger(log_file)
-
-    # Required configuration information
-    # List of stage names, must be imported somewhere
-    stages = pipe_config['stages']
-
-    # Python modules in which to search for pipeline stages
-    modules = pipe_config['modules'].split()
-
-    # parsl execution/launcher configuration information
-    launcher = pipe_config.get("launcher", "local")
-    if launcher == "local":
-        launcher_config = sites.local.make_launcher(stages)
-    elif launcher == "cori":
-        launcher_config = sites.cori.make_launcher(stages)
-    elif launcher == "cori-interactive":
-        launcher_config = sites.cori_interactive.make_launcher(stages)
-    else:
-        raise ValueError(f"Unknown launcher {launcher}")
-    # 
-    # launcher_config = pipe_config['launcher']
-
-    # Inputs and outputs
-    output_dir = pipe_config['output_dir']
-    inputs = pipe_config['inputs']
-    log_dir = pipe_config['log_dir']
-    resume = pipe_config['resume']
-
-    stages_config = pipe_config['config']
-
-    for module in modules:
-        __import__(module)
-
-    # Create and run pipeline
-    pipeline = Pipeline(launcher_config, stages)
-    pipeline.run(inputs, output_dir, log_dir, resume, stages_config)
-
-def export_cwl(args):
-    """
-    Function exports pipeline or pipeline stages into CWL format.
-    """
-    path = args.export_cwl
-    # YAML input file.
-    config = yaml.load(open(args.pipeline_config))
-
-    # Python modules in which to search for pipeline stages
-    modules = config['modules'].split()
+    # Imports the modules to export
     for module in modules:
         __import__(module)
 
@@ -79,29 +25,10 @@ def export_cwl(args):
         tool = PipelineStage.pipeline_stages[k][0].generate_cwl()
         tool.export(f'{path}/{k}.cwl')
 
-    stages = config['stages']
-
-    # Exports the pipeline itself
-    launcher = config.get("launcher", "local")
-    if launcher == "local":
-        launcher_config = sites.local.make_launcher(stages)
-    elif launcher == "cori":
-        launcher_config = sites.cori.make_launcher(stages)
-    else:
-        raise ValueError(f"Unknown launcher {launcher}")
-
-    inputs = config['inputs']
-
-    pipeline = Pipeline(launcher_config, stages)
-    cwl_wf = pipeline.generate_cwl(inputs)
-    cwl_wf.export(f'{path}/pipeline.cwl')
-
 def main():
-    args = parser.parse_args()
-    if args.export_cwl is not None:
-        export_cwl(args)
-    else:
-        run(args.pipeline_config)
+    """ Main ceci executable, runs the pipeline """
+    #TODO: Extract the site configuration from commandline or Workflow itself
+    sys.exit(cwltool.main.main(sys.argv[1:], executor=ParslExecutor()))
 
 if __name__ == '__main__':
     main()
