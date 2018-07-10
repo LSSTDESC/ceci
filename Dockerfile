@@ -1,13 +1,6 @@
-FROM python:alpine
+FROM python:3
 MAINTAINER francois.lanusse@gmail.com
 
-RUN apk add --no-cache git
-
-# Enable root mode, so we can install things more easily
-USER root
-
 RUN pip install -U pip setuptools
-RUN pip install ruamel.yaml
-RUN pip install git+https://github.com/LSSTDESC/ceci.git@cwltool
-
-USER vagrant
+RUN pip install ruamel.yaml==0.15.42 cwlgen pyyaml parsl descformats cwltool
+RUN pip install --no-deps git+https://github.com/LSSTDESC/ceci.git@cwltool
