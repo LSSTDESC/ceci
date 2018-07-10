@@ -147,7 +147,7 @@ Standard error:
                     sys.stderr.write(open(stderr_file).read())
                 else:
                     sys.stderr.write("STDERR MISSING!\n\n")
-                
+
                 return None
 
         # Return a dictionary of the resulting file outputs

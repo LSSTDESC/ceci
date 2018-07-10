@@ -4,6 +4,7 @@ import sys
 
 SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'
+docker_requirement = 'eiffl/ceci:latest'
 
 class PipelineStage:
     """A PipelineStage implements a single calculation step within a wider pipeline.
@@ -260,6 +261,9 @@ Missing these names on the command line:
                                           base_command='python3',
                                           cwl_version='v1.0',
                                           doc=cls.__doc__)
+
+        # Adds the Docker requirement for this tool
+        cwl_tool.requirements.append(cwlgen.DockerRequirement(docker_pull=docker_requirement))
 
         # Adds the first input binding with the name of the module and pipeline stage
         input_arg = cwlgen.CommandLineBinding(position=-1, value_from=f'-m{module}')
