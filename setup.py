@@ -24,9 +24,5 @@ setup(
         'console_scripts':['ceci=ceci.main:main',
                            'ceci2cwl=ceci.main:export_cwl_workflow']
     },
-<<<<<<< HEAD
     install_requires=['cwlgen', 'pyyaml','parsl','descformats', 'cwltool']
-=======
-    install_requires=['pyyaml','parsl','descformats', 'cwltool']
->>>>>>> aadf1462aabdb4440a87ebf44bf446d923fd1dc0
 )
