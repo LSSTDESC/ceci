@@ -1,17 +1,15 @@
 import os
 import yaml
 import sys
-import parsl
 import argparse
-from . import Pipeline, PipelineStage
-from . import sites
+import cwltool.main
 from .executor import ParslExecutor
 
 def export_cwl():
     """Exports pipeline tools"""
     parser = argparse.ArgumentParser(description='Export pipeline elements in CWL format')
     parser.add_argument('output_path', type=str, help='Path to export the CWL tools.')
-    parser.add_argument('module', type=str, help='Names of modules to export.')
+    parser.add_argument('modules', type=str, nargs='+', help='Names of modules to export.')
     args = parser.parse_args()
     path = args.output_path
     modules = args.modules

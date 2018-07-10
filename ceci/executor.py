@@ -7,13 +7,14 @@ from cwltool.context import LoadingContext, RuntimeContext
 from cwltool.flatten import flatten
 from cwltool.command_line_tool import CommandLineTool
 from cwltool.errors import WorkflowException
+from cwltool.executors import JobExecutor
 from schema_salad.validate import ValidationException
 from concurrent.futures import ALL_COMPLETED, FIRST_COMPLETED
 from parsl import DataFlowKernel, App
 
-__all__ = [ ParslExecutor ]
+__all__ = [ "ParslExecutor" ]
 
-class ParslExecutor(cwltool.executors.JobExecutor):
+class ParslExecutor(JobExecutor):
     """
     Custom Parsl-based executor for a worflow
     """
