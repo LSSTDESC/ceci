@@ -398,16 +398,16 @@ Missing these names on the command line:
 
 
 
-    def split_tasks_by_rank(self, n_chunks):
-        for i in range(n_chunks):
+    def split_tasks_by_rank(self, tasks):
+        for i,task in enumerate(tasks):
             if i%self.size==self.rank:
-                yield i
+                yield task
 
     def data_ranges_by_rank(self, n_rows, chunk_rows):
         n_chunks = n_rows//chunk_rows
         if n_chunks*chunk_rows<n_rows:
             n_chunks += 1
-        for i in self.split_tasks_by_rank(n_chunks):
+        for i in self.split_tasks_by_rank(range(n_chunks)):
             start = i*chunk_rows
             end = min((i+1)*chunk_rows, n_rows)
             yield start, end
