@@ -44,6 +44,7 @@ class Pipeline:
     def ordered_stages(self, overall_inputs):
         stage_names = self.stage_names[:]
         stages = [PipelineStage.get_stage(stage_name) for stage_name in stage_names]
+        all_stages = stages[:]
         known_inputs = list(overall_inputs.keys())
         ordered_stages = []
         n = len(stage_names)
@@ -56,20 +57,32 @@ class Pipeline:
                     stages.remove(stage)
 
         if stages:
-            missing_inputs = []
-            for stage in stages:
-                missing_inputs += [s for s in stage.input_tags() if s not in known_inputs]
-            missing_stages = [s.name for s in stages]
-            msg = f"""
-            Some required inputs to the pipeline could not be found,
-            (or possibly your pipeline is cyclic).
+            all_outputs = sum((s.output_tags() for s in all_stages), [])
+            missing_inputs = [t for s in all_stages for t in s.input_tags() if t not in all_outputs and t not in overall_inputs]
 
-            Stages with missing inputs:
-            {missing_stages}
+            if not missing_inputs:
+                msg = """
+                The pipeline you have written is circular!
 
-            Missing stages:
-            {missing_inputs}
-            """
+                (Some outputs from the overall pipeline are also inputs to it.)
+                """
+                raise ValueError(msg)
+            else:
+                stages_requiring_missing_inputs = {
+                    m: ", ".join([s.name for s in all_stages if m in s.input_tags()])
+                    for m in missing_inputs}
+
+
+                msg = f"""
+                Some required inputs to the pipeline could not be found,
+                (or possibly your pipeline is cyclic).
+
+                These inputs are never generated or specified:
+                {missing_inputs}
+
+                They are needed by these stages:
+                {stages_requiring_missing_inputs}
+                """
             raise ValueError(msg)
         return ordered_stages
 
