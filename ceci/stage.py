@@ -21,7 +21,9 @@ class PipelineStage:
     doc=""
 
     def __init__(self, args):
-        args = vars(args)
+        if not isinstance(args, dict):
+            args = vars(args)
+
         # We first check for missing input files, that's a show stopper
         missing_inputs = []
         for x in self.input_tags():
