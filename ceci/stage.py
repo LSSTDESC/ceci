@@ -1,6 +1,7 @@
 import parsl
 import pathlib
 import sys
+from textwrap import dedent
 
 SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'
@@ -51,8 +52,16 @@ Missing these names on the command line:
         # command line arguments and optional 'config' file
         self._configs = self.read_config(args)
 
-        if args.get('mpi', False):
-            import mpi4py.MPI
+        use_mpi = args.get('mpi', False)
+        if use_mpi:
+            try:
+                # This isn't a ceci dependency, so give a sensible error message if not installed.
+                import mpi4py.MPI
+            except ImportError:
+                print('ERROR: Using --mpi option requires mpi4py to be installed.')
+                raise
+
+        if use_mpi:
             self._parallel = MPI_PARALLEL
             self._comm = mpi4py.MPI.COMM_WORLD
             self._size = self._comm.Get_size()
@@ -144,6 +153,22 @@ Missing these names on the command line:
         if run_parallel:
             kwargs['driver'] = 'mpio'
             kwargs['comm'] = self.comm
+
+            # XXX: This is also not a dependency, but it should be.
+            #      Or even better would be to make it a dependency of descformats where it
+            #      is actually used.
+            import h5py
+            if not h5py.get_config().mpi:
+                print(dedent("""\
+                Your h5py installation is not MPI-enabled.
+                Options include:
+                  1) Set nprocess to 1 for all stages
+                  2) Upgrade h5py to use mpi.  See instructions here:
+                     http://docs.h5py.org/en/latest/build.html#custom-installation
+                Note: If using conda, the most straightforward way is to enable it is
+                    conda install -c spectraldns h5py-parallel
+                """))
+                raise RuntimeError("h5py module is not MPI-enabled.")
 
         # Return an opened object representing the file
         obj = output_class(path, 'w', **kwargs)
@@ -562,11 +587,11 @@ the input called 'config'.
 
     @classmethod
     def execute(cls, args):
-        import pdb
         """
         Create an instance of this stage and run it
         with the specified inputs and outputs
         """
+        import pdb
         stage = cls(args)
         if stage.rank==0:
             print(f"Executing stage: {cls.name}")
