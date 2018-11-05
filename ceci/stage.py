@@ -518,6 +518,18 @@ the input called 'config'.
         """
         return cls.pipeline_stages[cls.name][0].__module__
 
+    @classmethod
+    def usage(cls):
+        stage_names = "\n- ".join(cls.pipeline_stages.keys())
+        sys.stderr.write(f"""
+Usage: python -m txpipe <stage_name> <stage_arguments>
+
+If no stage_arguments are given then usage information
+for the chosen stage will be given.
+
+I currently know about these stages:
+- {stage_names}
+""")
 
     @classmethod
     def main(cls):
@@ -525,10 +537,18 @@ the input called 'config'.
         Create an instance of this stage and run it with
         inputs and outputs taken from the command line
         """
-        stage_name = sys.argv[1]
+        try:
+            stage_name = sys.argv[1]
+        except IndexError:
+            cls.usage()
+            return 1
+        if stage_name in ['--help', '-h'] and len(sys.argv)==2:
+            cls.usage()
+            return 1
         stage = cls.get_stage(stage_name)
         args = stage._parse_command_line()
         stage.execute(args)
+        return 0
 
     @classmethod
     def export(cls, all_stages=True):
