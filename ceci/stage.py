@@ -208,10 +208,16 @@ Missing these names on the command line:
         # things for other stages
         overall_config = yaml.load(open(self.get_input('config')))
 
+        # The user can define global options that are inherited by
+        # all the other sections if not already specified there.
+        input_config = overall_config.get('global', {})
+
         # This is just the config info in the file for this stage.
         # It may be incomplete - there may be things specified on the
         # command line instead, or just using their default values
-        input_config = overall_config.get(self.name, {})
+        stage_config = overall_config.get(self.name, {})
+        input_config.update(stage_config)
+
 
         # Here we build up the actual configuration we use on this
         # run from all these sources

@@ -1,5 +1,7 @@
-shearMeasurementPipe:
+global:
     metacalibration: True
+
+shearMeasurementPipe:
     apply_flag: False
 
 WLGCSelector:
