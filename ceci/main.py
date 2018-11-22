@@ -18,7 +18,11 @@ def run(pipeline_config_filename):
     Runs the pipeline
     """
     # YAML input file.
-    pipe_config = yaml.load(open(pipeline_config_filename))
+    # Load the text and then expand any environment variables
+    raw_config_text = open(pipeline_config_filename).read()
+    config_text = os.path.expandvars(raw_config_text)
+    # Then parse with YAML
+    pipe_config = yaml.load(config_text)
 
     # Optional logging of pipeline infrastructure to
     # file.
