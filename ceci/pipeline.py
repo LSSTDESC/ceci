@@ -86,6 +86,17 @@ class Pipeline:
             raise ValueError(msg)
         return ordered_stages
 
+    def dry_run(self, overall_inputs, output_dir, stages_config):
+        stages = self.ordered_stages(overall_inputs)
+
+        for stage in stages:
+            sec = self.stage_execution_config[stage.name]
+            cmd = stage.generate_command(overall_inputs, stages_config, output_dir, sec.nprocess, self.mpi_command)
+            print(cmd)
+            print()
+
+
+
     def run(self, overall_inputs, output_dir, log_dir, resume, stages_config):
         stages = self.ordered_stages(overall_inputs)
         data_elements = overall_inputs.copy()
