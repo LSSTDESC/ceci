@@ -641,6 +641,42 @@ I currently know about these stages:
         function = d[cls.name]
         return function
 
+    @classmethod
+    def generate_command(cls, external_inputs, config, outdir, nprocess=1, mpi_command='mpirun -n'):
+        """
+        Generate a command line that will run the stage
+        """
+        module = cls.get_module()
+        module = module.split('.')[0]
+
+        # Collect flags.
+        # This is a bit different from the case within the
+        # parsl pipeline because of where we find the inputs,
+        # even if the end result is usually the same
+        flags = [cls.name]
+        for tag,ftype in cls.inputs + cls.outputs:
+            if tag in external_inputs:
+                fpath = external_inputs[tag]
+            else:
+                fpath = f'{outdir}/{tag}.{ftype.suffix}'
+            flag = f'--{tag}={fpath}'
+            flags.append(flag)
+
+        flags.append(f'--config={config}')
+        flags = "   ".join(flags)
+
+        # This is identical to the parsl case however
+        if nprocess > 1:
+            launcher = f"{mpi_command} {nprocess}"
+            mpi_flag = "--mpi"
+        else:
+            launcher = ""
+            mpi_flag = ""
+
+        # We just return this, instead of wrapping it in a
+        # parsl job
+        cmd = f'{launcher} python3 -m {module} {flags} {mpi_flag}'
+        return cmd
 
     @classmethod
     def generate(cls, dfk, nprocess, site_name, log_dir, mpi_command='mpirun -n'):

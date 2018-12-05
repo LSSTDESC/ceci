@@ -12,8 +12,9 @@ sys.path.append(os.getcwd())
 parser = argparse.ArgumentParser(description='Run a Ceci pipeline from a configuration file')
 parser.add_argument('pipeline_config', help='Pipeline configuration file in YAML format.')
 parser.add_argument('--export-cwl', type=str, help='Exports pipeline in CWL format to provided path and exits')
+parser.add_argument('--dry-run', action='store_true', help='Just print out the commands the pipeline would run without executing them')
 
-def run(pipeline_config_filename):
+def run(pipeline_config_filename, dry_run=False):
     """
     Runs the pipeline
     """
@@ -63,7 +64,11 @@ def run(pipeline_config_filename):
 
     # Create and run pipeline
     pipeline = Pipeline(launcher_config, stages)
-    pipeline.run(inputs, output_dir, log_dir, resume, stages_config)
+
+    if dry_run:
+        pipeline.dry_run(inputs, output_dir, stages_config)
+    else:
+        pipeline.run(inputs, output_dir, log_dir, resume, stages_config)
 
 def export_cwl(args):
     """
@@ -105,7 +110,7 @@ def main():
     if args.export_cwl is not None:
         export_cwl(args)
     else:
-        run(args.pipeline_config)
+        run(args.pipeline_config, dry_run=args.dry_run)
 
 if __name__ == '__main__':
     main()
