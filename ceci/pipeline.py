@@ -15,7 +15,6 @@ class Pipeline:
         self.stage_execution_config = {}
         self.stage_names = []
         self.mpi_command = launcher_config['mpi_command']
-        self.dfk = parsl.DataFlowKernel(launcher_config)
         for info in stages:
             self.add_stage(info)
 
@@ -73,85 +72,6 @@ class Pipeline:
             raise ValueError(msg)
         return ordered_stages
 
-    def run(self, overall_inputs, output_dir, log_dir, resume, stages_config):
-        stages = self.ordered_stages(overall_inputs)
-        data_elements = overall_inputs.copy()
-        futures = []
-
-        os.makedirs(output_dir, exist_ok=True)
-        os.makedirs(log_dir, exist_ok=True)
-
-        if resume:
-            print("Since parameter 'resume' is True we will skip steps whose outputs exist already")
-
-        for stage in stages:
-            sec = self.stage_execution_config[stage.name]
-            app = stage.generate(self.dfk, sec.nprocess, sec.site, log_dir, mpi_command=self.mpi_command)
-            inputs = self.find_inputs(stage, data_elements)
-            outputs = self.find_outputs(stage, output_dir)
-            # All pipeline stages implicitly get the overall configuration file
-            inputs.append(File(stages_config))
-            already_run_stage = all(os.path.exists(output) for output in outputs)
-            # If we are in "resume" mode and the pipeline has already been run
-            # then we re-use any existing outputs.  User is responsible for making
-            # sure they are complete!
-            if resume and already_run_stage:
-                print(f"Skipping stage {stage.name} because its outputs exist already")
-                for (tag,_),filename in zip(stage.outputs, outputs):
-                    data_elements[tag] = filename
-            # Otherwise, run the pipeline and register any outputs from the
-            # pipe element as a "future" - a file that the pipeline will
-            # create later
-            else:
-                print(f"Pipeline queuing stage {stage.name} with {sec.nprocess} processes")
-                future = app(inputs=inputs, outputs=outputs)
-                future._ceci_name = stage.name
-                futures.append(future)
-                for i, output in enumerate(stage.output_tags()):
-                    data_elements[output] = future.outputs[i]
-
-        # Wait for the final results, from all files
-        for future in futures:
-            try:
-                future.result()
-            except parsl.app.errors.AppFailure:
-                stdout_file = f'{log_dir}/{future._ceci_name}.err'
-                stderr_file = f'{log_dir}/{future._ceci_name}.out'
-                sys.stderr.write(f"""
-*************************************************
-Error running pipeline stage {future._ceci_name}.
-
-Standard output and error streams below.
-
-*************************************************
-
-Standard output:
-----------------
-
-""")
-                if os.path.exists(stdout_file):
-                    sys.stderr.write(open(stdout_file).read())
-                else:
-                    sys.stderr.write("STDOUT MISSING!\n\n")
-
-                sys.stderr.write(f"""
-*************************************************
-
-Standard error:
-----------------
-
-""")
-
-
-                if os.path.exists(stderr_file):
-                    sys.stderr.write(open(stderr_file).read())
-                else:
-                    sys.stderr.write("STDERR MISSING!\n\n")
-
-                return None
-
-        # Return a dictionary of the resulting file outputs
-        return data_elements
 
     def generate_cwl(self, overall_inputs):
         """

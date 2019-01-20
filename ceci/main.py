@@ -3,9 +3,14 @@ import yaml
 import sys
 import argparse
 import cwltool.main
-from .executor import ParslExecutor
+from cwltool.loghandler import _logger
+from cwltool.context import LoadingContext, RuntimeContext
+from cwltool.argparser import arg_parser
 from . import Pipeline, PipelineStage
 from . import sites
+import parsl
+from .configs import threads_config
+from .command_line_tool import customMakeTool
 
 def export_cwl_tools():
     """Exports pipeline tools"""
@@ -69,7 +74,47 @@ def export_cwl_workflow():
 def main():
     """ Main ceci executable, runs the pipeline """
     #TODO: Extract the site configuration from commandline or Workflow itself
-    sys.exit(cwltool.main.main(sys.argv[1:], executor=ParslExecutor()))
+    parser = arg_parser()
+    parsed_args = parser.parse_args(sys.argv[1:])
+
+    # Load the requested parsl configuration
+    parsl.load(threads_config)
+
+    # Trigger the argparse message if the cwl file is missing
+    # Otherwise cwltool will use the default argparser
+    # if not parsed_args.workflow:
+    #     if os.path.isfile("CWLFile"):
+    #         setattr(parsed_args, "workflow", "CWLFile")
+    #     else:
+    #         _logger.error("")
+    #         _logger.error("CWL document required, no input file was provided")
+    #         parser.print_help()
+    #         sys.exit(1)
+    # elif not parsed_args.basedir:
+    #     _logger.error("")
+    #     _logger.error("Basedir is required for storing itermediate results")
+    #     parser.print_help()
+    #     sys.exit(1)
+
+    rc = RuntimeContext(vars(parsed_args))
+    rc.shifter = False
+    parsed_args.__dict__['parallel'] = True
+    rc.basedir = './'
+    rc.tmpdir_prefix = rc.basedir+'/tmp/tmp'
+    rc.tmp_outdir_prefix = rc.basedir+'/out/out' # type: Text
+    # if parsed_args.shifter:
+    #     rc.shifter = True
+    #     rc.docker_outdir='/spooldir'
+    #     rc.docker_stagedir=rc.basedir+'/stage'
+    #     rc.docker_tmpdir='/tmpdir'
+
+    lc = LoadingContext(vars(parsed_args))
+    lc.construct_tool_object = customMakeTool
+
+    sys.exit(cwltool.main.main(
+             args=parsed_args,
+             loadingContext=lc,
+             runtimeContext=rc))
 
 if __name__ == '__main__':
     main()

@@ -10,3 +10,5 @@ log.txt
 test/log*
 test/cwl/*.cwl
 .ipynb_checkpoints/
+out/
+wlgc_summary_data.txt
