@@ -91,8 +91,9 @@ def main():
         raise NotImplementedError
 
     # Adds additional arguments
-    setattr(parsed_args, "outdir", config['output_dir'])
-    setattr(parsed_args, "basedir", config['work_dir'])
+    setattr(parsed_args, "outdir", os.path.abspath(config['output_dir']))
+    setattr(parsed_args, "basedir", os.path.abspath(config['work_dir']))
+    setattr(parsed_args, "cachedir", os.path.abspath(config['cache_dir']))
 
     rc = RuntimeContext(vars(parsed_args))
     rc.shifter = False
@@ -100,11 +101,11 @@ def main():
     rc.basedir = './'
     rc.tmpdir_prefix = rc.basedir+'/tmp/tmp'
     rc.tmp_outdir_prefix = rc.basedir+'/out/out' # type: Text
-    # if parsed_args.shifter:
-    #     rc.shifter = True
-    #     rc.docker_outdir='/spooldir'
-    #     rc.docker_stagedir=rc.basedir+'/stage'
-    #     rc.docker_tmpdir='/tmpdir'
+    if parsed_args.shifter:
+        rc.shifter = True
+        rc.docker_outdir='/spooldir'
+        rc.docker_stagedir=rc.basedir+'/stage'
+        rc.docker_tmpdir='/tmpdir'
 
     lc = LoadingContext(vars(parsed_args))
     lc.construct_tool_object = customMakeTool

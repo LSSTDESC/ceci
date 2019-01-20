@@ -40,11 +40,11 @@ inputs:
 # Overall configuration file
 config: ./test/config.yml
 
-# If all the outputs for a stage already exist then do not re-run that stage
-resume: False
-
 # Put all the output files in this directory:
 output_dir: ./test/outputs
 
 # Working directory for configurations and outputs
 work_dir: ./test/workdir
+
+# Cache directory
+cache_dir: ./test/cache

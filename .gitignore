@@ -13,3 +13,4 @@ test/cwl/*.cwl
 out/
 wlgc_summary_data.txt
 test/workdir
+test/cache

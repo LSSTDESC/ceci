@@ -203,6 +203,10 @@ def arg_parser():  # type: () -> argparse.ArgumentParser
                              "Requires Singularity v2.3.2+ and Linux with kernel "
                              "version v3.18+ or with overlayfs support "
                              "backported.")
+    dockergroup.add_argument("--shifter", action="store_true",
+                             default=False, help="[experimental] Use "
+                             "Shifter runtime for running containers. "
+                             "Only tested on Cori at Nersc")
     dockergroup.add_argument("--no-container", action="store_false",
                              default=True, help="Do not execute jobs in a "
                              "Docker container, even when `DockerRequirement` "
