@@ -21,8 +21,7 @@ setup(
     ],
     packages=['ceci', 'ceci.sites', 'ceci_example'],
     entry_points={
-        'console_scripts':['ceci=ceci.main:main',
-                           'ceci2cwl=ceci.main:export_cwl_workflow']
+        'console_scripts':['ceci=ceci.main:main']
     },
     install_requires=['cwlgen', 'pyyaml','parsl==0.7.1','descformats', 'cwltool==1.0.20181012180214']
 )

@@ -13,25 +13,6 @@ from .configs import threads_config
 from .command_line_tool import customMakeTool
 from .argparser import arg_parser
 
-def export_cwl_tools():
-    """Exports pipeline tools"""
-    parser = argparse.ArgumentParser(description='Export pipeline elements in CWL format')
-    parser.add_argument('output_path', type=str, help='Path to export the CWL tools.')
-    parser.add_argument('modules', type=str, nargs='+', help='Names of modules to export.')
-    args = parser.parse_args()
-    path = args.output_path
-    modules = args.modules
-
-    # Imports the modules to export
-    for module in modules:
-        __import__(module)
-
-    # Export each pipeline stage as a CWL app
-    for k in PipelineStage.pipeline_stages:
-        tool = PipelineStage.pipeline_stages[k][0].generate_cwl()
-        tool.export(f'{path}/{k}.cwl')
-
-
 def ceci2cwl(pipeline_config, output_path):
     """ Exports entire workflow and associated configuration file"""
 
