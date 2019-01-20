@@ -278,8 +278,10 @@ Missing these names on the command line:
 
             # Handles special case of lists:
             if type(def_val) is list:
+                #TODO: Fix special case of lists
+                continue
                 v = def_val[0]
-                param_type = {'type':'array', 'items': type_dict[v] if type(v) == type else type_dict[type(v)] }
+                param_type = {'type':'array?', 'items': type_dict[v] if type(v) == type else type_dict[type(v)] }
                 default = def_val if type(v) != type else None
                 input_binding = cwlgen.CommandLineBinding(prefix='--{}='.format(opt), item_separator=',', separate=False)
             else:
@@ -289,18 +291,18 @@ Missing these names on the command line:
                     input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(opt))
                 else:
                     input_binding = cwlgen.CommandLineBinding(prefix='--{}='.format(opt), separate=False)
+                param_type = param_type+'?'
 
             input_param = cwlgen.CommandInputParameter(opt,
                                                        label=opt,
-                                                       param_type=param_type,
+                                                       param_type=param_type, # Making the configuration params optional
                                                        input_binding=input_binding,
                                                        default=default,
                                                        doc='Some documentation about this parameter')
 
-            # We are bypassing the cwlgen builtin type check for the special case
-            # of arrays until that gets added to the standard
-            if type(def_val) is list:
-                input_param.type = param_type
+            # We are bypassing the cwlgen builtin type check because it does not
+            # recognize optional parameters
+            input_param.type = param_type
 
             cwl_tool.inputs.append(input_param)
 

@@ -7,14 +7,12 @@ import sys
 class StageExecutionConfig:
     def __init__(self, info):
         self.name = info['name']
-        self.site = info['site']
         self.nprocess = info.get('nprocess', 1)
 
 class Pipeline:
-    def __init__(self, launcher_config, stages):
+    def __init__(self, stages):
         self.stage_execution_config = {}
         self.stage_names = []
-        self.mpi_command = launcher_config['mpi_command']
         for info in stages:
             self.add_stage(info)
 
@@ -103,14 +101,16 @@ class Pipeline:
                     # If we haven't seen that parameter before, first check if
                     # it's an option, in which case gave it a special name so
                     # that it's not confused with another pipeline stage
-                    if inp.id in stage.config_options:
-                        src = f'{inp.id}@{cwl_tool.id}'
-                        workflow_inputs[src] = inp
-                    else:
-                        # Otherwise, treat it as a shared pipeline input
+                    if inp.id not in stage.config_options:
+                        # Treat it as a shared pipeline input
                         src = inp.id
                         if src not in workflow_inputs:
                             workflow_inputs[src] = inp
+                    else:
+                        # Otherwise, treat it as a config option and ignore it
+                        continue
+                    #     src = f'{cwl_tool.id}_{inp.id}'
+                    #     workflow_inputs[src] = inp
 
                 cwl_inputs.append(cwlgen.workflow.WorkflowStepInput(id=inp.id, src=src))
 

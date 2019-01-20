@@ -1,16 +1,17 @@
 import os
 import yaml
+import json
 import sys
 import argparse
 import cwltool.main
 from cwltool.loghandler import _logger
 from cwltool.context import LoadingContext, RuntimeContext
-from cwltool.argparser import arg_parser
 from . import Pipeline, PipelineStage
 from . import sites
 import parsl
 from .configs import threads_config
 from .command_line_tool import customMakeTool
+from .argparser import arg_parser
 
 def export_cwl_tools():
     """Exports pipeline tools"""
@@ -30,19 +31,16 @@ def export_cwl_tools():
         tool = PipelineStage.pipeline_stages[k][0].generate_cwl()
         tool.export(f'{path}/{k}.cwl')
 
-def export_cwl_workflow():
-    """ Exports entire workflow """
-    parser = argparse.ArgumentParser(description='Export ceci workflow to path')
-    parser.add_argument('pipeline_config', type=str, help='Ceci config file.')
-    parser.add_argument('output_path', type=str, help='Path to export the workflow.')
-    args = parser.parse_args()
-    path = args.output_path
 
+def ceci2cwl(pipeline_config, output_path):
+    """ Exports entire workflow and associated configuration file"""
+
+    path = output_path + '/cwl'
     if not os.path.exists(path):
         os.makedirs(path)
 
     # YAML input file.
-    config = yaml.load(open(args.pipeline_config))
+    config = yaml.load(open(pipeline_config))
 
     # Python modules in which to search for pipeline stages
     modules = config['modules'].split()
@@ -55,46 +53,46 @@ def export_cwl_workflow():
         tool.export(f'{path}/{k}.cwl')
 
     stages = config['stages']
-
-    # Exports the pipeline itself
-    launcher = config.get("launcher", "local")
-    if launcher == "local":
-        launcher_config = sites.local.make_launcher(stages)
-    elif launcher == "cori":
-        launcher_config = sites.cori.make_launcher(stages)
-    else:
-        raise ValueError(f"Unknown launcher {launcher}")
-
     inputs = config['inputs']
 
-    pipeline = Pipeline(launcher_config, stages)
+    pipeline = Pipeline(stages)
     cwl_wf = pipeline.generate_cwl(inputs)
-    cwl_wf.export(f'{path}/pipeline.cwl')
+    cwl_wf.export(f'{path}/workflow.cwl')
+
+    # Now export configuration file
+    job_config = {}
+    inputs['config'] = config['config']
+    for inp in cwl_wf.inputs:
+        job_config[inp.id] = {"class": "File",
+                         "format": inp.format,
+                         "path": os.path.abspath(inputs[inp.id])}
+    with open(f'{path}/job.json', 'w') as outfile:
+        json.dump(job_config, outfile, indent=4, sort_keys=True)
+    return f'{path}/workflow.cwl', f'{path}/job.json'
 
 def main():
     """ Main ceci executable, runs the pipeline """
-    #TODO: Extract the site configuration from commandline or Workflow itself
+    # Use default cwltool parser to read any additional flags
     parser = arg_parser()
     parsed_args = parser.parse_args(sys.argv[1:])
 
-    # Load the requested parsl configuration
-    parsl.load(threads_config)
+    # Read configuration and export CWL definition and config file
+    config = yaml.load(open(parsed_args.ceci_configuration))
 
-    # Trigger the argparse message if the cwl file is missing
-    # Otherwise cwltool will use the default argparser
-    # if not parsed_args.workflow:
-    #     if os.path.isfile("CWLFile"):
-    #         setattr(parsed_args, "workflow", "CWLFile")
-    #     else:
-    #         _logger.error("")
-    #         _logger.error("CWL document required, no input file was provided")
-    #         parser.print_help()
-    #         sys.exit(1)
-    # elif not parsed_args.basedir:
-    #     _logger.error("")
-    #     _logger.error("Basedir is required for storing itermediate results")
-    #     parser.print_help()
-    #     sys.exit(1)
+    # Export cwl files and job config to output directory
+    worklow, job = ceci2cwl(parsed_args.ceci_configuration, config['work_dir'])
+    setattr(parsed_args, "workflow", worklow)
+    setattr(parsed_args, "job_order", [job])
+
+    # Load the requested parsl configuration
+    if config['parsl_config'] == 'threads':
+        parsl.load(threads_config)
+    else:
+        raise NotImplementedError
+
+    # Adds additional arguments
+    setattr(parsed_args, "outdir", config['output_dir'])
+    setattr(parsed_args, "basedir", config['work_dir'])
 
     rc = RuntimeContext(vars(parsed_args))
     rc.shifter = False

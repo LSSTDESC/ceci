@@ -6,8 +6,7 @@ modules: ceci_example
 
 # The launcher to use
 # These are defined in ceci/sites
-launcher: local
-
+parsl_config: threads
 
 # The list of stages to run and the number of processors
 # to use for each.
@@ -38,7 +37,7 @@ inputs:
     DM: ./test/inputs/dm.txt
     fiducial_cosmology: ./test/inputs/fiducial_cosmology.txt
 
-# Overall configuration file 
+# Overall configuration file
 config: ./test/config.yml
 
 # If all the outputs for a stage already exist then do not re-run that stage
@@ -47,9 +46,5 @@ resume: False
 # Put all the output files in this directory:
 output_dir: ./test/outputs
 
-# Put the logs from the individual stages in this directory:
-log_dir: ./test/logs
-
-# Put the log for the overall pipeline infrastructure in this file:
-pipeline_log: log.txt
-
+# Working directory for configurations and outputs
+work_dir: ./test/workdir

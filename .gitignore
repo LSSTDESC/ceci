@@ -12,3 +12,4 @@ test/cwl/*.cwl
 .ipynb_checkpoints/
 out/
 wlgc_summary_data.txt
+test/workdir
