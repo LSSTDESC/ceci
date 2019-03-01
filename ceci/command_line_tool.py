@@ -73,6 +73,7 @@ class customCommandLineTool(cwltool.command_line_tool.CommandLineTool):
             return DockerCommandLineJob
         for t in reversed(self.requirements):
             if t["class"] == "DockerRequirement":
+                pass
                 # raise UnsupportedRequirement(
                 #     "--no-container, but this CommandLineTool has "
                 #     "DockerRequirement under 'requirements'.")
