@@ -23,5 +23,5 @@ setup(
     entry_points={
         'console_scripts':['ceci=ceci.main:main']
     },
-    install_requires=['cwlgen','pyyaml','parsl<0.6.0','descformats']
+    install_requires=['cwlgen','pyyaml','parsl','descformats']
 )

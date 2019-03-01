@@ -633,7 +633,7 @@ I currently know about these stages:
                 raise
 
     @classmethod
-    def _generate(cls, template, dfk):
+    def _generate(cls, template, executor):
         # dfk needs to be an argument here because it is
         # referenced in the template that is exec'd.
         d = locals().copy()
@@ -679,7 +679,7 @@ I currently know about these stages:
         return cmd
 
     @classmethod
-    def generate(cls, dfk, nprocess, site_name, log_dir, mpi_command='mpirun -n'):
+    def generate(cls, nprocess, executor, log_dir, mpi_command='mpirun -n'):
         """
         Build a parsl bash app that executes this pipeline stage
         """
@@ -713,7 +713,7 @@ I currently know about these stages:
             mpi_flag = ""
 
         template = f"""
-@parsl.App('bash', dfk, sites=['{site_name}'])
+@parsl.app.app.bash_app(executors=[executor])
 def {cls.name}(inputs, outputs, stdout='{log_dir}/{cls.name}.out', stderr='{log_dir}/{cls.name}.err'):
     cmd = '{launcher} python3 -m {module} {flags} {mpi_flag}'.format(inputs=inputs,outputs=outputs)
     print("Compiling command:")
@@ -721,4 +721,4 @@ def {cls.name}(inputs, outputs, stdout='{log_dir}/{cls.name}.out', stderr='{log_
     return cmd
 """
 
-        return cls._generate(template, dfk)
+        return cls._generate(template, executor)

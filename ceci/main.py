@@ -39,13 +39,15 @@ def run(pipeline_config_filename, dry_run=False):
     modules = pipe_config['modules'].split()
 
     # parsl execution/launcher configuration information
-    launcher = pipe_config.get("launcher", "local")
-    if launcher == "local":
-        launcher_config = sites.local.make_launcher(stages)
-    elif launcher == "cori":
-        launcher_config = sites.cori.make_launcher(stages)
-    elif launcher == "cori-interactive":
-        launcher_config = sites.cori_interactive.make_launcher(stages)
+    site = pipe_config.get("site", "local")
+    if site == "local":
+        sites.local.activate()
+        mpi_command = 'mpirun -n'
+        # launcher_config = sites.local.make_launcher(stages)
+    # elif launcher == "cori":
+    #     launcher_config = sites.cori.make_launcher(stages)
+    # elif launcher == "cori-interactive":
+    #     launcher_config = sites.cori_interactive.make_launcher(stages)
     else:
         raise ValueError(f"Unknown launcher {launcher}")
     # 
@@ -63,7 +65,7 @@ def run(pipeline_config_filename, dry_run=False):
         __import__(module)
 
     # Create and run pipeline
-    pipeline = Pipeline(launcher_config, stages)
+    pipeline = Pipeline(stages, mpi_command)
 
     if dry_run:
         pipeline.dry_run(inputs, output_dir, stages_config)
@@ -93,15 +95,18 @@ def export_cwl(args):
     # Exports the pipeline itself
     launcher = config.get("launcher", "local")
     if launcher == "local":
-        launcher_config = sites.local.make_launcher(stages)
-    elif launcher == "cori":
-        launcher_config = sites.cori.make_launcher(stages)
+        mpi_command = 'mpirun -n'
+        sites.local.activate()
+        # launcher_config = sites.local.make_launcher(stages)
+    # elif launcher == "cori":
+
+    #     launcher_config = sites.cori.make_launcher(stages)
     else:
         raise ValueError(f"Unknown launcher {launcher}")
 
     inputs = config['inputs']
 
-    pipeline = Pipeline(launcher_config, stages)
+    pipeline = Pipeline(stages, mpi_command)
     cwl_wf = pipeline.generate_cwl(inputs)
     cwl_wf.export(f'{path}/pipeline.cwl')
 
