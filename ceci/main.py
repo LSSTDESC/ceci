@@ -41,10 +41,9 @@ def run(pipeline_config_filename, dry_run=False):
     # parsl execution/launcher configuration information
     site = pipe_config.get("site", "local")
     if site == "local":
-        sites.local.activate()
-        mpi_command = 'mpirun -n'
-        # launcher_config = sites.local.make_launcher(stages)
-    # elif launcher == "cori":
+        executor_labels, mpi_command = sites.local.activate()
+    elif launcher == "cori-interactive":
+        executor_labels, mpi_command = sites.cori_interactive.activate()
     #     launcher_config = sites.cori.make_launcher(stages)
     # elif launcher == "cori-interactive":
     #     launcher_config = sites.cori_interactive.make_launcher(stages)
