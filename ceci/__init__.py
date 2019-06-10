@@ -1,2 +1,2 @@
-from .stage import PipelineStage
+from .stage import PipelineStage, optional
 from .pipeline import Pipeline
