@@ -6,19 +6,6 @@ from textwrap import dedent
 SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'
 
-def optional(cls):
-    """
-    Create a subclass of the given class which is identical except
-    for the additional class variable _ceci_optional, which has the
-    value True.
-
-    This can be used to make an input to a pipeline stage optional.
-    """
-    name = f"Optional{cls.__name__}"
-    subClass = type(name, (cls,), {'_ceci_optional':True})
-    return subClass
-
-
 class PipelineStage:
     """A PipelineStage implements a single calculation step within a wider pipeline.
 
@@ -40,13 +27,10 @@ class PipelineStage:
 
         # We first check for missing input files, that's a show stopper
         missing_inputs = []
-        for x,t  in self.inputs:
+        for x in self.input_tags():
             val = args[x]
             if val is None:
-                if getattr(t, '_ceci_optional', False):
-                    print(f"NOTE: Optional input {x} is not specified.")
-                else:
-                    missing_inputs.append(f'--{x}')
+                missing_inputs.append(f'--{x}')
         if missing_inputs:
             missing_inputs = '  '.join(missing_inputs)
             raise ValueError(f"""
