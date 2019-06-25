@@ -23,5 +23,8 @@ setup(
     entry_points={
         'console_scripts':['ceci=ceci.main:main']
     },
-    install_requires=['cwlgen','pyyaml','parsl','descformats']
+    # flask is actually a parsl dependency, but a setuptools bug
+    # means that capitalizing "Flask" as written in the parsl
+    # setup doesn't work.
+    install_requires=['flask', 'cwlgen','pyyaml','parsl','descformats']
 )
