@@ -8,14 +8,14 @@ def activate_site(site, site_config):
     # Known sites an the functions that generate their
     # configurations
     activators = {
-        'local': local.acivate,
-        'cori-interactive': cori_interactive.acivate,
-        'cori': cori.acivate,
+        'local': local.activate,
+        'cori-interactive': cori_interactive.activate,
+        'cori': cori.activate,
     }
 
     # Find the right one for this site or complain if unknown
     try:
-        activator = activators
+        activator = activators[site]
     except KeyError:
         raise ValueError(f"Unknown site {site}")
 

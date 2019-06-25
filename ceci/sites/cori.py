@@ -1,6 +1,6 @@
 import parsl
 from parsl.config import Config
-from parsl.executors import HighThroughputExecutor
+from parsl.executors import IPyParallelExecutor
 from parsl.providers import SlurmProvider
 
 def activate(site_config):
