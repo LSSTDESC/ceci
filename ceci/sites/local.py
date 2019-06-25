@@ -3,7 +3,7 @@ from parsl.config import Config
 from parsl.executors import ThreadPoolExecutor
 
 def activate(site_config):
-    max_threads = site_config.get(max_threads, 4)
+    max_threads = site_config.get('max_threads', 4)
     executor = ThreadPoolExecutor(label='local', max_threads=max_threads)
     executors = [executor]
     config = Config(executors=executors)
