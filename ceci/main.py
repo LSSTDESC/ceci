@@ -92,6 +92,11 @@ def export_cwl(args):
     stages = config['stages']
     inputs = config['inputs']
 
+    for stage in stages:
+        stage['site'] = 'local'
+
+    mpi_command = 'mpirun -n'
+
     pipeline = Pipeline(stages, mpi_command)
     cwl_wf = pipeline.generate_cwl(inputs)
     cwl_wf.export(f'{path}/pipeline.cwl')
