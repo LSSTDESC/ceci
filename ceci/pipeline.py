@@ -9,7 +9,7 @@ class StageExecutionConfig:
         self.name = info['name']
         self.nprocess = info.get('nprocess', 1)
         #TODO assign sites better
-        self.executor = info.get('site', 'default')
+        self.executor = info['site']
 
 class Pipeline:
     def __init__(self, stages, mpi_command):

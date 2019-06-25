@@ -31,26 +31,36 @@ def run(pipeline_config_filename, dry_run=False):
     if log_file:
         parsl.set_file_logger(log_file)
 
-    # Required configuration information
-    # List of stage names, must be imported somewhere
-    stages = pipe_config['stages']
 
     # Python modules in which to search for pipeline stages
     modules = pipe_config['modules'].split()
 
     # parsl execution/launcher configuration information
     site = pipe_config.get("site", "local")
+
+    # Required configuration information
+    # List of stage names, must be imported somewhere
+    stages = pipe_config['stages']
+
+
+    # For now we require that only one site is used.
+    # TODO: add support for multiple sites via parsl
     if site == "local":
+        # Threads on a local machine, for testing
         executor_labels, mpi_command = sites.local.activate()
-    elif launcher == "cori-interactive":
+    elif site == "cori-interactive":
+        # Still threads, but in a cori interactive job
         executor_labels, mpi_command = sites.cori_interactive.activate()
-    #     launcher_config = sites.cori.make_launcher(stages)
-    # elif launcher == "cori-interactive":
-    #     launcher_config = sites.cori_interactive.make_launcher(stages)
+    elif site == "cori":
+        # On cori, submits pilot jobs which receive tasks
+        site_config = pipe_config.get('site', {})
+        cpu_type = site_config.get('cpu_type', 'haswell')
+        queue = site_config.get('queue', 'debug')
+        max_slurm_jobs = site_config.get('max_jobs', 2)
+        setup_script = site_config.get('setup', '/global/projecta/projectdirs/lsst/groups/WL/users/zuntz/setup-cori')
+        executor_labels, mpi_command = sites.cori.activate(queue, max_slurm_jobs, setup_script, cpu_type)
     else:
         raise ValueError(f"Unknown launcher {launcher}")
-    # 
-    # launcher_config = pipe_config['launcher']
 
     # Inputs and outputs
     output_dir = pipe_config['output_dir']
@@ -90,19 +100,6 @@ def export_cwl(args):
         tool.export(f'{path}/{k}.cwl')
 
     stages = config['stages']
-
-    # Exports the pipeline itself
-    launcher = config.get("launcher", "local")
-    if launcher == "local":
-        mpi_command = 'mpirun -n'
-        sites.local.activate()
-        # launcher_config = sites.local.make_launcher(stages)
-    # elif launcher == "cori":
-
-    #     launcher_config = sites.cori.make_launcher(stages)
-    else:
-        raise ValueError(f"Unknown launcher {launcher}")
-
     inputs = config['inputs']
 
     pipeline = Pipeline(stages, mpi_command)

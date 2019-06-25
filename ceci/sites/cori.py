@@ -19,7 +19,7 @@ def activate(queue, max_slurm_jobs, setup_script, cpu_type):
     #max_workers = total_mpi_applications
 
     executor = HighThroughputExecutor(
-             label="default",
+             label="cori",
              worker_debug=False,
              provider=provider,
     )

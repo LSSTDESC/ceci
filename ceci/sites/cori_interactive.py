@@ -3,7 +3,7 @@ from parsl.config import Config
 from parsl.executors import ThreadPoolExecutor
 
 def activate():
-    executor = ThreadPoolExecutor(label='default', max_threads=1)
+    executor = ThreadPoolExecutor(label='cori-interactive', max_threads=1)
     executors = [executor]
     config = Config(executors=exectutors)
     parsl.load(config)
