@@ -10,6 +10,7 @@ def activate(site_config):
     queue = site_config.get('queue', 'debug')
     max_slurm_jobs = site_config.get('max_jobs', 2)
     account = site_config.get('account', 'm1727')
+    walltime = site_config.get('walltime', '00:30:00')
     setup_script = site_config.get('setup', '/global/projecta/projectdirs/lsst/groups/WL/users/zuntz/setup-cori')
 
 
@@ -17,7 +18,9 @@ def activate(site_config):
          partition=queue,  # Replace with partition name
          min_blocks=0, # one slurm job to start with
          max_blocks=max_slurm_jobs, # one slurm job to start with
-         scheduler_options=f"#SBATCH --constraint={cpu_type}\n#SBATCH --account={account}",
+         scheduler_options=f"#SBATCH --constraint={cpu_type}\n" \
+            f"#SBATCH --account={account}\n" \
+            f"#SBATCH --walltime={walltime}\n",
          nodes_per_block=1,
          init_blocks=1,
          worker_init=f'source {setup_script}',
