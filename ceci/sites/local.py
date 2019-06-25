@@ -1,25 +1,16 @@
-import copy
+import parsl
+from parsl.config import Config
+from parsl.executors import ThreadPoolExecutor
 
-base_launcher = {
-    'mpi_command' : 'mpirun -n',
-    'globals': {'lazyErrors': True},
-    'sites': [
-        {
-        'auth': {'channel': None},
-        'execution': 
-            {
-            'executor': 'threads',
-            'maxThreads': 4,
-            'provider': None
-            },
-        'site': 'Local_Threads'
-        }
-    ]
-}
+def activate(site_config):
+    max_threads = site_config.get('max_threads', 4)
+    executor = ThreadPoolExecutor(label='local', max_threads=max_threads)
+    executors = [executor]
+    config = Config(executors=executors)
+    parsl.load(config)
 
+    labels = [exe.label for exe in executors]
+    mpi_command = 'mpirun -n'
 
-def make_launcher(stages):
-    launcher = copy.deepcopy(base_launcher)
-    for stage in stages:
-        stage['site'] = 'Local_Threads'
-    return launcher
+    return labels, mpi_command
+

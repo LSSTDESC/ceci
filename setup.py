@@ -8,7 +8,7 @@ from setuptools import setup
 
 setup(
     name='ceci',
-    version='0.0.9',
+    version='0.0.10',
     description='Lightweight pipeline engine for LSST DESC',
     url='https://github.com/LSSTDESC/ceci',
     maintainer='Joe Zuntz',
@@ -23,5 +23,8 @@ setup(
     entry_points={
         'console_scripts':['ceci=ceci.main:main']
     },
-    install_requires=['cwlgen','pyyaml','parsl<0.6.0','descformats']
+    # flask is actually a parsl dependency, but a setuptools bug
+    # means that capitalizing "Flask" as written in the parsl
+    # setup doesn't work.
+    install_requires=['flask', 'cwlgen','pyyaml','parsl==0.8.0','descformats']
 )
