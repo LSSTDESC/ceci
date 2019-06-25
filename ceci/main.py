@@ -48,24 +48,9 @@ def run(pipeline_config_filename, dry_run=False):
         stage['site'] = site
         
 
-    # For now we require that only one site is used.
-    # TODO: add support for multiple sites via parsl
-    if site == "local":
-        # Threads on a local machine, for testing
-        executor_labels, mpi_command = sites.local.activate()
-    elif site == "cori-interactive":
-        # Still threads, but in a cori interactive job
-        executor_labels, mpi_command = sites.cori_interactive.activate()
-    elif site == "cori":
-        # On cori, submits pilot jobs which receive tasks
-        site_config = pipe_config.get('site', {})
-        cpu_type = site_config.get('cpu_type', 'haswell')
-        queue = site_config.get('queue', 'debug')
-        max_slurm_jobs = site_config.get('max_jobs', 2)
-        setup_script = site_config.get('setup', '/global/projecta/projectdirs/lsst/groups/WL/users/zuntz/setup-cori')
-        executor_labels, mpi_command = sites.cori.activate(queue, max_slurm_jobs, setup_script, cpu_type)
-    else:
-        raise ValueError(f"Unknown site {site}")
+    site_config = pipe_config.get('site', {})
+
+    executor_labels, mpi_command = sites.activate_site(site, site_config)
 
     # Inputs and outputs
     output_dir = pipe_config['output_dir']
