@@ -36,12 +36,17 @@ def run(pipeline_config_filename, dry_run=False):
     modules = pipe_config['modules'].split()
 
     # parsl execution/launcher configuration information
-    site = pipe_config.get("site", "local")
+    site = pipe_config.get("launcher", "local")
 
     # Required configuration information
     # List of stage names, must be imported somewhere
     stages = pipe_config['stages']
 
+    # Each stage know which site it runs on.  This is to support
+    # future work where this varies between stages.
+    for stage in stages:
+        stage['site'] = site
+        
 
     # For now we require that only one site is used.
     # TODO: add support for multiple sites via parsl
@@ -60,7 +65,7 @@ def run(pipeline_config_filename, dry_run=False):
         setup_script = site_config.get('setup', '/global/projecta/projectdirs/lsst/groups/WL/users/zuntz/setup-cori')
         executor_labels, mpi_command = sites.cori.activate(queue, max_slurm_jobs, setup_script, cpu_type)
     else:
-        raise ValueError(f"Unknown launcher {launcher}")
+        raise ValueError(f"Unknown site {site}")
 
     # Inputs and outputs
     output_dir = pipe_config['output_dir']

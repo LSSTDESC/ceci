@@ -5,7 +5,7 @@ from parsl.executors import ThreadPoolExecutor
 def activate():
     executor = ThreadPoolExecutor(label='cori-interactive', max_threads=1)
     executors = [executor]
-    config = Config(executors=exectutors)
+    config = Config(executors=executors)
     parsl.load(config)
 
     labels = [exe.label for exe in executors]
