@@ -171,10 +171,11 @@ Standard error:
                     sys.stderr.write(open(stderr_file).read())
                 else:
                     sys.stderr.write("STDERR MISSING!\n\n")
-                
+                print("Pipeline failed.  No joy sparked.")
                 return None
 
         # Return a dictionary of the resulting file outputs
+        print("Pipeline suceeded.  Joy is sparked.  ")
         return data_elements
 
     def generate_cwl(self, overall_inputs):
