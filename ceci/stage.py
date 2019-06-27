@@ -2,9 +2,12 @@ import parsl
 import pathlib
 import sys
 from textwrap import dedent
+import shutil
 
 SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'
+
+IN_PROGRESS_PREFIX = 'inprogress_'
 
 class PipelineStage:
     """A PipelineStage implements a single calculation step within a wider pipeline.
@@ -106,9 +109,20 @@ Missing these names on the command line:
         """Return the path of an input file with the given tag"""
         return self._inputs[tag]
 
-    def get_output(self, tag):
-        """Return the path of an output file with the given tag"""
-        return self._outputs[tag]
+    def get_output(self, tag, final_name=False):
+        """Return the path of an output file with the given tag
+
+        If final_name is False then use a temporary name - file will
+        be moved to its final name at the end
+        """
+        path = self._outputs[tag]
+
+        # If not the final version, add a tag at the start of the filename
+        if not final_name:
+            p = pathlib.Path(path)
+            p = p.parent / (IN_PROGRESS_PREFIX + p.name)
+            path = str(p)
+        return path
 
     def open_input(self, tag, wrapper=False, **kwargs):
         """
@@ -130,7 +144,7 @@ Missing these names on the command line:
         else:
             return obj.file
 
-    def open_output(self, tag, wrapper=False, **kwargs):
+    def open_output(self, tag, wrapper=False, final_name=False, **kwargs):
         """
         Find and open an output file with the given tag, in write mode.
 
@@ -141,7 +155,7 @@ Missing these names on the command line:
         a more specific object - see the types.py file for more info.
 
         """
-        path = self.get_output(tag)
+        path = self.get_output(tag, final_name=final_name)
         output_class = self.get_output_type(tag)
 
         # HDF files can be opened for parallel writing
@@ -176,6 +190,28 @@ Missing these names on the command line:
             return obj
         else:
             return obj.file
+
+    def finalize(self):
+        # Synchronize files so that everything is closed
+        if self.is_mpi():
+            self.comm.Barrier()
+
+
+        # only the master process moves things
+        if self.rank == 0:
+            for tag in self.output_tags():
+                # find the old and new names
+                temp_name = self.get_output(tag)
+                final_name = self.get_output(tag, final_name=True)
+
+                # it's not an error here if the path does not exist,
+                # because that will be handled later.
+                if pathlib.Path(temp_name).exists():
+                    shutil.move(temp_name, final_name)
+                else:
+                    sys.stderr.write(f"NOTE/WARNING: Expected output file {final_name} was not generated.\n")
+
+
 
     @property
     def config(self):
@@ -627,6 +663,15 @@ I currently know about these stages:
         except Exception as error:
             if args.pdb:
                 print("There was an exception - starting python debugger because you ran with --pdb")
+                print(error)
+                pdb.post_mortem()
+            else:
+                raise
+        try:
+            stage.finalize()
+        except Exception as error:
+            if args.pdb:
+                print("There was an exception in the finalization - starting python debugger because you ran with --pdb")
                 print(error)
                 pdb.post_mortem()
             else:

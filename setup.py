@@ -8,7 +8,7 @@ from setuptools import setup
 
 setup(
     name='ceci',
-    version='0.0.11',
+    version='0.0.13',
     description='Lightweight pipeline engine for LSST DESC',
     url='https://github.com/LSSTDESC/ceci',
     maintainer='Joe Zuntz',
