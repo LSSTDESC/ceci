@@ -29,7 +29,7 @@ class Pipeline:
         del self.stage_execution_config[name]
 
     def find_outputs(self, stage, outdir):
-        return [f'{outdir}/{tag}.{ftype.suffix}' for tag,ftype in stage.outputs]
+        return [f'{outdir}/{ftype.make_name(tag)}' for tag,ftype in stage.outputs]
 
     def find_inputs(self, stage, data_elements):
         inputs = []

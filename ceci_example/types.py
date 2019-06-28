@@ -28,6 +28,13 @@ class DataFile:
         """
         return open(path, mode)
 
+    @classmethod
+    def make_name(cls, tag):
+        if cls.suffix:
+            return f'{tag}.{cls.suffix}'
+        else:
+            return tag
+
 class HDFFile(DataFile):
     """
     A data file in the HDF5 format.

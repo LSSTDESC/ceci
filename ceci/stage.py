@@ -49,7 +49,13 @@ Missing these names on the command line:
         # We prefer to receive explicit filenames for the outputs but will
         # tolerate missing output filenames and will default to tag name in
         # current folder (this is for CWL compliance)
-        self._outputs = {x:args[x] if args[x] is not None else f'{x}.{self.outputs[i][1].suffix}' for i,x in enumerate(self.output_tags())}
+        self._outputs = {}
+        for i, x in enumerate(self.output_tags()):
+            if args[x] is None:
+                ftype = self.outputs[i][1]
+                self._outputs[x] = ftype.make_name(x)
+            else:
+                self._outputs[x] = args[x]
 
         # Finally, we extract configuration information from a combination of
         # command line arguments and optional 'config' file
@@ -394,7 +400,7 @@ Missing these names on the command line:
 
         # Add the definition of the outputs
         for i,out in enumerate(cls.output_tags()):
-            output_name = f'{out}.{cls.outputs[i][1].suffix}'
+            output_name = cls.outputs[i][1].make_name(out)
             output_binding = cwlgen.CommandOutputBinding(glob=output_name)
             output = cwlgen.CommandOutputParameter(out,
                                             label=out,
@@ -703,7 +709,8 @@ I currently know about these stages:
             if tag in external_inputs:
                 fpath = external_inputs[tag]
             else:
-                fpath = f'{outdir}/{tag}.{ftype.suffix}'
+                fn = ftype.make_name(tag)
+                fpath = f'{outdir}/{fn}'
             flag = f'--{tag}={fpath}'
             flags.append(flag)
 
