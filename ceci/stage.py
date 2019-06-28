@@ -213,6 +213,9 @@ Missing these names on the command line:
                 # it's not an error here if the path does not exist,
                 # because that will be handled later.
                 if pathlib.Path(temp_name).exists():
+                    # replace directories, rather than nesting more results
+                    if pathlib.Path(final_name).is_dir():
+                        shutil.rmtree(final_name)
                     shutil.move(temp_name, final_name)
                 else:
                     sys.stderr.write(f"NOTE/WARNING: Expected output file {final_name} was not generated.\n")
