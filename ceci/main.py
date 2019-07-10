@@ -23,7 +23,7 @@ def run(pipeline_config_filename, dry_run=False):
     raw_config_text = open(pipeline_config_filename).read()
     config_text = os.path.expandvars(raw_config_text)
     # Then parse with YAML
-    pipe_config = yaml.load(config_text)
+    pipe_config = yaml.safe_load(config_text)
 
     # Optional logging of pipeline infrastructure to
     # file.
@@ -77,7 +77,7 @@ def export_cwl(args):
     """
     path = args.export_cwl
     # YAML input file.
-    config = yaml.load(open(args.pipeline_config))
+    config = yaml.safe_load(open(args.pipeline_config))
 
     # Python modules in which to search for pipeline stages
     modules = config['modules'].split()
