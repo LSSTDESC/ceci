@@ -3,9 +3,9 @@ from parsl.config import Config
 from parsl.executors import IPyParallelExecutor
 
 def activate(site_config):
-    max_threads = site_config.get('max_threads', 1)
+    max_blocks = site_config.get('max_blocks', 1)
 
-    executor = IPyParallelExecutor(label='cori-interactive', max_threads=max_threads)
+    executor = IPyParallelExecutor(label='cori-interactive', max_blocks=max_blocks)
     executors = [executor]
     config = Config(executors=executors)
     parsl.load(config)

@@ -52,6 +52,8 @@ def run(pipeline_config_filename, dry_run=False):
 
     executor_labels, mpi_command = sites.activate_site(site, site_config)
 
+    is_mini = 'mini' in site
+
     # Inputs and outputs
     output_dir = pipe_config['output_dir']
     inputs = pipe_config['inputs']
@@ -68,6 +70,8 @@ def run(pipeline_config_filename, dry_run=False):
 
     if dry_run:
         pipeline.dry_run(inputs, output_dir, stages_config)
+    elif is_mini:
+        pipeline.mini_run(inputs, output_dir, log_dir, resume, stages_config, interval=5)
     else:
         pipeline.run(inputs, output_dir, log_dir, resume, stages_config)
 

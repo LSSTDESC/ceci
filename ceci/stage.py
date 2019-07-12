@@ -696,7 +696,7 @@ I currently know about these stages:
         return function
 
     @classmethod
-    def generate_command(cls, external_inputs, config, outdir, nprocess=1, mpi_command='mpirun -n'):
+    def generate_command(cls, external_inputs, config, outdir, nprocess=1, mpi_command='mpirun -n', nthread=None):
         """
         Generate a command line that will run the stage
         """
@@ -727,6 +727,8 @@ I currently know about these stages:
         else:
             launcher = ""
             mpi_flag = ""
+        if nthread is not None:
+            launcher = f'OMP_NUM_THREADS={nthread} {launcher}'
 
         # We just return this, instead of wrapping it in a
         # parsl job

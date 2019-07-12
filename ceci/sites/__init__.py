@@ -2,6 +2,13 @@ from . import cori
 from . import local
 from . import cori_interactive
 
+def mini(config):
+    return [], 'mpirun -n '
+
+def cori_mini(config):
+    return [], 'srun -n '
+
+
 
 def activate_site(site, site_config):
 
@@ -11,6 +18,8 @@ def activate_site(site, site_config):
         'local': local.activate,
         'cori-interactive': cori_interactive.activate,
         'cori': cori.activate,
+        'local-mini': mini,
+        'cori-mini': cori_mini,
     }
 
     # Find the right one for this site or complain if unknown

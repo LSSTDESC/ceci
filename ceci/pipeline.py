@@ -1,13 +1,18 @@
 import parsl
 from parsl.data_provider.files import File
 from .stage import PipelineStage
+from . import minirunner
 import os
 import sys
+import time
+
 
 class StageExecutionConfig:
     def __init__(self, info):
         self.name = info['name']
         self.nprocess = info.get('nprocess', 1)
+        self.threads_per_process = info.get('threads_per_process', 1) #
+        self.mem_per_process = info.get('mem_per_process', 2)
         #TODO assign sites better
         self.executor = info['site']
 
@@ -94,6 +99,45 @@ class Pipeline:
             cmd = stage.generate_command(overall_inputs, stages_config, output_dir, sec.nprocess, self.mpi_command)
             print(cmd)
             print()
+
+    def build_mini_dag(self, stages, jobs):
+        depend = {}
+        for stage in stages[:]:
+            depend[jobs[stage.name]] = []
+            job = jobs[stage.name]
+            for tag in stage.input_tags():
+                for potential_parent in stages[:]:
+                    if tag in potential_parent.output_tags():
+                        depend[job].append(jobs[potential_parent.name])
+        return depend
+
+    def build_mini_jobs(self, stages, overall_inputs, stages_config, output_dir):
+        jobs = {}
+        for stage in stages:
+            sec = self.stage_execution_config[stage.name]
+            cmd = stage.generate_command(overall_inputs, 
+                stages_config, output_dir, sec.nprocess, self.mpi_command, sec.threads_per_process)
+            jobs[stage.name] = minirunner.Job(stage.name, cmd, 
+                cores=sec.threads_per_process*sec.nprocess, mem_per_core=sec.mem_per_process)
+        return jobs
+
+
+
+    def mini_run(self, overall_inputs, output_dir, log_dir, resume, stages_config, interval=10):
+        # run using minirunner instead of parsl
+
+        # We just run this to check that the pipeline is val
+        self.ordered_stages(overall_inputs)
+
+        stages = [PipelineStage.get_stage(stage_name) for stage_name in self.stage_names]
+        jobs = self.build_mini_jobs(stages, overall_inputs, stages_config, output_dir)
+        graph = self.build_mini_dag(stages, jobs)
+        nodes = minirunner.build_node_list()
+        runner = minirunner.Runner(nodes, graph)
+        status = minirunner.WAITING
+        while status == minirunner.WAITING:
+            status = runner.update()
+            time.sleep(interval)
 
 
 
