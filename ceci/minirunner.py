@@ -19,13 +19,12 @@ class FailedJob(RunnerError):
 class Node:
     def __init__(self, node_id, cores, mem):
         self.id = node_id
-        self.total_cores = cores
-        self.total_mem = mem
-        self.available_cores = cores
-        self.available_mem = mem
+        self.cores = cores
+        self.mem = mem
+        self.is_assigned = False
 
     def __str__(self):
-        return f"Node('{self.id}', {self.total_cores}, {self.total_mem})"
+        return f"Node('{self.id}', {self.cores}, {self.mem})"
 
     def __hash__(self):
         return hash(self.id)
@@ -36,13 +35,11 @@ class Node:
         cores = int(os.environ['SLURM_CPUS_ON_NODE'])/2 # reports logical cores by default
         nodes = os.environ['SLURM_NODELIST']
 
-    def assign(self, cores, mem):
-        self.available_mem -= mem
-        self.available_cores -= cores
+    def assign(self):
+        self.is_assigned = True
 
-    def free(self, cores, mem):
-        self.available_mem += mem
-        self.available_cores += cores
+    def free(self):
+        self.is_assigned = False
 
 
 class Job:
@@ -98,7 +95,7 @@ class Runner:
             else:
                 completed_jobs.append(job)
                 for node, cores in alloc.items():
-                    node.free(cores, cores*job.mem_per_core)
+                    node.free()
 
         self.running = continuing_jobs
 
@@ -114,7 +111,9 @@ class Runner:
         alloc = {}
 
         for node in self.nodes:
-            avail = min(node.available_cores, node.available_mem // job.mem_per_core)
+            if node.is_assigned:
+                continue
+            avail = min(node.cores, node.mem // job.mem_per_core)
             assign = min(avail, remaining)
             alloc[node] = assign
             remaining -= assign
@@ -132,10 +131,10 @@ class Runner:
         # dict alloc maps nodes to numbers of cores to be used
         w = ','.join([f'{node.id}*{cores}' for node,cores in alloc.items()])
         for node, cores in alloc.items():
-            node.assign(cores, cores*job.mem_per_core)
+            node.assign()
         cmd = job.cmd
-        if 'srun' in self.mpi_command:
-            cmd = cmd.replace(f'srun ', f'srun -w {w}')
+        # if 'srun' in self.mpi_command:
+        #     cmd = cmd.replace(f'srun ', f'srun -w {w}')
         print(f"Executing {cmd}")
         p = subprocess.Popen(cmd, shell=True)
         self.running.append((p, job, alloc))
