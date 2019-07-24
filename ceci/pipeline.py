@@ -133,11 +133,15 @@ class Pipeline:
         jobs = self.build_mini_jobs(stages, overall_inputs, stages_config, output_dir)
         graph = self.build_mini_dag(stages, jobs)
         nodes = minirunner.build_node_list()
-        runner = minirunner.Runner(nodes, graph)
+        runner = minirunner.Runner(nodes, graph, log_dir, mpi_command=self.mpi_command)
         status = minirunner.WAITING
         while status == minirunner.WAITING:
             status = runner.update()
-            time.sleep(interval)
+            try:
+                time.sleep(interval)
+            except KeyboardInterrupt:
+                runner.abort()
+                raise
 
 
 
