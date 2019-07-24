@@ -25,16 +25,14 @@ class Node:
         self.available_mem = mem
 
     def __str__(self):
-        return f"Node('{self.id}', {self.total_cores}, {self.total_mem})"
+        return f"Node('{self.id}', cores={self.total_cores}, mem={self.total_mem})"
 
     def __hash__(self):
         return hash(self.id)
-
-    @classmethod
-    def from_slurm_environment(cls):
-        mem = float(os.environ['SLURM_MEM_PER_NODE'])/1000. # MB - divide 1000
-        cores = int(os.environ['SLURM_CPUS_ON_NODE'])/2 # reports logical cores by default
-        nodes = os.environ['SLURM_NODELIST']
+    
+    def reset(self):
+        self.available_cores = self.total_cores
+        self.available_mem = self.total_mem
 
     def assign(self, cores, mem):
         self.available_mem -= mem
@@ -56,17 +54,24 @@ class Job:
         return f"<Job {self.name}>"
 
 class Runner:
-    def __init__(self, nodes, job_graph, mpi_command='mpirun -n'):
+    def __init__(self, nodes, job_graph, log_dir, mpi_command='mpirun -n'):
         self.nodes = nodes
         self.job_graph = job_graph
         self.completed_jobs = []
         self.running = []
         self.mpi_command = mpi_command
+        self.log_dir = log_dir
         self.queued_jobs = list(job_graph.keys())
 
     def ready_jobs(self):
         return [job for job in self.queued_jobs if 
             all(p in self.completed_jobs for p in self.job_graph[job])]
+
+    def abort(self):
+        for process, job, alloc in self.running:
+            process.kill()
+        for node in self.nodes:
+            node.reset()
 
     def update(self):
 
@@ -76,6 +81,8 @@ class Runner:
             return COMPLETE
 
         ready = self.ready_jobs()
+        if (not self.running) and (not ready):
+            raise NoJobReady("Some jobs cannot be run - not enough cores or mem")
         
         for job in ready:
             alloc = self.check_availability(job)
@@ -94,8 +101,11 @@ class Runner:
             if status is None:
                 continuing_jobs.append((process, job, alloc))
             elif status:
+                print(f"Job {job.name} has failed with status {status}")
+                self.abort()
                 raise FailedJob(job.cmd)
             else:
+                print(f"Job {job.name} has completed successfully!")
                 completed_jobs.append(job)
                 for node, cores in alloc.items():
                     node.free(cores, cores*job.mem_per_core)
@@ -131,13 +141,18 @@ class Runner:
         # launch the specified job on the specified nodes
         # dict alloc maps nodes to numbers of cores to be used
         w = ','.join([f'{node.id}*{cores}' for node,cores in alloc.items()])
+        print(f"\nExecuting {job.name} on these nodes: ")
         for node, cores in alloc.items():
             node.assign(cores, cores*job.mem_per_core)
+            print(f"    node {node.id}: {cores} cores")
         cmd = job.cmd
-        if 'srun' in self.mpi_command:
-            cmd = cmd.replace(f'srun ', f'srun -w {w}')
-        print(f"Executing {cmd}")
-        p = subprocess.Popen(cmd, shell=True)
+#        if 'srun' in self.mpi_command:
+#            cmd = cmd.replace(f'srun ', f'srun -w {w}  ')
+        print(f"Command is:\n{cmd}")
+        stdout_file = f'{self.log_dir}/{job.name}.log'
+        stdout = open(stdout_file, 'w')
+        print(f"Output writing to {stdout_file}\n")
+        p = subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT)
         self.running.append((p, job, alloc))
         # launch cmd in a subprocess, and keep track in running jobs
 
@@ -191,13 +206,17 @@ def build_node_list():
         # we are running a job
         node_list = get_node_list()
 
-        cpus_per_node = int(os.environ['SLURM_JOB_CPUS_PER_NODE'])
+        cpus_per_node_text = os.environ['SLURM_JOB_CPUS_PER_NODE']
+        if cpus_per_node_text.endswith("(x2)"):
+            cpus_per_node = int(cpus_per_node_text[:-4])//2
+        else:
+            cpus_per_node = int(cpus_per_node_text)
+        
         mem_per_node_mb = float(os.environ['SLURM_MEM_PER_NODE'])
         mem_per_node = mem_per_node_mb/1000.
 
         # parse node list
-        cpus = num_nodes * cpus_per_node
-        nodes = [Node(name, cores_per_node, mem_per_node) for name in node_list]
+        nodes = [Node(name, cpus_per_node, mem_per_node) for name in node_list]
         # if running 
     elif nersc_host:
         # running on head.  use at most 4 procs to avoid annoying people
