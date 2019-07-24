@@ -200,7 +200,7 @@ def build_node_list():
         # we are running a job
         node_list = get_node_list()
 
-        cpus_per_node_text = int(os.environ['SLURM_CPUS_ON_NODE'])
+        cpus_per_node = int(os.environ['SLURM_CPUS_ON_NODE'])
         
         mem_per_node_mb = float(os.environ['SLURM_MEM_PER_NODE'])
         mem_per_node = mem_per_node_mb/1000.
