@@ -13,14 +13,47 @@ class StageExecutionConfig:
         self.nprocess = info.get('nprocess', 1)
         self.threads_per_process = info.get('threads_per_process', 1) #
         self.mem_per_process = info.get('mem_per_process', 2)
+        self.shifter = info.get('shifter')
+        self.docker = info.get('docker')
         #TODO assign sites better
         self.executor = info['site']
+        self.mpi_command = info['mpi_command']
+
+    def generate_launcher(self):
+        nprocess = self.nprocess
+        nthread = self.threads_per_process
+        mpi_command = self.mpi_command
+        shifter_image = self.shifter
+        docker_image = self.docker
+
+        if shifter_image and docker_image:
+            raise ValueError("Cannot use both shifter and docker")
+
+        if shifter_image:
+            shifter_cmd = f"shifter --env OMP_NUM_THREADS={nthread} --image={shifter_image}"
+            if nthread:
+                shifter_cmd
+        else:
+            shifter_cmd = ""
+
+        # This is identical to the parsl case however
+        if nprocess > 1:
+            pre_command = f"{mpi_command} {nprocess} {shifter_cmd}"
+            post_command = "--mpi"
+        else:
+            pre_command = shifter_cmd
+            post_command = ""
+
+
+        if docker_image:            
+            pre_command = f'docker run -v $PWD:/opt/txpipe --env OMP_NUM_THREADS={nthread} --rm -it {docker_image} {pre_command}'
+
+        return pre_command, post_command
 
 class Pipeline:
-    def __init__(self, stages, mpi_command):
+    def __init__(self, stages):
         self.stage_execution_config = {}
         self.stage_names = []
-        self.mpi_command = mpi_command
         for info in stages:
             self.add_stage(info)
 
@@ -96,7 +129,7 @@ class Pipeline:
 
         for stage in stages:
             sec = self.stage_execution_config[stage.name]
-            cmd = stage.generate_command(overall_inputs, stages_config, output_dir, sec.nprocess, self.mpi_command)
+            cmd = stage.generate_command(overall_inputs, stages_config, output_dir, sec)
             print(cmd)
             print()
 
@@ -115,8 +148,7 @@ class Pipeline:
         jobs = {}
         for stage in stages:
             sec = self.stage_execution_config[stage.name]
-            cmd = stage.generate_command(overall_inputs, 
-                stages_config, output_dir, sec.nprocess, self.mpi_command, sec.threads_per_process)
+            cmd = stage.generate_command(overall_inputs, stages_config, output_dir, sec)
             jobs[stage.name] = minirunner.Job(stage.name, cmd, 
                 cores=sec.threads_per_process*sec.nprocess, mem_per_core=sec.mem_per_process)
         return jobs
@@ -133,7 +165,7 @@ class Pipeline:
         jobs = self.build_mini_jobs(stages, overall_inputs, stages_config, output_dir)
         graph = self.build_mini_dag(stages, jobs)
         nodes = minirunner.build_node_list()
-        runner = minirunner.Runner(nodes, graph, log_dir, mpi_command=self.mpi_command)
+        runner = minirunner.Runner(nodes, graph, log_dir)
         status = minirunner.WAITING
         while status == minirunner.WAITING:
             status = runner.update()
@@ -158,7 +190,7 @@ class Pipeline:
 
         for stage in stages:
             sec = self.stage_execution_config[stage.name]
-            app = stage.generate(sec.nprocess, sec.executor, log_dir, mpi_command=self.mpi_command)
+            app = stage.generate_parsl_app(log_dir, sec)
             inputs = self.find_inputs(stage, data_elements)
             outputs = self.find_outputs(stage, output_dir)
             # All pipeline stages implicitly get the overall configuration file

@@ -42,15 +42,18 @@ def run(pipeline_config_filename, dry_run=False):
     # List of stage names, must be imported somewhere
     stages = pipe_config['stages']
 
+    # Site
+    site_config = pipe_config.get('site', {})
+    executor_labels, mpi_command = sites.activate_site(site, site_config)
+
     # Each stage know which site it runs on.  This is to support
     # future work where this varies between stages.
     for stage in stages:
         stage['site'] = site
-        
+        stage['mpi_command'] = mpi_command
+        stage['shifter'] = site_config.get('shifter')
+        stage['docker'] = site_config.get('docker')
 
-    site_config = pipe_config.get('site', {})
-
-    executor_labels, mpi_command = sites.activate_site(site, site_config)
 
     is_mini = 'mini' in site
 
@@ -66,7 +69,7 @@ def run(pipeline_config_filename, dry_run=False):
         __import__(module)
 
     # Create and run pipeline
-    pipeline = Pipeline(stages, mpi_command)
+    pipeline = Pipeline(stages)
 
     if dry_run:
         pipeline.dry_run(inputs, output_dir, stages_config)
@@ -101,7 +104,7 @@ def export_cwl(args):
 
     mpi_command = 'mpirun -n'
 
-    pipeline = Pipeline(stages, mpi_command)
+    pipeline = Pipeline(stages)
     cwl_wf = pipeline.generate_cwl(inputs)
     cwl_wf.export(f'{path}/pipeline.cwl')
 

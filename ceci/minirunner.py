@@ -47,12 +47,11 @@ class Job:
         return f"<Job {self.name}>"
 
 class Runner:
-    def __init__(self, nodes, job_graph, log_dir, mpi_command='mpirun -n'):
+    def __init__(self, nodes, job_graph, log_dir):
         self.nodes = nodes
         self.job_graph = job_graph
         self.completed_jobs = []
         self.running = []
-        self.mpi_command = mpi_command
         self.log_dir = log_dir
         self.queued_jobs = list(job_graph.keys())
 

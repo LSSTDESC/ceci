@@ -6,7 +6,7 @@ def mini(config):
     return [], 'mpirun -n '
 
 def cori_mini(config):
-    return [], 'srun -n '
+    return [], 'srun -u -n '
 
 
 
@@ -26,7 +26,8 @@ def activate_site(site, site_config):
     try:
         activator = activators[site]
     except KeyError:
-        raise ValueError(f"Unknown site {site}")
+        valid_sites = list(activators.keys())
+        raise ValueError(f"Unknown site {site} - choose one of {valid_sites}")
 
     # Generate the site config.  This tells the parsl library
     # to associate a particular label with a particular configuration.

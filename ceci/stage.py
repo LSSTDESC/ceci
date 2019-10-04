@@ -695,8 +695,9 @@ I currently know about these stages:
         function = d[cls.name]
         return function
 
+
     @classmethod
-    def generate_command(cls, external_inputs, config, outdir, nprocess=1, mpi_command='mpirun -n', nthread=None):
+    def generate_command(cls, external_inputs, config, outdir, execution_config):
         """
         Generate a command line that will run the stage
         """
@@ -720,23 +721,16 @@ I currently know about these stages:
         flags.append(f'--config={config}')
         flags = "   ".join(flags)
 
-        # This is identical to the parsl case however
-        if nprocess > 1:
-            launcher = f"{mpi_command} {nprocess}"
-            mpi_flag = "--mpi"
-        else:
-            launcher = ""
-            mpi_flag = ""
-        if nthread is not None:
-            launcher = f'OMP_NUM_THREADS={nthread} {launcher}'
+        pre_launcher, post_launcher = execution_config.generate_launcher()
+
 
         # We just return this, instead of wrapping it in a
         # parsl job
-        cmd = f'{launcher} python3 -m {module} {flags} {mpi_flag}'
+        cmd = f'{pre_launcher} python3 -m {module} {flags} {post_launcher}'
         return cmd
 
     @classmethod
-    def generate(cls, nprocess, executor, log_dir, mpi_command='mpirun -n'):
+    def generate_parsl_app(cls, log_dir, execution_config):
         """
         Build a parsl bash app that executes this pipeline stage
         """
@@ -760,19 +754,13 @@ I currently know about these stages:
 
         # The last input file is always the config
 
-
-        # Parallelism - simple for now
-        if nprocess > 1:
-            launcher = f"{mpi_command} {nprocess}"
-            mpi_flag = "--mpi"
-        else:
-            launcher = ""
-            mpi_flag = ""
+        pre_launcher, post_launcher = execution_config.generate_launcher()
+        executor = execution_config.executor
 
         template = f"""
 @parsl.app.app.bash_app(executors=[executor])
 def {cls.name}(inputs, outputs, stdout='{log_dir}/{cls.name}.out', stderr='{log_dir}/{cls.name}.err'):
-    cmd = '{launcher} python3 -m {module} {flags} {mpi_flag}'.format(inputs=inputs,outputs=outputs)
+    cmd = '{pre_launcher} python3 -m {module} {flags} {post_launcher}'.format(inputs=inputs,outputs=outputs)
     print("Compiling command:")
     print(cmd)
     return cmd
