@@ -17,14 +17,13 @@ class FailedJob(RunnerError):
 
 
 class Node:
-    def __init__(self, node_id, cores, mem):
+    def __init__(self, node_id, cores):
         self.id = node_id
         self.cores = cores
-        self.mem = mem
         self.is_assigned = False
 
     def __str__(self):
-        return f"Node('{self.id}', {self.cores}, {self.mem})"
+        return f"Node('{self.id}', {self.cores})"
 
     def __hash__(self):
         return hash(self.id)
@@ -37,11 +36,11 @@ class Node:
 
 
 class Job:
-    def __init__(self, name, cmd, cores, mem_per_core=4):
+    def __init__(self, name, cmd, nodes, cores):
         self.name = name
         self.cmd = cmd
+        self.nodes = nodes
         self.cores = cores
-        self.mem_per_core = mem_per_core
 
     def __str__(self):
         return f"<Job {self.name}>"
@@ -74,7 +73,7 @@ class Runner:
 
         ready = self.ready_jobs()
         if (not self.running) and (not ready):
-            raise NoJobReady("Some jobs cannot be run - not enough cores or mem")
+            raise NoJobReady("Some jobs cannot be run - not enough cores.")
         
         for job in ready:
             alloc = self.check_availability(job)
@@ -99,7 +98,7 @@ class Runner:
             else:
                 print(f"Job {job.name} has completed successfully!")
                 completed_jobs.append(job)
-                for node, cores in alloc.items():
+                for node in alloc:
                     node.free()
 
         self.running = continuing_jobs
@@ -115,28 +114,19 @@ class Runner:
         remaining = job.cores
         alloc = {}
 
-        for node in self.nodes:
-            if node.is_assigned:
-                continue
-            avail = min(node.cores, node.mem // job.mem_per_core)
-            assign = min(avail, remaining)
-            alloc[node] = assign
-            remaining -= assign
-            if remaining == 0:
-                break
-            assert remaining>0
-
-        if remaining:
-            return None
+        free_nodes = [node for node in self.nodes if not node.is_assigned]
+        if len(free_nodes) >= job.nodes:
+            alloc = free_nodes[:job.nodes]
         else:
-            return alloc
+            alloc = None
+
+        return alloc
 
     def launch(self, job, alloc):
         # launch the specified job on the specified nodes
         # dict alloc maps nodes to numbers of cores to be used
-        w = ','.join([f'{node.id}*{cores}' for node,cores in alloc.items()])
-        print(f"\nExecuting {job.name} on these nodes: ")
-        for node, cores in alloc.items():
+        print(f"\nExecuting {job.name}")
+        for node in alloc:
             node.assign()
 
         cmd = job.cmd
@@ -199,23 +189,19 @@ def build_node_list():
         # we are running a job
         node_list = get_node_list()
 
-        cpus_per_node = int(os.environ['SLURM_CPUS_ON_NODE'])
+        cpus_per_node = 32
         
-        mem_per_node_mb = 128_000. # TODO: Find better way of determining this
-        mem_per_node = mem_per_node_mb/1000.
-
         # parse node list
-        nodes = [Node(name, cpus_per_node, mem_per_node) for name in node_list]
+        nodes = [Node(name, cpus_per_node) for name in node_list]
         # if running 
     elif nersc_host:
         # running on head.  use at most 4 procs to avoid annoying people
         nodes = [Node('cori', 2, 8)]
     else:
         import psutil
-        mem = psutil.virtual_memory().total
         cores = psutil.cpu_count(logical=False)
         name = socket.gethostname()
-        nodes = [Node(name, cores, mem)]
+        nodes = [Node(name, cores)]
 
     print("Generated node list:")
     for n in nodes:
@@ -225,11 +211,11 @@ def build_node_list():
 
 
 def test():
-    job1 = Job("Job1", "echo start 1; sleep 3; echo end 1", cores=2)
-    job2 = Job("Job2", "echo start 2; sleep 3; echo end 2", cores=2)
-    job3 = Job("Job3", "echo start 3; sleep 3; echo end 3", cores=2)
-    job4 = Job("Job4", "echo start 4; sleep 3; echo end 4", cores=2)
-    job5 = Job("Job5", "echo start 5; sleep 3; echo end 5", cores=2)
+    job1 = Job("Job1", "echo start 1; sleep 3; echo end 1", cores=2, nodes=1)
+    job2 = Job("Job2", "echo start 2; sleep 3; echo end 2", cores=2, nodes=1)
+    job3 = Job("Job3", "echo start 3; sleep 3; echo end 3", cores=2, nodes=1)
+    job4 = Job("Job4", "echo start 4; sleep 3; echo end 4", cores=2, nodes=1)
+    job5 = Job("Job5", "echo start 5; sleep 3; echo end 5", cores=2, nodes=1)
     job_dependencies = {
         job1: [job2, job3],
         job2: [job3],
@@ -238,9 +224,9 @@ def test():
         job5: [],
     }
 
-    node = Node('node0001', 4, 20)
+    node = Node('node0001', 4)
     nodes = [node]
-    r = Runner(nodes, job_dependencies)
+    r = Runner(nodes, job_dependencies, '.')
     s = WAITING
     while s == WAITING:
         time.sleep(1)

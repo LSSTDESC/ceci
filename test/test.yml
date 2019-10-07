@@ -6,7 +6,7 @@ modules: ceci_example
 
 # The launcher to use
 # These are defined in ceci/sites
-launcher: local
+launcher: local-mini
 
 
 # The list of stages to run and the number of processors

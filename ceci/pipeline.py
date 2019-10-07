@@ -152,7 +152,7 @@ class Pipeline:
             sec = self.stage_execution_config[stage.name]
             cmd = stage.generate_command(overall_inputs, stages_config, output_dir, sec)
             jobs[stage.name] = minirunner.Job(stage.name, cmd, 
-                cores=sec.threads_per_process*sec.nprocess, mem_per_core=sec.mem_per_process)
+                cores=sec.threads_per_process*sec.nprocess, nodes=sec.nodes)
         return jobs
 
 
