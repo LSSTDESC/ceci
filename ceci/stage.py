@@ -251,7 +251,7 @@ Missing these names on the command line:
 
         # This is all the config information in the file, including
         # things for other stages
-        overall_config = yaml.load(open(self.get_input('config')))
+        overall_config = yaml.safe_load(open(self.get_input('config')))
 
         # The user can define global options that are inherited by
         # all the other sections if not already specified there.

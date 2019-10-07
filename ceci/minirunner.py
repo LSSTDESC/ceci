@@ -158,7 +158,7 @@ def get_node_list():
         node_names = [f'{body}{i}' for i in ints]
     else:
         # one noed
-        node_names = node_list
+        node_names = [node_list]
     return node_names
 
 def parse_int_set(nputstr):
@@ -201,7 +201,7 @@ def build_node_list():
 
         cpus_per_node = int(os.environ['SLURM_CPUS_ON_NODE'])
         
-        mem_per_node_mb = float(os.environ['SLURM_MEM_PER_NODE'])
+        mem_per_node_mb = 128_000. # TODO: Find better way of determining this
         mem_per_node = mem_per_node_mb/1000.
 
         # parse node list
