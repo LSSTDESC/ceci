@@ -40,10 +40,13 @@ class StageExecutionConfig:
 
         # This is identical to the parsl case however
         if nprocess > 1:
-            pre_command = f"{mpi_command} {nprocess} -N {nodes} {shifter_cmd}"
+            pre_command = f"OMP_NUM_THREADS={nthread} {mpi_command} {nprocess} -N {nodes} {shifter_cmd}"
             post_command = "--mpi"
         else:
-            pre_command = shifter_cmd
+            if shifter_image:
+                pre_command = shifter_cmd
+            else:
+                pre_command = f"OMP_NUM_THREADS={nthread}"
             post_command = ""
 
 
