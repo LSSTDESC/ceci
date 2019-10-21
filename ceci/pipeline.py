@@ -31,6 +31,8 @@ class StageExecutionConfig:
         if shifter_image and docker_image:
             raise ValueError("Cannot use both shifter and docker")
 
+        if docker_image:
+            raise ValueError("Docker is not yet supported, just shifter")
         if shifter_image:
             shifter_cmd = f"shifter --env OMP_NUM_THREADS={nthread} --image={shifter_image}"
             if nthread:
