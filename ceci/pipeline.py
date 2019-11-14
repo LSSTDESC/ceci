@@ -11,7 +11,8 @@ class StageExecutionConfig:
     def __init__(self, info):
         self.name = info['name']
         self.nprocess = info.get('nprocess', 1)
-        self.nodes = info.get('nodes', None)
+        self.nodes_set = info.get('nodes', None)
+        self.nodes = info.get('nodes', 1)
         self.threads_per_process = info.get('threads_per_process', 1) #
         self.mem_per_process = info.get('mem_per_process', 2)
         self.shifter = info.get('shifter')
@@ -26,9 +27,6 @@ class StageExecutionConfig:
         mpi_command = self.mpi_command
         shifter_image = self.shifter
         docker_image = self.docker
-        nodes = self.nodes
-        if nodes is None:
-            nodes = 1
 
         if shifter_image and docker_image:
             raise ValueError("Cannot use both shifter and docker")
@@ -46,12 +44,12 @@ class StageExecutionConfig:
 
 
         if 'cori' in self.executor:
-            cori_cmd = f"--nodes {nodes} --cpus-per-task={nthread}"
+            cori_cmd = f"--nodes {self.nodes} --cpus-per-task={nthread}"
         else:
             cori_cmd = ""
 
         # This is identical to the parsl case however
-        if (nprocess > 1) or (self.nodes is not None) or (self.threads_per_process > 1):
+        if (nprocess > 1) or (self.nodes_set is not None) or (self.threads_per_process > 1):
             pre_command = f"OMP_NUM_THREADS={nthread} {mpi_command} {nprocess} {cori_cmd} {shifter_cmd}"
             post_command = "--mpi"
         else:
@@ -172,14 +170,31 @@ class Pipeline:
 
 
     def mini_run(self, overall_inputs, output_dir, log_dir, resume, stages_config, interval=10):
+        # copy this as we mutate it
+        overall_inputs = overall_inputs.copy()
         # run using minirunner instead of parsl
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs(log_dir, exist_ok=True)
 
-        # We just run this to check that the pipeline is val
+        # We just run this to check that the pipeline is valid
         self.ordered_stages(overall_inputs)
 
         stages = [PipelineStage.get_stage(stage_name) for stage_name in self.stage_names]
+
+        if resume:
+            stages2 = []
+            for stage in stages:
+                output_paths = self.find_outputs(stage, output_dir)
+                already_run_stage = all(os.path.exists(output) for output in output_paths)
+                if already_run_stage:
+                    print(f"Stage {stage.name} has already been completed - skipping.")
+                    for output_info, output_path in zip(stage.outputs, output_paths):
+                        tag = output_info[0]
+                        overall_inputs[tag] = output_path
+                else:
+                    stages2.append(stage)
+            stages = stages2
+
         jobs = self.build_mini_jobs(stages, overall_inputs, stages_config, output_dir)
         graph = self.build_mini_dag(stages, jobs)
         nodes = minirunner.build_node_list()
