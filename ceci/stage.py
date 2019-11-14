@@ -761,8 +761,8 @@ I currently know about these stages:
 @parsl.app.app.bash_app(executors=[executor])
 def {cls.name}(inputs, outputs, stdout='{log_dir}/{cls.name}.out', stderr='{log_dir}/{cls.name}.err'):
     cmd = '{pre_launcher} python3 -m {module} {flags} {post_launcher}'.format(inputs=inputs,outputs=outputs)
-    print("Compiling command:")
-    print(cmd)
+    print("Launching command:")
+    print(cmd, " > {log_dir}/{cls.name}.[out|err]")
     return cmd
 """
 

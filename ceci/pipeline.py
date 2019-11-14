@@ -26,13 +26,13 @@ class StageExecutionConfig:
         mpi_command = self.mpi_command
         shifter_image = self.shifter
         docker_image = self.docker
-        nodes = self.nodes
 
         if shifter_image and docker_image:
             raise ValueError("Cannot use both shifter and docker")
 
         if docker_image:
             raise ValueError("Docker is not yet supported, just shifter")
+
         if shifter_image:
             shifter_cmd = f"shifter --env OMP_NUM_THREADS={nthread} --image={shifter_image}"
             if nthread:
@@ -40,9 +40,14 @@ class StageExecutionConfig:
         else:
             shifter_cmd = ""
 
+        if 'cori' in self.executor:
+            cori_cmd = f"--nodes {self.nodes} --cpus-per-task={nthread}"
+        else:
+            cori_cmd = ""
+
         # This is identical to the parsl case however
         if nprocess > 1:
-            pre_command = f"OMP_NUM_THREADS={nthread} {mpi_command} {nprocess} -N {nodes} {shifter_cmd}"
+            pre_command = f"OMP_NUM_THREADS={nthread} {mpi_command} {nprocess} {cori_cmd} {shifter_cmd}"
             post_command = "--mpi"
         else:
             if shifter_image:
@@ -50,7 +55,6 @@ class StageExecutionConfig:
             else:
                 pre_command = f"OMP_NUM_THREADS={nthread}"
             post_command = ""
-
 
         if docker_image:            
             pre_command = f'docker run -v $PWD:/opt/txpipe --env OMP_NUM_THREADS={nthread} --rm -it {docker_image} {pre_command}'
