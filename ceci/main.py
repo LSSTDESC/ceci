@@ -29,6 +29,7 @@ def run(pipeline_config_filename, dry_run=False):
     # file.
     log_file = pipe_config.get('pipeline_log')
     if log_file:
+        os.makedirs(os.path.split(log_file)[0], exist_ok=True)
         parsl.set_file_logger(log_file)
 
 
