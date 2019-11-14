@@ -169,6 +169,7 @@ class Pipeline:
     def mini_run(self, overall_inputs, output_dir, log_dir, resume, stages_config, interval=10):
         # run using minirunner instead of parsl
         os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(log_dir, exist_ok=True)
 
         # We just run this to check that the pipeline is val
         self.ordered_stages(overall_inputs)
