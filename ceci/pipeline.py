@@ -11,7 +11,7 @@ class StageExecutionConfig:
     def __init__(self, info):
         self.name = info['name']
         self.nprocess = info.get('nprocess', 1)
-        self.nodes = info.get('nodes', 1)
+        self.nodes = info.get('nodes', None)
         self.threads_per_process = info.get('threads_per_process', 1) #
         self.mem_per_process = info.get('mem_per_process', 2)
         self.shifter = info.get('shifter')
@@ -26,6 +26,9 @@ class StageExecutionConfig:
         mpi_command = self.mpi_command
         shifter_image = self.shifter
         docker_image = self.docker
+        nodes = self.nodes
+        if nodes is None:
+            nodes = 1
 
         if shifter_image and docker_image:
             raise ValueError("Cannot use both shifter and docker")
@@ -40,13 +43,15 @@ class StageExecutionConfig:
         else:
             shifter_cmd = ""
 
+
+
         if 'cori' in self.executor:
-            cori_cmd = f"--nodes {self.nodes} --cpus-per-task={nthread}"
+            cori_cmd = f"--nodes {nodes} --cpus-per-task={nthread}"
         else:
             cori_cmd = ""
 
         # This is identical to the parsl case however
-        if nprocess > 1:
+        if nprocess > 1 or (self.nodes is not None):
             pre_command = f"OMP_NUM_THREADS={nthread} {mpi_command} {nprocess} {cori_cmd} {shifter_cmd}"
             post_command = "--mpi"
         else:
