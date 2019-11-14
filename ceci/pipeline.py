@@ -51,7 +51,7 @@ class StageExecutionConfig:
             cori_cmd = ""
 
         # This is identical to the parsl case however
-        if nprocess > 1 or (self.nodes is not None):
+        if (nprocess > 1) or (self.nodes is not None) or (self.threads_per_process > 1):
             pre_command = f"OMP_NUM_THREADS={nthread} {mpi_command} {nprocess} {cori_cmd} {shifter_cmd}"
             post_command = "--mpi"
         else:
