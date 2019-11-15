@@ -25,10 +25,15 @@ def run(pipeline_config_filename, dry_run=False):
     # Then parse with YAML
     pipe_config = yaml.safe_load(config_text)
 
+    # parsl execution/launcher configuration information
+    site = pipe_config.get("launcher", "local")
+    is_mini = 'mini' in site
+
+
     # Optional logging of pipeline infrastructure to
-    # file.
+    # file, but for parsl only
     log_file = pipe_config.get('pipeline_log')
-    if log_file:
+    if log_file and not is_mini:
         os.makedirs(os.path.split(log_file)[0], exist_ok=True)
         parsl.set_file_logger(log_file)
 
@@ -36,8 +41,6 @@ def run(pipeline_config_filename, dry_run=False):
     # Python modules in which to search for pipeline stages
     modules = pipe_config['modules'].split()
 
-    # parsl execution/launcher configuration information
-    site = pipe_config.get("launcher", "local")
 
     # Required configuration information
     # List of stage names, must be imported somewhere
@@ -56,7 +59,6 @@ def run(pipeline_config_filename, dry_run=False):
         stage['docker'] = site_config.get('docker')
 
 
-    is_mini = 'mini' in site
 
     # Inputs and outputs
     output_dir = pipe_config['output_dir']
