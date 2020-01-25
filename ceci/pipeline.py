@@ -197,8 +197,10 @@ Standard error:
             # Get the CWL tool for that stage
             cwl_tool = stage.generate_cwl()
 
+            step = cwlgen.workflowdeps.WorkflowStep(stage.name,
+                                   run='%s.cwl'%cwl_tool.id)
+
             # Loop over the inputs of the tool
-            cwl_inputs = []
             for inp in cwl_tool.inputs:
 
                 # Check if we have encountered this parameter before
@@ -217,17 +219,10 @@ Standard error:
                         if src not in workflow_inputs:
                             workflow_inputs[src] = inp
 
-                cwl_inputs.append(cwlgen.workflow.WorkflowStepInput(id=inp.id, src=src))
+                step.inputs.append(cwlgen.workflowdeps.WorkflowStepInput(input_id=inp.id, source=src))
 
-
-            cwl_outputs = []
             for o in stage.outputs:
-                cwl_outputs.append(o[0])
-
-            step = cwlgen.workflow.WorkflowStep(stage.name,
-                                       inputs=cwl_inputs,
-                                       outputs=cwl_outputs,
-                                       run='%s.cwl'%cwl_tool.id)
+                step.out.append(o[0])
 
             # Keeping track of known output providers
             for o in stage.outputs:
@@ -239,7 +234,7 @@ Standard error:
 
         # Export the inputs of the workflow
         for inp in workflow_inputs:
-            cwl_inp = cwlgen.workflow.InputParameter(inp,
+            cwl_inp = cwlgen.workflowdeps.InputParameter(inp,
                                                      label=workflow_inputs[inp].label,
                                                      param_type=workflow_inputs[inp].type,
                                                      param_format=workflow_inputs[inp].format)
@@ -253,7 +248,7 @@ Standard error:
         # By default only keep the output of the last stage as output
         last_stage = stages[-1]
         for o in last_stage.outputs:
-            cwl_out = cwlgen.workflow.WorkflowOutputParameter(o[0], known_outputs[o[0]]+'/'+o[0],
+            cwl_out = cwlgen.workflowdeps.WorkflowOutputParameter(o[0], known_outputs[o[0]]+'/'+o[0],
                                                               label=o[0],
                                                               param_type='File',
                                                               param_format=o[1].__name__)
