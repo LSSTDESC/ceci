@@ -359,7 +359,7 @@ Missing these names on the command line:
             else:
                 param_type=type_dict[def_val] if type(def_val) == type else type_dict[type(def_val)]
                 default=def_val if type(def_val) != type else None
-                if param_type is 'boolean':
+                if param_type == 'boolean':
                     input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(opt))
                 else:
                     input_binding = cwlgen.CommandLineBinding(prefix='--{}='.format(opt), separate=False)
@@ -385,7 +385,7 @@ Missing these names on the command line:
             input_param   = cwlgen.CommandInputParameter(inp,
                                                          label=inp,
                                                          param_type='File',
-                                                         param_format=cls.inputs[i][1].__name__,
+                                                         param_format=cls.inputs[i][1].format,
                                                          input_binding=input_binding,
                                                          doc='Some documentation about the input')
             cwl_tool.inputs.append(input_param)
@@ -395,7 +395,7 @@ Missing these names on the command line:
         input_param   = cwlgen.CommandInputParameter('config',
                                                      label='config',
                                                      param_type='File',
-                                                     param_format='YamlFile',
+                                                     param_format='http://edamontology.org/format_3750',
                                                      input_binding=input_binding,
                                                      doc='Configuration file')
         cwl_tool.inputs.append(input_param)
@@ -409,7 +409,7 @@ Missing these names on the command line:
                                             label=out,
                                             param_type='File',
                                             output_binding=output_binding,
-                                            param_format=cls.outputs[i][1].__name__,
+                                            param_format=cls.outputs[i][1].format,
                                             doc='Some results produced by the pipeline element')
             cwl_tool.outputs.append(output)
 
