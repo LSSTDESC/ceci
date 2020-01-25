@@ -2,17 +2,17 @@
     "DM": {
         "class": "File",
         "path": "../inputs/dm.txt",
-        "format": "TextFile"
+        "format": "http://edamontology.org/format_2330"
     },
     "fiducial_cosmology": {
         "class": "File",
         "path": "../inputs/fiducial_cosmology.txt",
-        "format": "TextFile"
+        "format": "http://edamontology.org/format_2330"
     },
     "config": {
         "class": "File",
         "path": "../config.yml",
-        "format": "YamlFile"
+        "format": "http://edamontology.org/format_3750"
     },
     "apply_flag@shearMeasurementPipe": False,
     "metacalibration@shearMeasurementPipe": True,
