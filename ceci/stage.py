@@ -3,6 +3,7 @@ import pathlib
 import sys
 from textwrap import dedent
 import shutil
+import cProfile
 
 SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'
@@ -652,7 +653,8 @@ I currently know about these stages:
             parser.add_argument(f'--{out}')
         parser.add_argument('--config')
         parser.add_argument('--mpi', action='store_true', help="Set up MPI parallelism")
-        parser.add_argument('--pdb', action='store_true', help="Run under the python debugger")
+        parser.add_argument('--pdb' ,action='store_true', help="Run under the python debugger")
+        parser.add_argument('--cprofile', action='store', default='', type=str, help="Profile the stage using the python cProfile tool")
         args = parser.parse_args()
         return args
 
@@ -666,6 +668,10 @@ I currently know about these stages:
         stage = cls(args)
         if stage.rank==0:
             print(f"Executing stage: {cls.name}")
+
+        if args.cprofile:
+            profile = cProfile.Profile()
+            profile.enable()
 
         try:
             stage.run()
@@ -685,6 +691,10 @@ I currently know about these stages:
                 pdb.post_mortem()
             else:
                 raise
+        if args.cprofile:
+            profile.disable()
+            profile.dump_stats(args.cprofile)
+            profile.print_stats('cumtime')
 
     @classmethod
     def _generate(cls, template, executor):
