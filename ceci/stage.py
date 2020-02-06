@@ -653,7 +653,7 @@ I currently know about these stages:
             parser.add_argument(f'--{out}')
         parser.add_argument('--config')
         parser.add_argument('--mpi', action='store_true', help="Set up MPI parallelism")
-        parser.add_argument('--pdb' ,action='store_true', help="Run under the python debugger")
+        parser.add_argument('--pdb', action='store_true', help="Run under the python debugger")
         parser.add_argument('--cprofile', action='store', default='', type=str, help="Profile the stage using the python cProfile tool")
         args = parser.parse_args()
         return args
