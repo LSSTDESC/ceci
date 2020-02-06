@@ -43,6 +43,7 @@ class HDFFile(DataFile):
 
     """
     suffix = 'hdf'
+    format = 'http://edamontology.org/format_3590'
     @classmethod
     def open(cls, path, mode, **kwargs):
         import warnings
@@ -57,6 +58,7 @@ class FitsFile(DataFile):
     Using these files requires the fitsio package.
     """
     suffix = 'fits'
+    format = 'http://edamontology.org/format_2333'
 
     @classmethod
     def open(cls, path, mode, **kwargs):
@@ -72,9 +74,11 @@ class TextFile(DataFile):
     A data file in plain text format.
     """
     suffix = 'txt'
+    format = 'http://edamontology.org/format_2330'
 
 class YamlFile(DataFile):
     """
     A data file in yaml format.
     """
     suffix = 'yml'
+    format = 'http://edamontology.org/format_3750'
