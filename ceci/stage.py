@@ -41,9 +41,11 @@ class PipelineStage:
 Missing these names on the command line:
     Input names: {missing_inputs}""")
 
-
         self._inputs = {x:args[x] for x in self.input_tags()}
         # We alwys assume the config arg exists, whether it is in input_tags or not
+        if args['config'] is None:
+            raise ValueError("The argument --config was missing on the command line.")
+
         self._inputs["config"] = args['config']
 
         # We prefer to receive explicit filenames for the outputs but will
