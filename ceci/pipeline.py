@@ -11,62 +11,22 @@ class StageExecutionConfig:
     def __init__(self, info):
         self.name = info['name']
         self.nprocess = info.get('nprocess', 1)
-        self.nodes_set = info.get('nodes', None)
         self.nodes = info.get('nodes', 1)
         self.threads_per_process = info.get('threads_per_process', 1) #
         self.mem_per_process = info.get('mem_per_process', 2)
-        self.shifter = info.get('shifter')
-        self.docker = info.get('docker')
         #TODO assign sites better
-        self.executor = info['site']
-        self.mpi_command = info['mpi_command']
+        self.site = info['site']
+        self.image = info.get('image', self.site.config.get('image'))
+        self.volume = info.get('volume', self.site.config.get('volume'))
 
-    def generate_launcher(self):
-        nprocess = self.nprocess
-        nthread = self.threads_per_process
-        mpi_command = self.mpi_command
-        shifter_image = self.shifter
-        docker_image = self.docker
+    def generate_launch_command(self, cmd):
+        return self.site.command(cmd, self)
 
-        if shifter_image and docker_image:
-            raise ValueError("Cannot use both shifter and docker")
-
-        if docker_image:
-            raise ValueError("Docker is not yet supported, just shifter")
-
-        if shifter_image:
-            shifter_cmd = f"shifter --env OMP_NUM_THREADS={nthread} --image={shifter_image}"
-            if nthread:
-                shifter_cmd
-        else:
-            shifter_cmd = ""
-
-
-
-        if 'cori' in self.executor:
-            cori_cmd = f"--nodes {self.nodes} --cpus-per-task={nthread}"
-        else:
-            cori_cmd = ""
-
-        # This is identical to the parsl case however
-        if (nprocess > 1) or (self.nodes_set is not None) or (self.threads_per_process > 1):
-            pre_command = f"OMP_NUM_THREADS={nthread} {mpi_command} {nprocess} {cori_cmd} {shifter_cmd}"
-            post_command = "--mpi"
-        else:
-            if shifter_image:
-                pre_command = shifter_cmd
-            else:
-                pre_command = f"OMP_NUM_THREADS={nthread}"
-            post_command = ""
-
-        if docker_image:            
-            pre_command = f'docker run -v $PWD:/opt/txpipe --env OMP_NUM_THREADS={nthread} --rm -it {docker_image} {pre_command}'
-
-        return pre_command, post_command
 
 class Pipeline:
-    def __init__(self, stages):
+    def __init__(self, stages, launcher_config):
         self.stage_execution_config = {}
+        self.launcher_config = launcher_config
         self.stage_names = []
         for info in stages:
             self.add_stage(info)
@@ -138,75 +98,71 @@ class Pipeline:
             raise ValueError(msg)
         return ordered_stages
 
-    def dry_run(self, overall_inputs, output_dir, stages_config):
-        stages = self.ordered_stages(overall_inputs)
 
-        for stage in stages:
+
+    def generate_full_command(self, stage, inputs, config, outdir):
+        core = stage.generate_command(inputs, config, outdir, missing_inputs_in_outdir=True)
+        sec = self.stage_execution_config[stage.name]
+        cmd = sec.generate_launch_command(core)
+        return cmd
+
+
+
+
+class DryRunPipeline(Pipeline):
+    def run(self, overall_inputs, output_dir, log_dir, resume, stages_config):
+        for stage in self.ordered_stages(overall_inputs):
             sec = self.stage_execution_config[stage.name]
-            cmd = stage.generate_command(overall_inputs, stages_config, output_dir, sec)
+            cmd = self.generate_full_command(stage, overall_inputs, stages_config, output_dir)
             print(cmd)
             print()
 
-    def build_mini_dag(self, stages, jobs):
-        depend = {}
-        for stage in stages[:]:
-            depend[jobs[stage.name]] = []
-            job = jobs[stage.name]
-            for tag in stage.input_tags():
-                for potential_parent in stages[:]:
-                    if tag in potential_parent.output_tags():
-                        depend[job].append(jobs[potential_parent.name])
-        return depend
+class ParslPipeline(Pipeline):
+    def __init__(self, stages, launcher_config):
+        super().__init__(stages, launcher_config)
 
-    def build_mini_jobs(self, stages, overall_inputs, stages_config, output_dir):
-        jobs = {}
-        for stage in stages:
-            sec = self.stage_execution_config[stage.name]
-            cmd = stage.generate_command(overall_inputs, stages_config, output_dir, sec)
-            jobs[stage.name] = minirunner.Job(stage.name, cmd, 
-                cores=sec.threads_per_process*sec.nprocess, nodes=sec.nodes)
-        return jobs
+        # Optional logging of pipeline infrastructure to
+        # file, but for parsl only
+        log_file = launcher_config.get('log')
+        if log_file:
+            os.makedirs(os.path.split(log_file)[0], exist_ok=True)
+            parsl.set_file_logger(log_file)
 
 
 
-    def mini_run(self, overall_inputs, output_dir, log_dir, resume, stages_config, interval=10):
-        # copy this as we mutate it
-        overall_inputs = overall_inputs.copy()
-        # run using minirunner instead of parsl
-        os.makedirs(output_dir, exist_ok=True)
-        os.makedirs(log_dir, exist_ok=True)
+    def generate_app(self, stage, log_dir, sec):
+        """
+        Build a parsl bash app that executes this pipeline stage
+        """
+        module = stage.get_module()
+        module = module.split('.')[0]
 
-        # We just run this to check that the pipeline is valid
-        self.ordered_stages(overall_inputs)
+        inputs = {}
+        outputs = {}
 
-        stages = [PipelineStage.get_stage(stage_name) for stage_name in self.stage_names]
+        for i,inp in enumerate(stage.input_tags()):
+            inputs[inp] = f'{{inputs[{i}]}}'
+        for i,out in enumerate(stage.output_tags()):
+            outputs[out] = f'{{outputs[{i}]}}'
 
-        if resume:
-            stages2 = []
-            for stage in stages:
-                output_paths = self.find_outputs(stage, output_dir)
-                already_run_stage = all(os.path.exists(output) for output in output_paths)
-                if already_run_stage:
-                    print(f"Stage {stage.name} has already been completed - skipping.")
-                    for output_info, output_path in zip(stage.outputs, output_paths):
-                        tag = output_info[0]
-                        overall_inputs[tag] = output_path
-                else:
-                    stages2.append(stage)
-            stages = stages2
+        config_index = len(stage.input_tags())
+        config = f'{{inputs[{config_index}]}}'
 
-        jobs = self.build_mini_jobs(stages, overall_inputs, stages_config, output_dir)
-        graph = self.build_mini_dag(stages, jobs)
-        nodes = minirunner.build_node_list()
-        runner = minirunner.Runner(nodes, graph, log_dir)
-        status = minirunner.WAITING
-        while status == minirunner.WAITING:
-            status = runner.update()
-            try:
-                time.sleep(interval)
-            except KeyboardInterrupt:
-                runner.abort()
-                raise
+        # The last input file is always the config
+        cmd1 = self.generate_full_command(stage, inputs, config, outputs)
+        executor = sec.site.info['executor']
+
+        template = f"""
+@parsl.app.app.bash_app(executors=[executor])
+def {stage.name}(inputs, outputs, stdout='{log_dir}/{stage.name}.out', stderr='{log_dir}/{stage.name}.err'):
+    cmd = '{cmd1}'.format(inputs=inputs,outputs=outputs)
+    print("Launching command:")
+    print(cmd, " > {log_dir}/{stage.name}.[out|err]")
+    return cmd
+"""
+        d = {'executor':executor.label, 'cmd1':cmd1}
+        exec(template, {'parsl':parsl}, d)
+        return d[stage.name]
 
 
 
@@ -223,7 +179,7 @@ class Pipeline:
 
         for stage in stages:
             sec = self.stage_execution_config[stage.name]
-            app = stage.generate_parsl_app(log_dir, sec)
+            app = self.generate_app(stage, log_dir, sec)
             inputs = self.find_inputs(stage, data_elements)
             outputs = self.find_outputs(stage, output_dir)
             # All pipeline stages implicitly get the overall configuration file
@@ -291,7 +247,80 @@ Standard error:
         print("Pipeline suceeded.  Joy is sparked.  ")
         return data_elements
 
-    def generate_cwl(self, overall_inputs):
+
+
+class MiniPipeline(Pipeline):
+
+    def build_dag(self, stages, jobs):
+        depend = {}
+        for stage in stages[:]:
+            depend[jobs[stage.name]] = []
+            job = jobs[stage.name]
+            for tag in stage.input_tags():
+                for potential_parent in stages[:]:
+                    if tag in potential_parent.output_tags():
+                        depend[job].append(jobs[potential_parent.name])
+        return depend
+
+    def build_jobs(self, stages, overall_inputs, stages_config, output_dir):
+        jobs = {}
+        for stage in stages:
+            sec = self.stage_execution_config[stage.name]
+            cmd = self.generate_full_command(stage, overall_inputs, stages_config, output_dir)
+            jobs[stage.name] = minirunner.Job(stage.name, cmd, 
+                cores=sec.threads_per_process*sec.nprocess, nodes=sec.nodes)
+        return jobs
+
+
+
+    def run(self, overall_inputs, output_dir, log_dir, resume, stages_config):
+        # copy this as we mutate it
+        overall_inputs = overall_inputs.copy()
+        # run using minirunner instead of parsl
+        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(log_dir, exist_ok=True)
+
+        # We just run this to check that the pipeline is valid
+        self.ordered_stages(overall_inputs)
+
+        stages = [PipelineStage.get_stage(stage_name) for stage_name in self.stage_names]
+
+        if resume:
+            stages2 = []
+            for stage in stages:
+                output_paths = self.find_outputs(stage, output_dir)
+                already_run_stage = all(os.path.exists(output) for output in output_paths)
+                if already_run_stage:
+                    print(f"Stage {stage.name} has already been completed - skipping.")
+                    for output_info, output_path in zip(stage.outputs, output_paths):
+                        tag = output_info[0]
+                        overall_inputs[tag] = output_path
+                else:
+                    stages2.append(stage)
+            stages = stages2
+
+        jobs = self.build_jobs(stages, overall_inputs, stages_config, output_dir)
+        graph = self.build_dag(stages, jobs)
+
+        # This pipeline, being mainly for testing, can only
+        # run at a single site, so we can assume here that the
+        # sites are all the same
+        sec = self.stage_execution_config[self.stage_names[0]]
+        nodes = sec.site.info['nodes']
+        runner = minirunner.Runner(nodes, graph, log_dir)
+        status = minirunner.WAITING
+        interval = self.launcher_config.get('interval', 3)
+        while status == minirunner.WAITING:
+            status = runner.update()
+            try:
+                time.sleep(interval)
+            except KeyboardInterrupt:
+                runner.abort()
+                raise
+
+
+class CWLPipeline(Pipeline):
+    def run(self, overall_inputs, output_dir, log_dir, resume, stages_config):
         """
         Exports the pipeline as a CWL object
         """
@@ -305,10 +334,14 @@ Standard error:
         known_outputs ={}
         workflow_inputs= {}
 
+        cwl_dir = self.launcher_config['dir']
+        os.makedirs(cwl_dir, exist_ok=True)
+
         cwl_steps = []
         for stage in stages:
             # Get the CWL tool for that stage
             cwl_tool = stage.generate_cwl()
+            cwl_tool.export(f'{cwl_dir}/{stage.name}.cwl')
 
             step = cwlgen.workflowdeps.WorkflowStep(stage.name,
                                    run='%s.cwl'%cwl_tool.id)
@@ -367,4 +400,13 @@ Standard error:
                                                               param_format=o[1].__name__)
             wf.outputs.append(cwl_out)
 
-        return wf
+
+        wf.export(f'{cwl_dir}/pipeline.cwl')
+
+        # If 'launcher is defined, use that'
+        launcher = self.launcher_config.get('launch', '')
+
+        if launcher:
+            cmd = f'{launcher} {cwl_dir}/pipeline.cwl'
+            print(cmd)
+            os.system(cmd)

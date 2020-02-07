@@ -698,84 +698,48 @@ I currently know about these stages:
             profile.dump_stats(args.cprofile)
             profile.print_stats('cumtime')
 
-    @classmethod
-    def _generate(cls, template, executor):
-        # dfk needs to be an argument here because it is
-        # referenced in the template that is exec'd.
-        d = locals().copy()
-        exec(template, globals(), d)
-        function = d[cls.name]
-        return function
 
 
     @classmethod
-    def generate_command(cls, external_inputs, config, outdir, execution_config):
+    def generate_command(cls, inputs, config, outputs, missing_inputs_in_outdir=False):
         """
         Generate a command line that will run the stage
         """
         module = cls.get_module()
         module = module.split('.')[0]
 
-        # Collect flags.
-        # This is a bit different from the case within the
-        # parsl pipeline because of where we find the inputs,
-        # even if the end result is usually the same
-        flags = [cls.name]
-        for tag,ftype in cls.inputs + cls.outputs:
-            if tag in external_inputs:
-                fpath = external_inputs[tag]
-            else:
+        flags = [cls.name, f'--config={config}']
+
+        def get_path(d, tag, ftype):
+            return fpath
+
+
+        for tag,ftype in cls.inputs:
+            if isinstance(inputs, str):
                 fn = ftype.make_name(tag)
-                fpath = f'{outdir}/{fn}'
-            flag = f'--{tag}={fpath}'
-            flags.append(flag)
+                fpath = f'{source}/{fn}'
+            elif tag in inputs:
+                fpath = inputs[tag]
+            elif isinstance(outputs, str) and missing_inputs_in_outdir:
+                fn = ftype.make_name(tag)
+                fpath = f'{outputs}/{fn}'
+            else:
+                raise ValueError(f"Missing input location {tag}")
+            flags.append(f'--{tag}={fpath}')
 
-        flags.append(f'--config={config}')
+        for tag,ftype in cls.outputs:
+            if isinstance(outputs, str):
+                fn = ftype.make_name(tag)
+                fpath = f'{outputs}/{fn}'
+            elif tag in outputs:
+                fpath = outputs[tag]
+            else:
+                raise ValueError(f"Missing output location {tag}")
+            flags.append(f'--{tag}={fpath}')
+
         flags = "   ".join(flags)
-
-        pre_launcher, post_launcher = execution_config.generate_launcher()
-
 
         # We just return this, instead of wrapping it in a
         # parsl job
-        cmd = f'{pre_launcher} python3 -m {module} {flags} {post_launcher}'
+        cmd = f'python3 -m {module} {flags}'
         return cmd
-
-    @classmethod
-    def generate_parsl_app(cls, log_dir, execution_config):
-        """
-        Build a parsl bash app that executes this pipeline stage
-        """
-        module = cls.get_module()
-        module = module.split('.')[0]
-
-        flags = [cls.name]
-
-        for i,inp in enumerate(cls.input_tags()):
-            flag = '--{}={{inputs[{}]}}'.format(inp,i)
-            flags.append(flag)
-
-        config_index = len(cls.input_tags())
-        flags.append(f'--config={{inputs[{config_index}]}}')
-
-        for i,out in enumerate(cls.output_tags()):
-            flag = '--{}={{outputs[{}]}}'.format(out,i)
-            flags.append(flag)
-
-        flags = "   ".join(flags)
-
-        # The last input file is always the config
-
-        pre_launcher, post_launcher = execution_config.generate_launcher()
-        executor = execution_config.executor
-
-        template = f"""
-@parsl.app.app.bash_app(executors=[executor])
-def {cls.name}(inputs, outputs, stdout='{log_dir}/{cls.name}.out', stderr='{log_dir}/{cls.name}.err'):
-    cmd = '{pre_launcher} python3 -m {module} {flags} {post_launcher}'.format(inputs=inputs,outputs=outputs)
-    print("Launching command:")
-    print(cmd, " > {log_dir}/{cls.name}.[out|err]")
-    return cmd
-"""
-
-        return cls._generate(template, executor)

@@ -3,18 +3,18 @@ import yaml
 import sys
 import parsl
 import argparse
-from . import Pipeline, PipelineStage
-from . import sites
+from . import pipeline
+from . import sites as sites_module
 
 # Add the current dir to the path - often very useful
 sys.path.append(os.getcwd())
 
 parser = argparse.ArgumentParser(description='Run a Ceci pipeline from a configuration file')
 parser.add_argument('pipeline_config', help='Pipeline configuration file in YAML format.')
-parser.add_argument('--export-cwl', type=str, help='Exports pipeline in CWL format to provided path and exits')
 parser.add_argument('--dry-run', action='store_true', help='Just print out the commands the pipeline would run without executing them')
+parser.add_argument('extra_config', nargs='*', help='Over-ride the main pipeline yaml file e.g. launcher.name=cwl')
 
-def run(pipeline_config_filename, dry_run=False):
+def run(pipeline_config_filename, extra_config=None, dry_run=False):
     """
     Runs the pipeline
     """
@@ -25,39 +25,31 @@ def run(pipeline_config_filename, dry_run=False):
     # Then parse with YAML
     pipe_config = yaml.safe_load(config_text)
 
+    if extra_config:
+        override_config(pipe_config, extra_config)
+
     # parsl execution/launcher configuration information
-    site = pipe_config.get("launcher", "local")
-    is_mini = 'mini' in site
-
-
-    # Optional logging of pipeline infrastructure to
-    # file, but for parsl only
-    log_file = pipe_config.get('pipeline_log')
-    if log_file and not is_mini:
-        os.makedirs(os.path.split(log_file)[0], exist_ok=True)
-        parsl.set_file_logger(log_file)
+    launcher_config = pipe_config.get("launcher", {'name':"local"})
+    launcher_name = launcher_config['name']
 
 
     # Python modules in which to search for pipeline stages
     modules = pipe_config['modules'].split()
-
 
     # Required configuration information
     # List of stage names, must be imported somewhere
     stages = pipe_config['stages']
 
     # Site
-    site_config = pipe_config.get('site', {})
-    executor_labels, mpi_command = sites.activate_site(site, site_config)
+    site_config = pipe_config.get('site', {'name':'local'})
+    sites = sites_module.load(launcher_config, [site_config])
 
     # Each stage know which site it runs on.  This is to support
     # future work where this varies between stages.
     for stage in stages:
-        stage['site'] = site
-        stage['mpi_command'] = mpi_command
-        stage['shifter'] = site_config.get('shifter')
-        stage['docker'] = site_config.get('docker')
+        stage['site'] = sites[0]
 
+    site_info = sites[0].info
 
 
     # Inputs and outputs
@@ -65,58 +57,48 @@ def run(pipeline_config_filename, dry_run=False):
     inputs = pipe_config['inputs']
     log_dir = pipe_config['log_dir']
     resume = pipe_config['resume']
-
     stages_config = pipe_config['config']
 
     for module in modules:
         __import__(module)
 
-    # Create and run pipeline
-    pipeline = Pipeline(stages)
 
     if dry_run:
-        pipeline.dry_run(inputs, output_dir, stages_config)
-    elif is_mini:
-        pipeline.mini_run(inputs, output_dir, log_dir, resume, stages_config, interval=5)
+        pipeline_class = pipeline.DryRunPipeline
+    elif launcher_name == 'cwl':
+        pipeline_class = pipeline.CWLPipeline
+    elif launcher_name == 'parsl':
+        pipeline_class = pipeline.ParslPipeline
+    elif launcher_name == 'mini':
+        pipeline_class = pipeline.MiniPipeline
     else:
-        pipeline.run(inputs, output_dir, log_dir, resume, stages_config)
+        raise ValueError('Unknown pipeline launcher {launcher_name}')
 
-def export_cwl(args):
-    """
-    Function exports pipeline or pipeline stages into CWL format.
-    """
-    path = args.export_cwl
-    # YAML input file.
-    config = yaml.safe_load(open(args.pipeline_config))
+    p = pipeline_class(stages, launcher_config)
+    p.run(inputs, output_dir, log_dir, resume, stages_config)
 
-    # Python modules in which to search for pipeline stages
-    modules = config['modules'].split()
-    for module in modules:
-        __import__(module)
+def override_config(config, extra):
+    print("Over-riding config parameters from command line:")
 
-    # Export each pipeline stage as a CWL app
-    for k in PipelineStage.pipeline_stages:
-        tool = PipelineStage.pipeline_stages[k][0].generate_cwl()
-        tool.export(f'{path}/{k}.cwl')
+    for arg in extra:
+        key, value = arg.split('=', 1)
+        item = key.split('.')
+        p = config
+        print(f"    {key}: {value}")
 
-    stages = config['stages']
-    inputs = config['inputs']
+        for x in item[:-1]:
+            if x in p:
+                p = p[x]
+            else:
+                p[x] = {}
+                p = p[x]
+        p[item[-1]] = value
 
-    for stage in stages:
-        stage['site'] = 'local'
 
-    mpi_command = 'mpirun -n'
-
-    pipeline = Pipeline(stages)
-    cwl_wf = pipeline.generate_cwl(inputs)
-    cwl_wf.export(f'{path}/pipeline.cwl')
 
 def main():
     args = parser.parse_args()
-    if args.export_cwl is not None:
-        export_cwl(args)
-    else:
-        run(args.pipeline_config, dry_run=args.dry_run)
+    run(args.pipeline_config, args.extra_config, dry_run=args.dry_run)
 
 if __name__ == '__main__':
     main()

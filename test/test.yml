@@ -6,7 +6,33 @@ modules: ceci_example
 
 # The launcher to use
 # These are defined in ceci/sites
-launcher: local-mini
+launcher:
+  name: mini
+  interval: 0.5
+
+# launcher:
+#   name: parsl
+#   # max_threads only referenced for local sites
+
+# launcher:
+#     name: cwl
+#     launcher: cwltool
+#     dir: ./test/cwl
+
+site:
+  name: local
+  max_threads: 4
+  # max_threads: 4
+  # container: joezuntz/txpipe
+  # volume:  $PWD:/opt/txpipe
+
+
+
+#site:
+#  name: cori
+#  # Put the log for the overall pipeline infrastructure in this file:
+#  pipeline_log: log.txt
+
 
 
 # The list of stages to run and the number of processors
@@ -14,6 +40,7 @@ launcher: local-mini
 stages:
     - name: WLGCSummaryStatistic
       nprocess: 1
+      threads_per_process: 2
     - name: SysMapMaker
       nprocess: 1
     - name: shearMeasurementPipe
@@ -49,7 +76,4 @@ output_dir: ./test/outputs
 
 # Put the logs from the individual stages in this directory:
 log_dir: ./test/logs
-
-# Put the log for the overall pipeline infrastructure in this file:
-pipeline_log: log.txt
 

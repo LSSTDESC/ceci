@@ -13,5 +13,5 @@ script:
   - export PYTHONPATH=$PYTHONPATH:$PWD
   - ceci test/test.yml
   # Now testing some CWL magic
-  - ceci --export-cwl test/cwl test/test.yml
+  - ceci test/test.yml launcher.name=cwl launcher.dir=test/cwl
   - cwltool test/cwl/pipeline.cwl test/cwl/cwl_inputs.yml
