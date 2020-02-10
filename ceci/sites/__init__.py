@@ -2,6 +2,7 @@ from .cori import CoriBatchSite, CoriInteractiveSite
 from .local import LocalSite, Site
 from parsl.config import Config
 from parsl import load as parsl_load
+from parsl import set_file_logger as set_parsl_logger
 import os
 
 
@@ -81,6 +82,7 @@ def setup_parsl(launcher_config, sites):
     # Optional logging of pipeline infrastructure to file.
     log_file = launcher_config.get('log')
     if log_file:
-        os.makedirs(os.path.split(log_file)[0], exist_ok=True)
-        parsl.set_file_logger(log_file)
+        log_file_dir = os.path.split(os.path.abspath(log_file))[0]
+        os.makedirs(log_file_dir, exist_ok=True)
+        set_parsl_logger(log_file)
 

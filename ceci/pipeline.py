@@ -321,17 +321,7 @@ class DryRunPipeline(Pipeline):
 
 class ParslPipeline(Pipeline):
     """A subclass of Pipeline that uses Parsl to manage workflow.
-
     """
-    def __init__(self, stages, launcher_config):
-        super().__init__(stages, launcher_config)
-
-        # Optional logging of pipeline infrastructure to
-        # file, but for parsl only
-        log_file = launcher_config.get('log')
-        if log_file:
-            os.makedirs(os.path.split(log_file)[0], exist_ok=True)
-            parsl.set_file_logger(log_file)
 
     def find_inputs(self, stage, data_elements):
         """
