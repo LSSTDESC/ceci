@@ -84,6 +84,210 @@ Missing these names on the command line:
             self._size = 1
             self._rank = 0
 
+    pipeline_stages = {}
+    def __init_subclass__(cls, **kwargs):
+        """
+        Python 3.6+ provides a facility to automatically
+        call a method (this one) whenever a new subclass
+        is defined.  In this case we use that feature to keep
+        track of all available pipeline stages, each of which is
+        defined by a class.
+
+        """
+        super().__init_subclass__(**kwargs)
+
+        # This is a hacky way of finding the file
+        # where our stage was defined
+        filename = sys.modules[cls.__module__].__file__
+
+        # Make sure the pipeline stage has a name
+        if not hasattr(cls, 'name'):
+            raise ValueError(f"Pipeline stage defined in {filename} must be given a name.")
+        if not hasattr(cls, 'outputs'):
+            raise ValueError(f"Pipeline stage {cls.name} defined in {filename} must be given a list of outputs.")
+        if not hasattr(cls, 'inputs'):
+            raise ValueError(f"Pipeline stage {cls.name} defined in {filename} must be given a list of inputs.")
+
+
+        # Check for two stages with the same name.
+        # Not sure if we actually do want to allow this?
+        if cls.name in cls.pipeline_stages:
+            raise ValueError(f"Pipeline stage {cls.name} already defined")
+
+        # Check for "config" in the inputs list - this is now implicit
+        for name, _ in cls.inputs:
+            if name=='config':
+                raise ValueError(f"""An input called 'config' is now implicit in each pipeline stage
+and should not be added explicitly.  Please update your pipeline stage called {cls.name} to remove
+the input called 'config'.
+""")
+
+        # Find the absolute path to the class defining the file
+        path = pathlib.Path(filename).resolve()
+        cls.pipeline_stages[cls.name] = (cls, path)
+
+
+#############################################
+# Life cycle-related methods and properties.
+#############################################
+
+
+    @classmethod
+    def get_stage(cls, name):
+        """
+        Return the PipelineStage subclass with the given name.
+        """
+        return cls.pipeline_stages[name][0]
+
+    @classmethod
+    def get_executable(cls):
+        """
+        Return the path to the executable code for this pipeline stage.
+        """
+        return cls.pipeline_stages[cls.name][1]
+
+    @classmethod
+    def get_module(cls):
+        """
+        Return the path to the executable code for this pipeline stage.
+        """
+        return cls.pipeline_stages[cls.name][0].__module__
+
+    @classmethod
+    def usage(cls):
+        stage_names = "\n- ".join(cls.pipeline_stages.keys())
+        sys.stderr.write(f"""
+Usage: python -m txpipe <stage_name> <stage_arguments>
+
+If no stage_arguments are given then usage information
+for the chosen stage will be given.
+
+I currently know about these stages:
+- {stage_names}
+""")
+
+    @classmethod
+    def main(cls):
+        """
+        Create an instance of this stage and run it with
+        inputs and outputs taken from the command line
+        """
+        try:
+            stage_name = sys.argv[1]
+        except IndexError:
+            cls.usage()
+            return 1
+        if stage_name in ['--help', '-h'] and len(sys.argv)==2:
+            cls.usage()
+            return 1
+        stage = cls.get_stage(stage_name)
+        args = stage._parse_command_line()
+        stage.execute(args)
+        return 0
+
+
+    @classmethod
+    def _parse_command_line(cls):
+        cmd = " ".join(sys.argv[:])
+        import argparse
+        parser = argparse.ArgumentParser(description=f"Run pipeline stage {cls.name}")
+        parser.add_argument("stage_name")
+        for conf in cls.config_options:
+            def_val = cls.config_options[conf]
+            opt_type = def_val if type(def_val) == type else type(def_val)
+
+            if opt_type == bool:
+                parser.add_argument(f'--{conf}', action='store_const', const=True)
+            elif opt_type == list:
+                out_type = def_val[0] if type(def_val[0]) == type else type(def_val[0])
+                if out_type is str:
+                    parser.add_argument(f'--{conf}', type=lambda string: string.split(',') )
+                elif out_type is int:
+                    parser.add_argument(f'--{conf}', type=lambda string: [int(i) for i in string.split(',')])
+                elif out_type is float:
+                    parser.add_argument(f'--{conf}', type=lambda string: [float(i) for i in string.split(',')])
+                else:
+                    raise NotImplementedError("Only handles str, int and float list arguments")
+            else:
+                parser.add_argument(f'--{conf}', type=opt_type)
+        for inp in cls.input_tags():
+            parser.add_argument(f'--{inp}')
+        for out in cls.output_tags():
+            parser.add_argument(f'--{out}')
+        parser.add_argument('--config')
+        parser.add_argument('--mpi', action='store_true', help="Set up MPI parallelism")
+        parser.add_argument('--pdb', action='store_true', help="Run under the python debugger")
+        parser.add_argument('--cprofile', action='store', default='', type=str, help="Profile the stage using the python cProfile tool")
+        args = parser.parse_args()
+        return args
+
+    @classmethod
+    def execute(cls, args):
+        """
+        Create an instance of this stage and run it
+        with the specified inputs and outputs
+        """
+        import pdb
+        stage = cls(args)
+        if stage.rank==0:
+            print(f"Executing stage: {cls.name}")
+
+        if args.cprofile:
+            profile = cProfile.Profile()
+            profile.enable()
+
+        try:
+            stage.run()
+        except Exception as error:
+            if args.pdb:
+                print("There was an exception - starting python debugger because you ran with --pdb")
+                print(error)
+                pdb.post_mortem()
+            else:
+                raise
+        try:
+            stage.finalize()
+        except Exception as error:
+            if args.pdb:
+                print("There was an exception in the finalization - starting python debugger because you ran with --pdb")
+                print(error)
+                pdb.post_mortem()
+            else:
+                raise
+        if args.cprofile:
+            profile.disable()
+            profile.dump_stats(args.cprofile)
+            profile.print_stats('cumtime')
+
+
+    def finalize(self):
+        # Synchronize files so that everything is closed
+        if self.is_mpi():
+            self.comm.Barrier()
+
+        # Move files to their final path
+        # only the master process moves things
+        if self.rank == 0:
+            for tag in self.output_tags():
+                # find the old and new names
+                temp_name = self.get_output(tag)
+                final_name = self.get_output(tag, final_name=True)
+
+                # it's not an error here if the path does not exist,
+                # because that will be handled later.
+                if pathlib.Path(temp_name).exists():
+                    # replace directories, rather than nesting more results
+                    if pathlib.Path(final_name).is_dir():
+                        shutil.rmtree(final_name)
+                    shutil.move(temp_name, final_name)
+                else:
+                    sys.stderr.write(f"NOTE/WARNING: Expected output file {final_name} was not generated.\n")
+
+
+#############################################
+# Parallelism-related methods and properties.
+#############################################
+
     @property
     def rank(self):
         """The rank of this process under MPI (0 if not running under MPI)"""
@@ -113,6 +317,48 @@ Missing these names on the command line:
         Returns True if the stage is being run under MPI.
         """
         return self._parallel == MPI_PARALLEL
+
+
+
+    def split_tasks_by_rank(self, tasks):
+        """Iterate through a list of items, yielding ones this process is responsible for/
+
+        Tasks are allocated in a round-robin way.
+
+        Parameters
+        ----------
+        tasks: iterable
+            Tasks to split up
+        
+        """
+        for i,task in enumerate(tasks):
+            if i%self.size==self.rank:
+                yield task
+
+    def data_ranges_by_rank(self, n_rows, chunk_rows):
+        """Split a number of rows by process.
+
+        Given a total number of rows to read and a chunk size, yield
+        the ranges within them that this process should handle.
+
+        Parameters
+        ----------
+        n_rows: int
+            Total number of rows to split up
+
+        chunk_rows: int
+            Size of each chunk to be read.
+        """
+        n_chunks = n_rows//chunk_rows
+        if n_chunks*chunk_rows<n_rows:
+            n_chunks += 1
+        for i in self.split_tasks_by_rank(range(n_chunks)):
+            start = i*chunk_rows
+            end = min((i+1)*chunk_rows, n_rows)
+            yield start, end
+##################################################
+# Input and output-related methods and properties.
+##################################################
 
     def get_input(self, tag):
         """Return the path of an input file with the given tag"""
@@ -157,11 +403,30 @@ Missing these names on the command line:
         """
         Find and open an output file with the given tag, in write mode.
 
-        For general files this will simply return a standard
-        python file object.
+        If final_name is True then they will be opened using their final
+        target output name.  Otherwise we will prepend "inprogress_" to their
+        file name. This means we know that if the final file exists then it
+        is completed.
 
-        For specialized file types like FITS or HDF5 it will return
-        a more specific object - see the types.py file for more info.
+        If wrapper is True this will return an instance of the class
+        of the file as specified in the cls.outputs.  Otherwise it will
+        return an open file object (standard python one or something more
+        specialized).
+
+        Parameters
+        ----------
+
+        tag: str
+            Tag as listed in self.outputs
+
+        wrapper: bool
+            Default=False.  Whether to return a wrapped file
+
+        final_name: bool
+            Default=False. Whether to save to 
+
+        **kwargs:
+            Extra args are passed on to the file's class constructor.
 
         """
         path = self.get_output(tag, final_name=final_name)
@@ -200,36 +465,46 @@ Missing these names on the command line:
         else:
             return obj.file
 
-    def finalize(self):
-        # Synchronize files so that everything is closed
-        if self.is_mpi():
-            self.comm.Barrier()
+    @classmethod
+    def output_tags(cls):
+        """
+        Return the list of output tags required by this stage
+        """
+        return [tag for tag,_ in cls.outputs]
+
+    @classmethod
+    def input_tags(cls):
+        """
+        Return the list of input tags required by this stage
+        """
+        return [tag for tag,_ in cls.inputs]
 
 
-        # only the master process moves things
-        if self.rank == 0:
-            for tag in self.output_tags():
-                # find the old and new names
-                temp_name = self.get_output(tag)
-                final_name = self.get_output(tag, final_name=True)
+    def get_input_type(self, tag):
+        """Return the file type class of an input file with the given tag."""
+        for t,dt in self.inputs:
+            if t==tag:
+                return dt
+        raise ValueError(f"Tag {tag} is not a known input")
 
-                # it's not an error here if the path does not exist,
-                # because that will be handled later.
-                if pathlib.Path(temp_name).exists():
-                    # replace directories, rather than nesting more results
-                    if pathlib.Path(final_name).is_dir():
-                        shutil.rmtree(final_name)
-                    shutil.move(temp_name, final_name)
-                else:
-                    sys.stderr.write(f"NOTE/WARNING: Expected output file {final_name} was not generated.\n")
+    def get_output_type(self, tag):
+        """Return the file type class of an output file with the given tag."""
+        for t,dt in self.outputs:
+            if t==tag:
+                return dt
+        raise ValueError(f"Tag {tag} is not a known output")
 
 
+
+##################################################
+# Configuration-related methods and properties.
+##################################################
 
     @property
     def config(self):
         """
-        Returns the configuration directory for this stage, aggregating command
-        line option and optional configuration file.
+        Returns the configuration dictionary for this stage, aggregating command
+        line options and optional configuration file.
         """
         return self._configs
 
@@ -325,6 +600,94 @@ Missing these names on the command line:
 
 
         return my_config
+
+
+    def iterate_fits(self, tag, hdunum, cols, chunk_rows):
+        """
+        Loop through chunks of the input data from a FITS file with the given tag
+        """
+        fits = self.open_input(tag)
+        ext = fits[hdunum]
+        n = ext.get_nrows()
+        for start,end in self.data_ranges_by_rank(n, chunk_rows):
+            data = ext.read_columns(cols, rows=range(start, end))
+            yield start, end, data
+
+    def iterate_hdf(self, tag, group_name, cols, chunk_rows):
+        """
+        Loop through chunks of the input data from an HDF5 file with the given tag.
+
+        All the selected columns must have the same length.
+
+        """
+        import numpy as np
+        hdf = self.open_input(tag)
+        group = hdf[group_name]
+
+        # Check all the columns are the same length
+        N = [len(group[col]) for col in cols]
+        n = N[0]
+        if not np.equal(N,n).all():
+            raise ValueError(f"Different columns among {cols} in file {tag}\
+            group {group_name} are different sizes - cannot use iterate_hdf")
+
+        # Iterate through the data providing chunks
+        for start, end in self.data_ranges_by_rank(n, chunk_rows):
+            data = {col: group[col][start:end] for col in cols}
+            yield start, end, data
+
+
+
+
+
+################################
+# Pipeline-related methods
+################################
+
+    @classmethod
+    def generate_command(cls, inputs, config, outputs, missing_inputs_in_outdir=False):
+        """
+        Generate a command line that will run the stage
+        """
+        module = cls.get_module()
+        module = module.split('.')[0]
+
+        flags = [cls.name, f'--config={config}']
+
+        def get_path(d, tag, ftype):
+            return fpath
+
+
+        for tag,ftype in cls.inputs:
+            if isinstance(inputs, str):
+                fn = ftype.make_name(tag)
+                fpath = f'{source}/{fn}'
+            elif tag in inputs:
+                fpath = inputs[tag]
+            elif isinstance(outputs, str) and missing_inputs_in_outdir:
+                fn = ftype.make_name(tag)
+                fpath = f'{outputs}/{fn}'
+            else:
+                raise ValueError(f"Missing input location {tag}")
+            flags.append(f'--{tag}={fpath}')
+
+        for tag,ftype in cls.outputs:
+            if isinstance(outputs, str):
+                fn = ftype.make_name(tag)
+                fpath = f'{outputs}/{fn}'
+            elif tag in outputs:
+                fpath = outputs[tag]
+            else:
+                raise ValueError(f"Missing output location {tag}")
+            flags.append(f'--{tag}={fpath}')
+
+        flags = "   ".join(flags)
+
+        # We just return this, instead of wrapping it in a
+        # parsl job
+        cmd = f'python3 -m {module} {flags}'
+        return cmd
+
 
     @classmethod
     def generate_cwl(cls):
@@ -425,321 +788,3 @@ Missing these names on the command line:
         # cwl_tool.metadata = cwlgen.Metadata(**metadata)
 
         return cwl_tool
-
-    def iterate_fits(self, tag, hdunum, cols, chunk_rows):
-        """
-        Loop through chunks of the input data from a FITS file with the given tag
-        """
-        fits = self.open_input(tag)
-        ext = fits[hdunum]
-        n = ext.get_nrows()
-        for start,end in self.data_ranges_by_rank(n, chunk_rows):
-            data = ext.read_columns(cols, rows=range(start, end))
-            yield start, end, data
-
-    def iterate_hdf(self, tag, group_name, cols, chunk_rows):
-        """
-        Loop through chunks of the input data from an HDF5 file with the given tag.
-
-        All the selected columns must have the same length.
-
-        """
-        import numpy as np
-        hdf = self.open_input(tag)
-        group = hdf[group_name]
-
-        # Check all the columns are the same length
-        N = [len(group[col]) for col in cols]
-        n = N[0]
-        if not np.equal(N,n).all():
-            raise ValueError(f"Different columns among {cols} in file {tag}\
-            group {group_name} are different sizes - cannot use iterate_hdf")
-
-        # Iterate through the data providing chunks
-        for start, end in self.data_ranges_by_rank(n, chunk_rows):
-            data = {col: group[col][start:end] for col in cols}
-            yield start, end, data
-
-
-
-
-    def get_input_type(self, tag):
-        """Return the file type class of an input file with the given tag."""
-        for t,dt in self.inputs:
-            if t==tag:
-                return dt
-        raise ValueError(f"Tag {tag} is not a known input")
-
-    def get_output_type(self, tag):
-        """Return the file type class of an output file with the given tag."""
-        for t,dt in self.outputs:
-            if t==tag:
-                return dt
-        raise ValueError(f"Tag {tag} is not a known output")
-
-
-
-    def split_tasks_by_rank(self, tasks):
-        for i,task in enumerate(tasks):
-            if i%self.size==self.rank:
-                yield task
-
-    def data_ranges_by_rank(self, n_rows, chunk_rows):
-        n_chunks = n_rows//chunk_rows
-        if n_chunks*chunk_rows<n_rows:
-            n_chunks += 1
-        for i in self.split_tasks_by_rank(range(n_chunks)):
-            start = i*chunk_rows
-            end = min((i+1)*chunk_rows, n_rows)
-            yield start, end
-
-
-
-    pipeline_stages = {}
-    def __init_subclass__(cls, **kwargs):
-        """
-        Python 3.6+ provides a facility to automatically
-        call a method (this one) whenever a new subclass
-        is defined.  In this case we use that feature to keep
-        track of all available pipeline stages, each of which is
-        defined by a class.
-
-        """
-        super().__init_subclass__(**kwargs)
-
-        # This is a hacky way of finding the file
-        # where our stage was defined
-        filename = sys.modules[cls.__module__].__file__
-
-        # Make sure the pipeline stage has a name
-        if not hasattr(cls, 'name'):
-            raise ValueError(f"Pipeline stage defined in {filename} must be given a name.")
-        if not hasattr(cls, 'outputs'):
-            raise ValueError(f"Pipeline stage {cls.name} defined in {filename} must be given a list of outputs.")
-        if not hasattr(cls, 'inputs'):
-            raise ValueError(f"Pipeline stage {cls.name} defined in {filename} must be given a list of inputs.")
-
-
-        # Check for two stages with the same name.
-        # Not sure if we actually do want to allow this?
-        if cls.name in cls.pipeline_stages:
-            raise ValueError(f"Pipeline stage {cls.name} already defined")
-
-        # Check for "config" in the inputs list - this is now implicit
-        for name, _ in cls.inputs:
-            if name=='config':
-                raise ValueError(f"""An input called 'config' is now implicit in each pipeline stage
-and should not be added explicitly.  Please update your pipeline stage called {cls.name} to remove
-the input called 'config'.
-""")
-
-        # Find the absolute path to the class defining the file
-        path = pathlib.Path(filename).resolve()
-        cls.pipeline_stages[cls.name] = (cls, path)
-
-    @classmethod
-    def output_tags(cls):
-        """
-        Return the list of output tags required by this stage
-        """
-        return [tag for tag,_ in cls.outputs]
-
-    @classmethod
-    def input_tags(cls):
-        """
-        Return the list of input tags required by this stage
-        """
-        return [tag for tag,_ in cls.inputs]
-
-    @classmethod
-    def get_stage(cls, name):
-        """
-        Return the PipelineStage subclass with the given name.
-        """
-        return cls.pipeline_stages[name][0]
-
-    @classmethod
-    def get_executable(cls):
-        """
-        Return the path to the executable code for this pipeline stage.
-        """
-        return cls.pipeline_stages[cls.name][1]
-
-    @classmethod
-    def get_module(cls):
-        """
-        Return the path to the executable code for this pipeline stage.
-        """
-        return cls.pipeline_stages[cls.name][0].__module__
-
-    @classmethod
-    def usage(cls):
-        stage_names = "\n- ".join(cls.pipeline_stages.keys())
-        sys.stderr.write(f"""
-Usage: python -m txpipe <stage_name> <stage_arguments>
-
-If no stage_arguments are given then usage information
-for the chosen stage will be given.
-
-I currently know about these stages:
-- {stage_names}
-""")
-
-    @classmethod
-    def main(cls):
-        """
-        Create an instance of this stage and run it with
-        inputs and outputs taken from the command line
-        """
-        try:
-            stage_name = sys.argv[1]
-        except IndexError:
-            cls.usage()
-            return 1
-        if stage_name in ['--help', '-h'] and len(sys.argv)==2:
-            cls.usage()
-            return 1
-        stage = cls.get_stage(stage_name)
-        args = stage._parse_command_line()
-        stage.execute(args)
-        return 0
-
-    @classmethod
-    def export(cls, all_stages=True):
-        """
-        Export a dictionary representation of known stages
-        (if all==True, the default) or just this stage (all==False).
-
-
-        """
-
-    @classmethod
-    def export_yaml(cls, filename, all_stages=True):
-        """
-        Export a YAML file representation of known stages
-        (if all==True, the default) or just this stage (all==False).
-        """
-        outfile = open(filename, 'w')
-        d = cls.export(all_stages=all_stages)
-        yaml.dump(d, outfile)
-        outfile.close()
-
-
-    @classmethod
-    def _parse_command_line(cls):
-        cmd = " ".join(sys.argv[:])
-        import argparse
-        parser = argparse.ArgumentParser(description=f"Run pipeline stage {cls.name}")
-        parser.add_argument("stage_name")
-        for conf in cls.config_options:
-            def_val = cls.config_options[conf]
-            opt_type = def_val if type(def_val) == type else type(def_val)
-
-            if opt_type == bool:
-                parser.add_argument(f'--{conf}', action='store_const', const=True)
-            elif opt_type == list:
-                out_type = def_val[0] if type(def_val[0]) == type else type(def_val[0])
-                if out_type is str:
-                    parser.add_argument(f'--{conf}', type=lambda string: string.split(',') )
-                elif out_type is int:
-                    parser.add_argument(f'--{conf}', type=lambda string: [int(i) for i in string.split(',')])
-                elif out_type is float:
-                    parser.add_argument(f'--{conf}', type=lambda string: [float(i) for i in string.split(',')])
-                else:
-                    raise NotImplementedError("Only handles str, int and float list arguments")
-            else:
-                parser.add_argument(f'--{conf}', type=opt_type)
-        for inp in cls.input_tags():
-            parser.add_argument(f'--{inp}')
-        for out in cls.output_tags():
-            parser.add_argument(f'--{out}')
-        parser.add_argument('--config')
-        parser.add_argument('--mpi', action='store_true', help="Set up MPI parallelism")
-        parser.add_argument('--pdb', action='store_true', help="Run under the python debugger")
-        parser.add_argument('--cprofile', action='store', default='', type=str, help="Profile the stage using the python cProfile tool")
-        args = parser.parse_args()
-        return args
-
-    @classmethod
-    def execute(cls, args):
-        """
-        Create an instance of this stage and run it
-        with the specified inputs and outputs
-        """
-        import pdb
-        stage = cls(args)
-        if stage.rank==0:
-            print(f"Executing stage: {cls.name}")
-
-        if args.cprofile:
-            profile = cProfile.Profile()
-            profile.enable()
-
-        try:
-            stage.run()
-        except Exception as error:
-            if args.pdb:
-                print("There was an exception - starting python debugger because you ran with --pdb")
-                print(error)
-                pdb.post_mortem()
-            else:
-                raise
-        try:
-            stage.finalize()
-        except Exception as error:
-            if args.pdb:
-                print("There was an exception in the finalization - starting python debugger because you ran with --pdb")
-                print(error)
-                pdb.post_mortem()
-            else:
-                raise
-        if args.cprofile:
-            profile.disable()
-            profile.dump_stats(args.cprofile)
-            profile.print_stats('cumtime')
-
-
-
-    @classmethod
-    def generate_command(cls, inputs, config, outputs, missing_inputs_in_outdir=False):
-        """
-        Generate a command line that will run the stage
-        """
-        module = cls.get_module()
-        module = module.split('.')[0]
-
-        flags = [cls.name, f'--config={config}']
-
-        def get_path(d, tag, ftype):
-            return fpath
-
-
-        for tag,ftype in cls.inputs:
-            if isinstance(inputs, str):
-                fn = ftype.make_name(tag)
-                fpath = f'{source}/{fn}'
-            elif tag in inputs:
-                fpath = inputs[tag]
-            elif isinstance(outputs, str) and missing_inputs_in_outdir:
-                fn = ftype.make_name(tag)
-                fpath = f'{outputs}/{fn}'
-            else:
-                raise ValueError(f"Missing input location {tag}")
-            flags.append(f'--{tag}={fpath}')
-
-        for tag,ftype in cls.outputs:
-            if isinstance(outputs, str):
-                fn = ftype.make_name(tag)
-                fpath = f'{outputs}/{fn}'
-            elif tag in outputs:
-                fpath = outputs[tag]
-            else:
-                raise ValueError(f"Missing output location {tag}")
-            flags.append(f'--{tag}={fpath}')
-
-        flags = "   ".join(flags)
-
-        # We just return this, instead of wrapping it in a
-        # parsl job
-        cmd = f'python3 -m {module} {flags}'
-        return cmd

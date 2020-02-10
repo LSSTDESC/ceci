@@ -1,23 +1,64 @@
+"""
+Minirunner is a very minimal execution level of a workflow manager.
+
+It understands jobs requiring multiple nodes or cores.
+It does minimal checking.
+
+It launches only local job, so is designed for debugging or for use on NERSC interactive mode.
+"""
 import subprocess
 import os
 import time
 import socket
 
+# Constant indicators
 COMPLETE = 0
 WAITING = 1
 
 class RunnerError(Exception):
+    """Base error class."""
     pass
+
 
 class NoJobsReady(RunnerError):
+    """Error for when no jobs can be run and the pipeline is blocked."""
     pass
 
+
 class FailedJob(RunnerError):
+    """Error for when a job has failed."""
     pass
 
 
 class Node:
+    """Class for nodes available for a job.
+
+    Nodes have an ID and a number of cores.  Can add more capabilities later
+    if needed.
+    """
     def __init__(self, node_id, cores):
+        """Create a node.
+
+        Parameters
+        ----------
+        node_id: str
+            Name for the node
+
+        cores: int
+            Number of cores on the node
+
+        Attributes
+        ----------
+
+        id: str
+            Name for the node
+
+        cores: int
+            Number of cores on the node
+
+        is_assigned: bool
+            Whether the node is assigned or not to a job.
+        """
         self.id = node_id
         self.cores = cores
         self.is_assigned = False
@@ -29,14 +70,50 @@ class Node:
         return hash(self.id)
 
     def assign(self):
+        """Set this node as assigned to a job"""
         self.is_assigned = True
 
     def free(self):
+        """Set this node as no longer assigned to a job"""
         self.is_assigned = False
 
 
 class Job:
+    """Small wrapper for a job to be run by minirunner, incorporating
+    the command line and the resources needed to run it.
+    """
     def __init__(self, name, cmd, nodes, cores):
+        """Create a node.
+
+        Parameters
+        ----------
+        name: str
+            Name for the job
+
+        cmd: str
+            Command line to execute for the job
+
+        cores: int
+            Number of cores needed for the job
+
+        nodes: int
+            Number of nodes needed for the job
+
+        Attributes
+        ----------
+
+        name: str
+            Name for the node
+
+        cmd: str
+            Command line to execute for the job
+
+        cores: int
+            Number of cores needed for the job
+
+        nodes: int
+            Number of nodes needed for the job
+        """        
         self.name = name
         self.cmd = cmd
         self.nodes = nodes
@@ -45,8 +122,49 @@ class Job:
     def __str__(self):
         return f"<Job {self.name}>"
 
+
 class Runner:
+    """The main pipeline runner class.
+
+    User is responsible for supplying the graph of jobs to run on it, etc.
+
+    Attributes
+    ----------
+
+    nodes: list[Node]
+        Nodes available to run on
+
+    job_graph: dict{Job:Job}
+        Indicates what jobs are to be run and which other jobs they depend on
+
+    completed_jobs: list[Job]
+        Jobs that have finished
+
+    running: list[Job]
+        Jobs currently running
+
+    queued_jobs: list[Job]
+        Jobs waiting to be run
+
+    log_dir: str
+        Dir where the logs are put
+
+    """
     def __init__(self, nodes, job_graph, log_dir):
+        """Create a Runner
+
+        Parameters
+        ----------
+        nodes: list[Node]
+            Nodes available to run on
+
+        job_graph: dict{Job:Job}
+            Indicates what jobs are to be run and which other jobs they depend on
+
+        log_dir: str
+            Dir where the logs are put        
+
+        """
         self.nodes = nodes
         self.job_graph = job_graph
         self.completed_jobs = []
@@ -54,47 +172,103 @@ class Runner:
         self.log_dir = log_dir
         self.queued_jobs = list(job_graph.keys())
 
-    def ready_jobs(self):
-        return [job for job in self.queued_jobs if 
-            all(p in self.completed_jobs for p in self.job_graph[job])]
+
+    def run(self, interval):
+        """Launch the pipeline.
+
+        Parameters
+        ----------
+        interval: int
+            How long to wait between each poll of the jobs.
+
+        """
+        status = WAITING
+        while status == WAITING:
+            status = self._update()
+            try:
+                time.sleep(interval)
+            except KeyboardInterrupt:
+                self.abort()
+                raise
 
     def abort(self):
+        """End the pipeline and kill all running jobs."""
         for process, job, alloc in self.running:
             process.kill()
         for node in self.nodes:
             node.free()
 
-    def update(self):
 
-        self.check_completed()
+    def _launch(self, job, alloc):
+        # launch the specified job on the specified nodes
+        # dict alloc maps nodes to numbers of cores to be used
+        print(f"\nExecuting {job.name}")
+        for node in alloc:
+            node.assign()
 
+        cmd = job.cmd
+
+        print(f"Command is:\n{cmd}")
+        stdout_file = f'{self.log_dir}/{job.name}.log'
+        print(f"Output writing to {stdout_file}\n")
+
+        stdout = open(stdout_file, 'w')
+        # launch cmd in a subprocess, and keep track in running jobs
+        p = subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT)
+        self.running.append((p, job, alloc))
+
+
+    def _ready_jobs(self):
+        # Find jobs ready to be run now
+        return [job for job in self.queued_jobs if 
+            all(p in self.completed_jobs for p in self.job_graph[job])]
+
+
+    def _update(self):
+        # Iterate, checking the status of all jobs and launching any new ones
+        self._check_completed()
+
+        # If all jobs are done, exit
         if len(self.completed_jobs) == len(self.job_graph):
             return COMPLETE
 
-        ready = self.ready_jobs()
+        # Otherwise check what jobs can now run
+        ready = self._ready_jobs()
         if (not self.running) and (not ready):
             raise NoJobReady("Some jobs cannot be run - not enough cores.")
         
+        # and launch them all
         for job in ready:
-            alloc = self.check_availability(job)
+            # find nodes to run them on
+            alloc = self._check_availability(job)
             if alloc is None:
                 continue
+            # and launch the job
             self.queued_jobs.remove(job)
-            self.launch(job, alloc)
+            self._launch(job, alloc)
 
+        # indicate that we are still running.
         return WAITING
 
-    def check_completed(self):
+
+    def _check_completed(self):
+        # check if any running jobs have completed
         completed_jobs = []
         continuing_jobs = []
+        # loop through all known running ones
         for process, job, alloc in self.running:
+            # check status
             status = process.poll()
+            # None indicates job is still running
             if status is None:
                 continuing_jobs.append((process, job, alloc))
+            # status !=0 indicates error in job.
+            # kill everything
             elif status:
                 print(f"Job {job.name} has failed with status {status}")
                 self.abort()
                 raise FailedJob(job.cmd)
+            # status==0 indicates sucess in job, so free resources
             else:
                 print(f"Job {job.name} has completed successfully!")
                 completed_jobs.append(job)
@@ -107,9 +281,9 @@ class Runner:
             self.completed_jobs.append(job)
 
 
-
-
-    def check_availability(self, job):
+    def _check_availability(self, job):
+        # check if there are nodes available to run this job
+        # Return them if so, or None if not.
         cores_on_node = []
         remaining = job.cores
         alloc = {}
@@ -121,46 +295,3 @@ class Runner:
             alloc = None
 
         return alloc
-
-    def launch(self, job, alloc):
-        # launch the specified job on the specified nodes
-        # dict alloc maps nodes to numbers of cores to be used
-        print(f"\nExecuting {job.name}")
-        for node in alloc:
-            node.assign()
-
-        cmd = job.cmd
-
-        print(f"Command is:\n{cmd}")
-        stdout_file = f'{self.log_dir}/{job.name}.log'
-        print(f"Output writing to {stdout_file}\n")
-        stdout = open(stdout_file, 'w')
-        p = subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT)
-
-        self.running.append((p, job, alloc))
-        # launch cmd in a subprocess, and keep track in running jobs
-
-def test():
-    job1 = Job("Job1", "echo start 1; sleep 3; echo end 1", cores=2, nodes=1)
-    job2 = Job("Job2", "echo start 2; sleep 3; echo end 2", cores=2, nodes=1)
-    job3 = Job("Job3", "echo start 3; sleep 3; echo end 3", cores=2, nodes=1)
-    job4 = Job("Job4", "echo start 4; sleep 3; echo end 4", cores=2, nodes=1)
-    job5 = Job("Job5", "echo start 5; sleep 3; echo end 5", cores=2, nodes=1)
-    job_dependencies = {
-        job1: [job2, job3],
-        job2: [job3],
-        job3: [],
-        job4: [],
-        job5: [],
-    }
-
-    node = Node('node0001', 4)
-    nodes = [node]
-    r = Runner(nodes, job_dependencies, '.')
-    s = WAITING
-    while s == WAITING:
-        time.sleep(1)
-        s = r.update()
-
-if __name__ == '__main__':
-    test()

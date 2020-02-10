@@ -7,12 +7,13 @@ modules: ceci_example
 # The launcher to use
 # These are defined in ceci/sites
 launcher:
-  name: mini
-  interval: 0.5
+    name: mini
+    interval: 0.5
 
 # launcher:
 #   name: parsl
 #   # max_threads only referenced for local sites
+#   #log: parsl_log.txt
 
 # launcher:
 #     name: cwl
@@ -20,8 +21,8 @@ launcher:
 #     dir: ./test/cwl
 
 site:
-  name: local
-  max_threads: 4
+    name: local
+    max_threads: 4
   # max_threads: 4
   # container: joezuntz/txpipe
   # volume:  $PWD:/opt/txpipe
@@ -29,9 +30,18 @@ site:
 
 
 #site:
-#  name: cori
-#  # Put the log for the overall pipeline infrastructure in this file:
-#  pipeline_log: log.txt
+#    name: cori-interactive
+#    # Put the log for the overall pipeline infrastructure in this file:
+#    pipeline_log: log.txt
+
+# site:
+#     name: cori-batch
+#     cpu_type: haswell
+#     queue: debug
+#     max_jobs: 2
+#     account: m1727
+#     walltime: "00:30:00"
+#     setup: /global/projecta/projectdirs/lsst/groups/WL/users/zuntz/setup-cori
 
 
 

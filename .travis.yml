@@ -11,7 +11,7 @@ install:
 
 script:
   - export PYTHONPATH=$PYTHONPATH:$PWD
+  # Test three different pipelines
   - ceci test/test.yml
-  # Now testing some CWL magic
-  - ceci test/test.yml launcher.name=cwl launcher.dir=test/cwl
-  - cwltool test/cwl/pipeline.cwl test/cwl/cwl_inputs.yml
+  - ceci test/test.yml launcher.name=parsl launcher.max_threads=3
+  - ceci test/test.yml launcher.name=cwl launcher.dir=test/cwl launcher.launch=cwltool

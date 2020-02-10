@@ -40,7 +40,7 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     # List of stage names, must be imported somewhere
     stages = pipe_config['stages']
 
-    # Site
+    # 
     site_config = pipe_config.get('site', {'name':'local'})
     sites = sites_module.load(launcher_config, [site_config])
 

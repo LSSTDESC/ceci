@@ -2,15 +2,31 @@ import os
 from ..minirunner import Node
 
 from .site import Site
-from parsl.config import Config
 from parsl.executors import IPyParallelExecutor, ThreadPoolExecutor
 from parsl.providers import SlurmProvider
-from parsl import load as parsl_load
 
 class CoriSite(Site):
     default_mpi_command = 'srun -u -n '
 
     def command(self, cmd, sec):
+        """Generate a complete command line to be run with the specified execution variables.
+
+        This builds up the command from the core and adds any shiftr commands, env var settings,
+        or mpirun calls.
+
+        Parameters
+        ----------
+        cmd: str
+            The core command to execute.
+
+        sec: StageExecutionConfig
+            sec objects contain info on numbers of processes, threads, etc, and container choices
+
+        Returns
+        -------
+        full_cmd: str
+            The complete decorated command to be executed.
+        """
 
         # on cori we always use srun, even if the command is a single process
         mpi1 = f"{self.mpi_command} {sec.nprocess} --cpus-per-task={sec.threads_per_process}"
