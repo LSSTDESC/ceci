@@ -1,19 +1,16 @@
 language: python
+
 python:
   - "3.6"
   - "3.7"
   - "3.8"
 
-before_install:
-  - pip install git+git://github.com/EiffL/python-cwlgen.git
-  - pip install cwltool
-
 install:
   - python setup.py install
 
+# Test three different pipelines
 script:
   - export PYTHONPATH=$PYTHONPATH:$PWD
-  # Test three different pipelines
   - ceci test/test.yml
   - ceci test/test.yml launcher.name=parsl launcher.max_threads=3
   - ceci test/test.yml launcher.name=cwl launcher.dir=test/cwl launcher.launch=cwltool

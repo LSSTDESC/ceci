@@ -26,5 +26,5 @@ setup(
     # flask is actually a parsl dependency, but a setuptools bug
     # means that capitalizing "Flask" as written in the parsl
     # setup doesn't work.
-    install_requires=['flask', 'cwlgen==0.4','pyyaml','parsl==0.8.0','descformats']
+    install_requires=['flask', 'cwlgen==0.4','cwltool==2.0.20200126090152', 'pyyaml','parsl==0.8.0','descformats']
 )
