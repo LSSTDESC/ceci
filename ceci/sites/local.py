@@ -37,7 +37,7 @@ class LocalSite(Site):
 
 
         if sec.image:
-            return f'docker run -v $PWD:/opt/txpipe '\
+            return f'docker run '\
                    f'--env OMP_NUM_THREADS={sec.threads_per_process} '\
                    f'{volume_flag} '\
                    f'--rm -it {sec.image} '\

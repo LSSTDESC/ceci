@@ -38,7 +38,7 @@ class CoriSite(Site):
 
         if sec.image:
             return f'{mpi1} ' \
-                   f'shifter -v $PWD:/opt/txpipe '\
+                   f'shifter '\
                    f'--env OMP_NUM_THREADS={sec.threads_per_process} '\
                    f'{volume_flag} '\
                    f'--image {sec.image} '\
