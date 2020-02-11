@@ -1,9 +1,10 @@
-import parsl
 import pathlib
 import sys
 from textwrap import dedent
 import shutil
 import cProfile
+import parsl
+
 
 SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'
@@ -18,6 +19,9 @@ class PipelineStage:
     stages, and the execution of the stages within a workflow system (parsl),
     potentially in parallel (MPI).
 
+    An instance of one of these classes represents an actual run of the stage,
+    with the required inputs, outputs, and configuration specified.
+
     See documentation pages for more details.
 
     """
@@ -26,6 +30,23 @@ class PipelineStage:
     doc=""
 
     def __init__(self, args):
+        """Construct a pipeline stage, specifying the inputs, outputs, and configuration for it.
+
+        The constructor needs a dict or namespace specifying:
+        - the path to the config file with info in for this stage
+        - the paths to input files
+        - the paths to output files (optional, but usual - otherwise they will be put 
+        in the current directory)
+        - any configuration values not specified in the config file and withouut defaults
+
+        The execute method can instantiate and run the class together, with added bonuses
+        like profiling and debugging tools.
+
+        Parameters
+        ----------
+        args: dict or namespace
+            Specification of input and output paths and any missing config options
+        """
         if not isinstance(args, dict):
             args = vars(args)
 
@@ -44,7 +65,7 @@ Missing these names on the command line:
 
         self._inputs = {x:args[x] for x in self.input_tags()}
         # We alwys assume the config arg exists, whether it is in input_tags or not
-        if args['config'] is None:
+        if args.get('config') is None:
             raise ValueError("The argument --config was missing on the command line.")
 
         self._inputs["config"] = args['config']
@@ -136,25 +157,44 @@ the input called 'config'.
     def get_stage(cls, name):
         """
         Return the PipelineStage subclass with the given name.
+
+        This is used so that we do not need a new entry point __main__ function
+        for each new stage - instead we can just use a single one which can query
+        which class it should be using based on the name.
+
+        Returns
+        -------
+        cls: class
+            The corresponding subclass
         """
         return cls.pipeline_stages[name][0]
 
-    @classmethod
-    def get_executable(cls):
-        """
-        Return the path to the executable code for this pipeline stage.
-        """
-        return cls.pipeline_stages[cls.name][1]
 
     @classmethod
     def get_module(cls):
         """
-        Return the path to the executable code for this pipeline stage.
+        Return the path to the python package containing the current sub-class
+
+        If we have a PipelineStage subclass defined in a module called "bar", in 
+        a package called "foo" e.g.:
+        /path/to/foo/bar.py  <--   contains subclass "Baz"
+
+        Then calling Baz.get_module() will return "foo.bar".
+
+        We use this later to construct command lines like "python -m foo Baz"
+
+        Returns
+        -------
+        module: str
+            The module containing this class.
         """
         return cls.pipeline_stages[cls.name][0].__module__
 
     @classmethod
     def usage(cls):
+        """
+        Print a usage message.
+        """
         stage_names = "\n- ".join(cls.pipeline_stages.keys())
         sys.stderr.write(f"""
 Usage: python -m txpipe <stage_name> <stage_arguments>
@@ -169,7 +209,7 @@ I currently know about these stages:
     @classmethod
     def main(cls):
         """
-        Create an instance of this stage and run it with
+        Create an instance of this stage and execute it with
         inputs and outputs taken from the command line
         """
         try:
@@ -225,7 +265,14 @@ I currently know about these stages:
     def execute(cls, args):
         """
         Create an instance of this stage and run it
-        with the specified inputs and outputs
+        with the specified inputs and outputs.
+
+        This is calld by the main method.
+
+        Parameters
+        ----------
+        args: namespace
+            The argparse namespace for this subclass.
         """
         import pdb
         stage = cls(args)
@@ -261,6 +308,9 @@ I currently know about these stages:
 
 
     def finalize(self):
+        """Finalize the stage, moving all its outputs to their final locations.
+
+        """
         # Synchronize files so that everything is closed
         if self.is_mpi():
             self.comm.Barrier()

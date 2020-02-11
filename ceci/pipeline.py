@@ -1,11 +1,11 @@
-import parsl
-from parsl.data_provider.files import File
-from .stage import PipelineStage
-from . import minirunner
 import os
 import sys
 import time
 import yaml
+import parsl
+from parsl.data_provider.files import File as ParslFile
+from .stage import PipelineStage
+from . import minirunner
 
 class StageExecutionConfig:
     """
@@ -330,7 +330,7 @@ class ParslPipeline(Pipeline):
         for inp in stage.input_tags():
             item = data_elements[inp]
             if isinstance(item,str):
-                item = File(item)
+                item = ParslFile(item)
             inputs.append(item)
         return inputs
 
@@ -449,7 +449,7 @@ def {stage.name}(inputs, outputs, stdout='{log_dir}/{stage.name}.out', stderr='{
             inputs = self.find_inputs(stage, data_elements)
             outputs = self.find_outputs(stage, output_dir)
             # All pipeline stages implicitly get the overall configuration file
-            inputs.append(File(stages_config))
+            inputs.append(ParslFile(stages_config))
             already_run_stage = all(os.path.exists(output) for output in outputs)
             # If we are in "resume" mode and the pipeline has already been run
             # then we re-use any existing outputs.  User is responsible for making

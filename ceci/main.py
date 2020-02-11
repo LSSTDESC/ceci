@@ -16,7 +16,29 @@ parser.add_argument('extra_config', nargs='*', help='Over-ride the main pipeline
 
 def run(pipeline_config_filename, extra_config=None, dry_run=False):
     """
-    Runs the pipeline
+    Runs the pipeline.
+
+    The pipeline takes a main configuration file, which specifies
+    which stages are to be run, and how, where to look for them, what overall
+    inputs there are to the pipeline, and where to find a file configuring
+    the individual stages. See test.yml for an example.
+
+    The extra_config argument lets you override parameters in the config file,
+    as long as they are stored in dictionaries.
+    For example, if the config file contains:
+    launcher:
+        name: x
+
+    Then you could include "launcher.name=y" to change this to "y".
+
+    Parameters
+    ----------
+    pipeline_config_filename: str
+        The path to the configuration file
+    extra_config: list[str]
+        Config parameters to override
+    dry_run: bool
+        Whether to do a dry-run of the pipeline, not running anything.
     """
     # YAML input file.
     # Load the text and then expand any environment variables
@@ -63,6 +85,7 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         __import__(module)
 
 
+    # Choice of actual pipeline type to run
     if dry_run:
         pipeline_class = pipeline.DryRunPipeline
     elif launcher_name == 'cwl':
