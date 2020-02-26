@@ -276,6 +276,7 @@ I currently know about these stages:
         """
         import pdb
         stage = cls(args)
+
         if stage.rank==0:
             print(f"Executing stage: {cls.name}")
 
@@ -305,6 +306,9 @@ I currently know about these stages:
             profile.disable()
             profile.dump_stats(args.cprofile)
             profile.print_stats('cumtime')
+
+        if stage.rank==0:
+            print(f"Stage complete: {cls.name}")
 
 
     def finalize(self):
