@@ -6,7 +6,7 @@ from parsl.executors import IPyParallelExecutor, ThreadPoolExecutor
 from parsl.providers import SlurmProvider
 
 class CoriSite(Site):
-    default_mpi_command = 'srun -u -n '
+    default_mpi_command = 'srun -u -n'
 
     def command(self, cmd, sec):
         """Generate a complete command line to be run with the specified execution variables.
@@ -120,3 +120,34 @@ class CoriInteractiveSite(CoriSite):
         max_threads = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         executor = ThreadPoolExecutor(label='local', max_threads=max_threads)
         self.info['executor'] = executor
+
+
+def parse_int_set(nputstr):
+  selection = set()
+  invalid = set()
+  # tokens are comma seperated values
+  tokens = [x.strip() for x in nputstr.split(',')]
+  for i in tokens:
+     try:
+        # typically tokens are plain old integers
+        selection.add(int(i))
+     except:
+        # if not, then it might be a range
+        try:
+           token = [int(k.strip()) for k in i.split('-')]
+           if len(token) > 1:
+              token.sort()
+              # we have items seperated by a dash
+              # try to build a valid range
+              first = token[0]
+              last = token[len(token)-1]
+              for x in range(first, last+1):
+                 selection.add(x)
+        except:
+           # not an int and not a range...
+           invalid.add(i)
+  # Report invalid tokens before returning valid selection
+  if invalid:
+      raise ValueError(f"Invalid node list: {nputstr}")
+  return selection
+# end parseIntSet

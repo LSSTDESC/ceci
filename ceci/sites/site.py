@@ -5,7 +5,7 @@ class Site:
     """
 
     """
-    default_mpi_command = 'mpirun -n '
+    default_mpi_command = 'mpirun -n'
     def __init__(self, config):
         self.mpi_command = config.get('mpi_command', self.default_mpi_command)
         self.info = {}
