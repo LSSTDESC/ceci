@@ -29,7 +29,7 @@ class PipelineStage:
     config_options = {}
     doc=""
 
-    def __init__(self, args):
+    def __init__(self, args, comm=None):
         """Construct a pipeline stage, specifying the inputs, outputs, and configuration for it.
 
         The constructor needs a dict or namespace specifying:
@@ -94,7 +94,15 @@ Missing these names on the command line:
                 print('ERROR: Using --mpi option requires mpi4py to be installed.')
                 raise
 
-        if use_mpi:
+        # For scripting and testing we allow an MPI communicator or anything
+        # with the same API to be passed in directly, overriding the --mpi
+        # flag.
+        if comm is not None:
+            self._parallel = MPI_PARALLEL
+            self._comm = comm
+            self._size = self._comm.Get_size()
+            self._rank = self._comm.Get_rank()            
+        elif use_mpi:
             self._parallel = MPI_PARALLEL
             self._comm = mpi4py.MPI.COMM_WORLD
             self._size = self._comm.Get_size()
