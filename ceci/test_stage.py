@@ -22,7 +22,7 @@ def test_construct():
     assert s.size == 1
     assert s.is_parallel() == False
     assert s.is_mpi() == False
-    assert s.split_tasks_by_rank(['1', '2', '3']) == ['1', '2', '3']
+    assert list(s.split_tasks_by_rank(['1', '2', '3'])) == ['1', '2', '3']
 
 
     # I'd rather not attempt to unit test MPI stuff - that sounds very unreliable
