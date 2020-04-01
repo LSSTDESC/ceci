@@ -115,7 +115,7 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     # Run the pre-script.  Since it's an error for this to fail (because
     # it is useful as a validation check) then we raise an error if it
     # fails using check_call.
-    if pre_script and not args.dry_run:
+    if pre_script and not dry_run:
         subprocess.check_call(pre_script.split() + script_args, shell=True)
 
     # Create and run the pipeline
@@ -126,7 +126,7 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     # here, as the pipeline is complete, so we just issue a warning and
     # return a status code to the caller (e.g. to the command line).
     # Thoughts on this welcome.
-    if post_script and not args.dry_run:
+    if post_script and not dry_run:
         return_code = subprocess.call(post_script.split() + script_args, shell=True)
         if return_code:
             sys.stderr.write(f"\nWARNING: The post-script command {post_script} "
