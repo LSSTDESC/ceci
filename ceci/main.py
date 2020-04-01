@@ -87,8 +87,14 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     # They are called with the same arguments as
     # this script.  If the pre_script returns non-zero
     # then the pipeline is not run.
+    # These scripts ar not run in the dry-run case.
+    # In both cases we pass the script the pipeline_config
+    # filename and any extra args.
     pre_script = pipe_config.get('pre_script')
     post_script = pipe_config.get('post_script')
+    script_args = [pipeline_config_filename]
+    if extra_config:
+        script_args += extra_config
 
     for module in modules:
         __import__(module)
@@ -109,8 +115,8 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     # Run the pre-script.  Since it's an error for this to fail (because
     # it is useful as a validation check) then we raise an error if it
     # fails using check_call.
-    if pre_script:
-        subprocess.check_call([pre_script] + sys.argv[1:], shell=True)
+    if pre_script and not args.dry_run:
+        subprocess.check_call(pre_script.split() + script_args, shell=True)
 
     # Create and run the pipeline
     p = pipeline_class(stages, launcher_config)
@@ -120,13 +126,13 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     # here, as the pipeline is complete, so we just issue a warning and
     # return a status code to the caller (e.g. to the command line).
     # Thoughts on this welcome.
-    if post_script:
-        return_code = subprocess.call([post_script] + sys.argv[1:], shell=True)
+    if post_script and not args.dry_run:
+        return_code = subprocess.call(post_script.split() + script_args, shell=True)
         if return_code:
             sys.stderr.write(f"\nWARNING: The post-script command {post_script} "
                               "returned error status {return_code}\n\n")
         return return_code
-    # Otherwise everything must have gone fine.s
+    # Otherwise everything must have gone fine.
     else:
         return 0
 
