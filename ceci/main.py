@@ -3,6 +3,7 @@ import yaml
 import sys
 import parsl
 import argparse
+import subprocess
 from . import pipeline
 from . import sites as sites_module
 
@@ -81,6 +82,14 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     resume = pipe_config['resume']
     stages_config = pipe_config['config']
 
+    # Pre- and post-scripts are run locally
+    # before and after the pipeline is complete
+    # They are called with the same arguments as
+    # this script.  If the pre_script returns non-zero
+    # then the pipeline is not run.
+    pre_script = pipe_config.get('pre_script')
+    post_script = pipe_config.get('post_script')
+
     for module in modules:
         __import__(module)
 
@@ -97,8 +106,30 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     else:
         raise ValueError('Unknown pipeline launcher {launcher_name}')
 
+    # Run the pre-script.  Since it's an error for this to fail (because
+    # it is useful as a validation check) then we raise an error if it
+    # fails using check_call.
+    if pre_script:
+        subprocess.check_call([pre_script] + sys.argv[1:], shell=True)
+
+    # Create and run the pipeline
     p = pipeline_class(stages, launcher_config)
     p.run(inputs, output_dir, log_dir, resume, stages_config)
+
+    # Run the post-script.  There seems less point raising an actual error
+    # here, as the pipeline is complete, so we just issue a warning and
+    # return a status code to the caller (e.g. to the command line).
+    # Thoughts on this welcome.
+    if post_script:
+        return_code = subprocess.call([post_script] + sys.argv[1:], shell=True)
+        if return_code:
+            sys.stderr.write(f"\nWARNING: The post-script command {post_script} "
+                              "returned error status {return_code}\n\n")
+        return return_code
+    # Otherwise everything must have gone fine.s
+    else:
+        return 0
+
 
 def override_config(config, extra):
     print("Over-riding config parameters from command line:")
@@ -121,7 +152,8 @@ def override_config(config, extra):
 
 def main():
     args = parser.parse_args()
-    run(args.pipeline_config, args.extra_config, dry_run=args.dry_run)
+    status = run(args.pipeline_config, args.extra_config, dry_run=args.dry_run)
+    return status
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
