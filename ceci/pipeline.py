@@ -316,7 +316,7 @@ class DryRunPipeline(Pipeline):
             cmd = self.generate_full_command(stage, overall_inputs, stages_config, output_dir)
             print(cmd)
             print()
-            cmd.append(cmd)
+            cmds.append(cmd)
         return cmds
 
 class ParslPipeline(Pipeline):

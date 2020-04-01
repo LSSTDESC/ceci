@@ -12,5 +12,7 @@ install:
 script:
   - export PYTHONPATH=$PYTHONPATH:$PWD
   - ceci test/test.yml
+  - ceci --dry-run test/test.yml
   - ceci test/test.yml launcher.name=parsl launcher.max_threads=3
   - ceci test/test.yml launcher.name=cwl launcher.dir=test/cwl launcher.launch=cwltool
+  - pytest
