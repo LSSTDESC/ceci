@@ -2,8 +2,6 @@ import os
 import sys
 import time
 import yaml
-import parsl
-from parsl.data_provider.files import File as ParslFile
 from .stage import PipelineStage
 from . import minirunner
 
@@ -324,6 +322,8 @@ class ParslPipeline(Pipeline):
     """
 
     def find_inputs(self, stage, data_elements):
+        from parsl.data_provider.files import File as ParslFile
+
         """
         """
         inputs = []
@@ -359,6 +359,7 @@ class ParslPipeline(Pipeline):
             A parsl app object
 
         """
+        import parsl
         module = stage.get_module()
         module = module.split('.')[0]
 
@@ -433,6 +434,9 @@ def {stage.name}(inputs, outputs, stdout='{log_dir}/{stage.name}.out', stderr='{
             Paths to all output files.
 
         """
+        from parsl.data_provider.files import File as ParslFile
+        from parsl.app.errors import AppFailure
+
         stages = self.ordered_stages(overall_inputs)
         data_elements = overall_inputs.copy()
         futures = []
@@ -475,7 +479,7 @@ def {stage.name}(inputs, outputs, stdout='{log_dir}/{stage.name}.out', stderr='{
                 # This waits for b/g pipeline completion.
                 future.result()
             # Parsl emits this on any non-zero status code.
-            except parsl.app.errors.AppFailure:
+            except AppFailure:
                 stdout_file = f'{log_dir}/{future._ceci_name}.err'
                 stderr_file = f'{log_dir}/{future._ceci_name}.out'
                 sys.stderr.write(f"""

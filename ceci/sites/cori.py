@@ -2,8 +2,6 @@ import os
 from ..minirunner import Node
 
 from .site import Site
-from parsl.executors import IPyParallelExecutor, ThreadPoolExecutor
-from parsl.providers import SlurmProvider
 
 class CoriSite(Site):
     default_mpi_command = 'srun -u -n'
@@ -86,6 +84,9 @@ class CoriSite(Site):
 
 class CoriBatchSite(CoriSite):
     def configure_for_parsl(self):
+        from parsl.executors import IPyParallelExecutor
+        from parsl.providers import SlurmProvider
+
         # Get the site details that we need    
         cpu_type = self.config.get('cpu_type', 'haswell')
         queue = self.config.get('queue', 'debug')
@@ -117,6 +118,7 @@ class CoriBatchSite(CoriSite):
 
 class CoriInteractiveSite(CoriSite):
     def configure_for_parsl(self):
+        from parsl.executors import ThreadPoolExecutor
         max_threads = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         executor = ThreadPoolExecutor(label='local', max_threads=max_threads)
         self.info['executor'] = executor

@@ -3,8 +3,6 @@ import sys
 from textwrap import dedent
 import shutil
 import cProfile
-import parsl
-
 
 SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'

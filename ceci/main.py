@@ -1,10 +1,9 @@
 import os
 import yaml
 import sys
-import parsl
 import argparse
 from . import pipeline
-from . import sites as sites_module
+from .sites import load
 
 # Add the current dir to the path - often very useful
 sys.path.append(os.getcwd())
@@ -64,7 +63,7 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
 
     # 
     site_config = pipe_config.get('site', {'name':'local'})
-    sites = sites_module.load(launcher_config, [site_config])
+    sites = load(launcher_config, [site_config])
 
     # Each stage know which site it runs on.  This is to support
     # future work where this varies between stages.

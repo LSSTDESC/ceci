@@ -1,6 +1,3 @@
-from parsl.config import Config
-
-
 class Site:
     """
 

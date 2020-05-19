@@ -3,9 +3,6 @@ import os
 import socket
 from ..minirunner import Node
 
-from parsl.executors import IPyParallelExecutor, ThreadPoolExecutor
-from parsl.providers import SlurmProvider
-
 
 class LocalSite(Site):
     """Object representing execution in the local environment, e.g. a laptop.
@@ -49,6 +46,7 @@ class LocalSite(Site):
                    f'{cmd} {mpi2}'
 
     def configure_for_parsl(self):
+        from parsl.executors import ThreadPoolExecutor
         max_threads = self.config.get('max_threads', 4)
         executor = ThreadPoolExecutor(label='local', max_threads=max_threads)
         executors = [executor]
