@@ -5,6 +5,7 @@ import collections
 import yaml
 from .stage import PipelineStage
 from . import minirunner
+from .sites import get_default_site
 
 class StageExecutionConfig:
     """
@@ -39,7 +40,7 @@ class StageExecutionConfig:
 
         # Core attributes - mandatory
         self.name = info['name']
-        self.site = info['site']
+        self.site = info.get('site', get_default_site())
 
         # Parallelism attributes - optional
         self.nprocess = info.get('nprocess', 1)
