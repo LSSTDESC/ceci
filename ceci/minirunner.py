@@ -4,7 +4,7 @@ Minirunner is a very minimal execution level of a workflow manager.
 It understands jobs requiring multiple nodes or cores.
 It does minimal checking.
 
-It launches only local job, so is designed for debugging or for use on NERSC interactive mode.
+It launches only local jobs, so is designed for debugging or for use on NERSC interactive mode.
 """
 import subprocess
 import os
@@ -183,13 +183,19 @@ class Runner:
 
         """
         status = WAITING
-        while status == WAITING:
-            status = self._update()
-            try:
+        try:
+            while status == WAITING:
+                status = self._update()
                 time.sleep(interval)
-            except KeyboardInterrupt:
-                self.abort()
-                raise
+        except Exception:
+            # The pipeline should be cleaned up
+            # in the event of any error.
+            # There should be nothing to clean up
+            # if the pipeline ends cleanly
+            # TODO: add a test for this
+            self.abort()
+            raise
+
 
     def abort(self):
         """End the pipeline and kill all running jobs."""
