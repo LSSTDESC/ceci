@@ -1,12 +1,12 @@
 runinfo
 */__pycache__
 *.pyc
-test/outputs
+tests/outputs
 .ropeproject/
 build/
 ceci.egg-info*
 dist
 log.txt
-test/log*
-test/cwl/*.cwl
+tests/log*
+tests/cwl
 .ipynb_checkpoints/
