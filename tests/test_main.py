@@ -1,14 +1,20 @@
 from ceci.main import run
-
+from parsl import clear
 
 def test_run_mini():
-    run('tests/test.yml',)
+    assert run('tests/test.yml') == 0
 
 def test_run_dry_run():
-    run('tests/test.yml', dry_run=True)
+    assert run('tests/test.yml', dry_run=True) == 0
 
 def test_run_parsl():
-    run('tests/test.yml', ['launcher.name=parsl', 'launcher.max_threads=3'])
+    assert run('tests/test.yml', ['launcher.name=parsl', 'launcher.max_threads=3']) == 0
+    clear()
 
 def test_run_cwl():
-    run('tests/test.yml', ['launcher.name=cwl', 'launcher.dir=tests/cwl', 'launcher.launch=cwltool'])
+    assert run('tests/test.yml', 
+        ['launcher.name=cwl', 'launcher.dir=tests/cwl', 'launcher.launch=cwltool']) == 0
+
+
+if __name__ == '__main__':
+    test_run_mini()

@@ -1,34 +1,36 @@
-from ceci import PipelineStage, MiniPipeline, Pipeline
+from ceci import PipelineStage, MiniPipeline, ParslPipeline, Pipeline
 from ceci_example.types import TextFile
 from ceci.sites import load
 import pytest
+from parsl import clear
 
-def test_circular():
+# This one should work
+class AAA(PipelineStage):
+    name = "AAA"
+    inputs = [('b', TextFile)]
+    outputs = [('a', TextFile)]
+    config = {}
 
-    # This one should work
-    class AAA(PipelineStage):
-        name = "AAA"
-        inputs = [('b', TextFile)]
-        outputs = [('a', TextFile)]
-        config = {}
+class BBB(PipelineStage):
+    name = "BBB"
+    inputs = [('a', TextFile)]
+    outputs = [('b', TextFile)]
+    config = {}
 
-    class BBB(PipelineStage):
-        name = "BBB"
-        inputs = [('a', TextFile)]
-        outputs = [('b', TextFile)]
-        config = {}
+class CCC(PipelineStage):
+    name = "CCC"
+    inputs = [('b', TextFile)]
+    outputs = [('c', TextFile)]
+    config = {}
 
-    class CCC(PipelineStage):
-        name = "CCC"
-        inputs = [('b', TextFile)]
-        outputs = [('c', TextFile)]
-        config = {}
+class DDD(PipelineStage):
+    name = "DDD"
+    inputs = [('b', TextFile), ('c', TextFile)]
+    outputs = [('d', TextFile)]
+    config = {}
 
-    class DDD(PipelineStage):
-        name = "DDD"
-        inputs = [('b', TextFile), ('c', TextFile)]
-        outputs = [('d', TextFile)]
-        config = {}
+def test_orderings():
+
 
     # TODO: make it so less boilerplate is needed here
     launcher_config = {'interval': 0.5, 'name':'mini'}
@@ -67,11 +69,44 @@ def test_circular():
         pipeline = Pipeline([A], launcher_config)
         order = pipeline.ordered_stages({'a': 'a.txt', 'b': 'b.txt'})
 
-    # repeated stage
+    # Should fail - repeated stage
     with pytest.raises(ValueError):
         pipeline = Pipeline([A, A], launcher_config)
         order = pipeline.ordered_stages({'b': 'b.txt'})
 
 
-if __name__ == '__main__':
-    test_circular()
+class FailingStage(PipelineStage):
+    name = "FailingStage"
+    inputs = []
+    outputs = [('dm', TextFile)]  # exists already as an input
+    config = {}
+
+    def run(self):
+        raise ValueError("This should not run because its outputs exist.")
+
+
+def _return_value_test_(resume):
+    expected_status = 0 if resume else 1
+    # Mini pipeline should not run
+    launcher_config = {'interval': 0.5, 'name':'mini'}
+    site = load(launcher_config, [{'name': 'local'}])[0]
+    stage = {'name': 'FailingStage', 'site':site}
+    pipeline = MiniPipeline([stage], launcher_config)
+    status = pipeline.run({}, './tests/inputs', './tests/logs', resume, 'tests/config.yml')
+    assert status == expected_status
+
+    # Parsl pipeline should not run stage either
+    launcher_config = {'name':'parsl'}
+    site = load(launcher_config, [{'name': 'local', 'max_threads':2}])[0]
+    stage = {'name': 'FailingStage', 'site':site}
+    pipeline = ParslPipeline([stage], launcher_config)
+    status = pipeline.run({}, './tests/inputs', './tests/logs', resume, 'tests/config.yml')
+    assert status == expected_status
+    clear()
+
+
+def test_resume():
+    _return_value_test_(True)
+
+def test_fail():
+    _return_value_test_(False)
