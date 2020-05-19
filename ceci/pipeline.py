@@ -11,7 +11,7 @@ class StageExecutionConfig:
     for example how many cores it is run on, and where.  It does not store the
     job input or output information or anything like that.
 
-    Possibly we should be attaching this object to the stage itself.
+    TODO: Consider attaching this object to the stage itself.
 
     Attributes
     ----------
@@ -21,18 +21,18 @@ class StageExecutionConfig:
     site: Site object
         The site this stage is run on
     nprocess: int
-        The number of (usually MPI) processes to use for this task
+        (default 1) The number of (usually MPI) processes to use for this task
     nodes: int
-        The number of nodes the processes should be spread over
+        (default 1) The number of nodes the processes should be spread over
     threads_per_process: int
-        The number of (usually OpenMP) threads to use per process.
+        (ddefault 1) The number of (usually OpenMP) threads to use per process.
     mem_per_process: float
-        The amount of memory in GB required for the job
+        (defaut 2GB) The amount of memory in GB required for the job
     image: str
-        A docker image name to use for this task
+        (default is the site default) A docker image name to use for this task
     volume: str
-        Any volume mappings in the form /path/on/host:/path/on/container
-        that the job needs
+        (default is the site default) Any volume mappings in the form
+        /path/on/host:/path/on/container that the job needs
     """
     def __init__(self, info):
 
@@ -98,10 +98,28 @@ class Pipeline:
         StageExecutionConfig above describing parallelism 
         and container usage.
 
+        The stage_info can contain the following parameters:
+            site: Site object
+                The site this stage is run on
+            nprocess: int
+                (default 1) The number of (usually MPI) processes to use for this task
+            nodes: int
+                (default 1) The number of nodes the processes should be spread over
+            threads_per_process: int
+                (ddefault 1) The number of (usually OpenMP) threads to use per process.
+            mem_per_process: float
+                (defaut 2GB) The amount of memory in GB required for the job
+            image: str
+                (default is the site default) A docker image name to use for this task
+            volume: str
+                (default is the site default) Any volume mappings in the form
+                /path/on/host:/path/on/container that the job needs
+
         Parameters
         ----------
         stage_info: dict
-            Configuration information for this stage.
+            Configuration information for this stage. See docstring for info.
+
 
         """
         sec = StageExecutionConfig(stage_info)
@@ -126,10 +144,6 @@ class Pipeline:
         The name is determined from the output tag, the type of the file,
         and the directory it will be put into.
 
-        Since different pipelines treat input files differently
-        the corresponding find_inputs methods are defined in subclasses,
-        where needed.
-
         Sub-class pipelines might organise results differently, hence this
         being a method of Pipeline rather than PipelineStage.
 
@@ -150,7 +164,7 @@ class Pipeline:
         """Produce a linear ordering for the stages.
 
         Some stages within the pipeline might be ruunnable in parallel; this
-        method does not analyze this, since it different workflow managers will
+        method does not analyze this, since different workflow managers will
         treat this differently.
 
         The stages in the pipeline are also checked for consistency, to avoid
