@@ -7,7 +7,7 @@ from . import minirunner
 
 class StageExecutionConfig:
     """
-    The SEC stores information describing how an individual job is to be executed,
+    This class stores information describing how an individual job is to be executed,
     for example how many cores it is run on, and where.  It does not store the
     job input or output information or anything like that.
 
