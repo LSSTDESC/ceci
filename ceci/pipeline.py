@@ -193,6 +193,18 @@ class Pipeline:
 
         n = len(stage_names)
 
+        # Check for a pipeline output that is already given as an input
+        for stage in stages:
+            for tag in stage.output_tags():
+                if tag in overall_inputs:
+                    raise ValueError("Pipeline stage {stage.name} "
+                                     "generates output {tag}, but "
+                                     "it is already an overall input")
+        stage_set = {stage for stage in stage_names}
+        if len(stage_set) < len(stages):
+            raise ValueError("Some stages are included twice in your pipeline")
+
+
         # make a dict mapping each tag to the stages that need it
         # as an input. This is the equivalent of the adjacency matrix
         # in graph-speak
