@@ -3,7 +3,7 @@ import yaml
 import sys
 import argparse
 from . import pipeline
-from .sites import load
+from .sites import load, set_default_site, get_default_site
 
 # Add the current dir to the path - often very useful
 sys.path.append(os.getcwd())
@@ -50,7 +50,7 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         override_config(pipe_config, extra_config)
 
     # parsl execution/launcher configuration information
-    launcher_config = pipe_config.get("launcher", {'name':"local"})
+    launcher_config = pipe_config.get("launcher", {'name':"mini"})
     launcher_name = launcher_config['name']
 
 
@@ -61,17 +61,13 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     # List of stage names, must be imported somewhere
     stages = pipe_config['stages']
 
-    # 
+    # configure the default site based on the config.
+    # TODO: allow multiple sites in config files
+    # current default site, to be restored later
+    default_site = get_default_site()
+
     site_config = pipe_config.get('site', {'name':'local'})
-    sites = load(launcher_config, [site_config])
-
-    # Each stage know which site it runs on.  This is to support
-    # future work where this varies between stages.
-    for stage in stages:
-        stage['site'] = sites[0]
-
-    site_info = sites[0].info
-
+    load(launcher_config, [site_config])
 
     # Inputs and outputs
     output_dir = pipe_config['output_dir']
@@ -97,7 +93,15 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         raise ValueError('Unknown pipeline launcher {launcher_name}')
 
     p = pipeline_class(stages, launcher_config)
-    return p.run(inputs, output_dir, log_dir, resume, stages_config)
+    status = p.run(inputs, output_dir, log_dir, resume, stages_config)
+
+    # The load command above changes the default site.
+    # So that this function doesn't confuse later things,
+    # reset that site now.
+    set_default_site(default_site)
+
+    return status
+
 
 def override_config(config, extra):
     print("Over-riding config parameters from command line:")

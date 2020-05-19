@@ -10,11 +10,24 @@ site_classes = {
     'cori-batch': CoriBatchSite,
 }
 
-# by default use a local site configured
-# for minirunner. Overwritten if you call load
-# below.
-default_site = LocalSite({'max_threads':2})
-default_site.configure_for_mini()
+
+# by default use a local site configured.
+# Overwritten if you call load below.
+
+def set_default_site(site):
+    global _default_site
+    _default_site = site
+    return _default_site
+
+def reset_default_site():
+    site = LocalSite({'max_threads':2})
+    site.configure_for_mini()
+    set_default_site(site)
+
+def get_default_site():
+    return _default_site
+
+reset_default_site()
 
 
 
@@ -59,8 +72,7 @@ def load(launcher_config, site_configs):
 
     # replace the default site with the first
     # one found here
-    global default_site
-    default_site = sites[0]
+    set_default_site(sites[0])
 
     return sites
 
@@ -96,6 +108,3 @@ def setup_parsl(launcher_config, sites):
         log_file_dir = os.path.split(os.path.abspath(log_file))[0]
         os.makedirs(log_file_dir, exist_ok=True)
         set_file_logger(log_file)
-
-def get_default_site():
-    return default_site

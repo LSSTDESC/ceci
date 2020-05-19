@@ -21,13 +21,13 @@ class StageExecutionConfig:
     name: str
         The name of the stage
     site: Site object
-        The site this stage is run on
+        (default the global default) The site this stage is run on
     nprocess: int
         (default 1) The number of (usually MPI) processes to use for this task
     nodes: int
         (default 1) The number of nodes the processes should be spread over
     threads_per_process: int
-        (ddefault 1) The number of (usually OpenMP) threads to use per process.
+        (default 1) The number of (usually OpenMP) threads to use per process.
     mem_per_process: float
         (defaut 2GB) The amount of memory in GB required for the job
     image: str
@@ -108,7 +108,7 @@ class Pipeline:
             nodes: int
                 (default 1) The number of nodes the processes should be spread over
             threads_per_process: int
-                (ddefault 1) The number of (usually OpenMP) threads to use per process.
+                (default 1) The number of (usually OpenMP) threads to use per process.
             mem_per_process: float
                 (defaut 2GB) The amount of memory in GB required for the job
             image: str
