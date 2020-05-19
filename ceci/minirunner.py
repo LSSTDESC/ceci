@@ -27,7 +27,9 @@ class NoJobsReady(RunnerError):
 
 class FailedJob(RunnerError):
     """Error for when a job has failed."""
-    pass
+    def __init__(self, msg, job_name):
+        super().__init__(msg)
+        self.job_name = job_name
 
 
 class Node:
@@ -273,7 +275,7 @@ class Runner:
             elif status:
                 print(f"Job {job.name} has failed with status {status}")
                 self.abort()
-                raise FailedJob(job.cmd)
+                raise FailedJob(job.cmd, job.name)
             # status==0 indicates sucess in job, so free resources
             else:
                 print(f"Job {job.name} has completed successfully!")

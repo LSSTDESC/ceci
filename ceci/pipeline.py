@@ -228,16 +228,8 @@ class Pipeline:
         ordered_stages = []
 
 
-        iterations = 0
         # make the ordering
         while queue:
-            if not queue:
-                break
-            iterations += 1
-            # if we have not completed the algorithm
-            # at this point something is wrong.
-            if iterations > n:
-                break
             # get the next stage that has no inputs missing
             stage = queue.pop()
             # for file that stage produces,
@@ -366,7 +358,8 @@ class DryRunPipeline(Pipeline):
             print(cmd)
             print()
             cmds.append(cmd)
-        return cmds
+        self.pipeline_results = {}
+        return 0
 
 class ParslPipeline(Pipeline):
     """A subclass of Pipeline that uses Parsl to manage workflow.
@@ -563,11 +556,13 @@ Standard error:
                 else:
                     sys.stderr.write("STDERR MISSING!\n\n")
                 print("Pipeline failed.  No joy sparked.")
-                return None
+                return 1
 
         # Return a dictionary of the resulting file outputs
         print("Pipeline suceeded.  Joy is sparked.")
-        return data_elements
+
+        self.pipeline_results = data_elements
+        return 0
 
 
 
@@ -710,7 +705,22 @@ class MiniPipeline(Pipeline):
         # Run under minirununer
         runner = minirunner.Runner(nodes, graph, log_dir)
         interval = self.launcher_config.get('interval', 3)
-        runner.run(interval)
+        try:
+            runner.run(interval)
+        except minirunner.FailedJob as error:
+            sys.stderr.write("""
+*************************************************
+Error running pipeline stage {error.job_name}.
+
+Standard output and error streams above.
+*************************************************
+""")
+            return 1
+
+        all_outputs = sum([self.find_outputs(stage, output_dir) for stage in stages],
+                          [])
+        self.pipeline_results = all_outputs
+        return 0
 
 
 class CWLPipeline(Pipeline):
@@ -889,4 +899,6 @@ class CWLPipeline(Pipeline):
             print(cmd)
             os.system(cmd)
 
-        return wf
+        self.pipeline_results = wf
+
+        return 0

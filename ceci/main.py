@@ -97,7 +97,7 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         raise ValueError('Unknown pipeline launcher {launcher_name}')
 
     p = pipeline_class(stages, launcher_config)
-    p.run(inputs, output_dir, log_dir, resume, stages_config)
+    return p.run(inputs, output_dir, log_dir, resume, stages_config)
 
 def override_config(config, extra):
     print("Over-riding config parameters from command line:")
@@ -120,7 +120,7 @@ def override_config(config, extra):
 
 def main():
     args = parser.parse_args()
-    run(args.pipeline_config, args.extra_config, dry_run=args.dry_run)
+    return run(args.pipeline_config, args.extra_config, dry_run=args.dry_run)
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
