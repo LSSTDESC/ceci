@@ -10,3 +10,4 @@ log.txt
 tests/log*
 tests/cwl
 .ipynb_checkpoints/
+.coverage
