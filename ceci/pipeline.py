@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import collections
 import yaml
 from .stage import PipelineStage
 from . import minirunner
@@ -171,6 +172,10 @@ class Pipeline:
         circular pipelines (A->B->C->A) and to ensure that all overall inputs
         needed in the pipeline are supplied from the overall inputs.
 
+        The naive ordering algorithm used is faster when the stages are in
+        the correct order to start with.  This won't matter unless you have
+        a large number of stages.
+
         Parameters
         ----------
         overall_inputs: dict{str: str}
@@ -185,59 +190,79 @@ class Pipeline:
         """
         stage_names = self.stage_names[:]
         stages = [PipelineStage.get_stage(stage_name) for stage_name in stage_names]
-        all_stages = stages[:]
 
-        # List of tags of inputs that we have already generated.
-        # this will be appended to as we deternine new stages can be added
-        known_inputs = list(overall_inputs.keys())
-        ordered_stages = []
         n = len(stage_names)
 
-        # Loop through the remaining un-listed stages and check if each
-        # has all its inputs and so can be added to the list.  We do this
-        # at most n_stage times, which is the worst-case scenario for this
-        # ordering.  There's probably a faster algorithm, but this is not
-        # a slow operation.
-        for i in range(n):
-            # we make a copy of stages here so we will not be modifying it
-            # while it is being iterated through.
-            for stage in stages[:]:
-                if all(inp in known_inputs for inp in stage.input_tags()):
-                    # add this stage to the list and also note that we now
-                    # have its outputs for future stages.
-                    ordered_stages.append(stage)
-                    known_inputs += stage.output_tags()
-                    stages.remove(stage)
+        # make a dict mapping each tag to the stages that need it
+        # as an input. This is the equivalent of the adjacency matrix
+        # in graph-speak
+        dependencies = collections.defaultdict(list)
+        for stage in stages:
+            for tag in stage.input_tags():
+                dependencies[tag].append(stage)
 
+        # count the number of inputs required by each stage
+        missing_input_counts = {stage:len(stage.inputs) for stage in stages}
+        found_inputs = set()
+        # record the stages which are receiving overall inputs
+        for tag in overall_inputs:
+            found_inputs.add(tag)
+            for stage in dependencies[tag]:
+                missing_input_counts[stage] -= 1
+
+
+        # find all the stages that are ready because they have no missing inputs
+        queue = [stage for stage in stages if missing_input_counts[stage]==0]
+        ordered_stages = []
+
+
+        iterations = 0
+        # make the ordering
+        while queue:
+            if not queue:
+                break
+            iterations += 1
+            # if we have not completed the algorithm
+            # at this point something is wrong.
+            if iterations > n:
+                break
+            # get the next stage that has no inputs missing
+            stage = queue.pop()
+            # for file that stage produces,
+            for tag in stage.output_tags():
+                # find all the next_stages that depend on that file
+                found_inputs.add(tag)
+                for next_stage in dependencies[tag]:
+                    # record that the next stage now has one less
+                    # missing dependency
+                    missing_input_counts[next_stage] -= 1
+                    # if that stage now has no missing stages
+                    # then enqueue it
+                    if missing_input_counts[next_stage] == 0:
+                        queue.append(next_stage)
+            ordered_stages.append(stage)
+
+        
         # If any stages are still not in the list then there is a problem.
         # Try to diagnose it here.
-        if stages:
-            all_outputs = sum((s.output_tags() for s in all_stages), [])
-            missing_inputs = [t for s in all_stages for t in s.input_tags() if t not in all_outputs and t not in overall_inputs]
+        if len(ordered_stages) != n:
+            stages_missing_inputs = [stage for (stage, count)
+                                     in missing_input_counts.items()
+                                     if count>0]
+            msg1 = []
+            for stage in stages_missing_inputs:
+                missing_inputs = [tag for tag in stage.input_tags() 
+                                  if tag not in found_inputs]
+                missing_inputs = ', '.join(missing_inputs)
+                msg1.append(f"Stage {stage.name} is missing input(s): {missing_inputs}")
 
-            if not missing_inputs:
-                msg = """
-                The pipeline you have written is circular!
+            msg1 = "\n".join(msg1)
+            raise ValueError(f"""
+Some required inputs to the pipeline could not be found,
+(or possibly your pipeline is cyclic):
 
-                (Some outputs from the overall pipeline are also inputs to it.)
-                """
-            else:
-                stages_requiring_missing_inputs = {
-                    m: ", ".join([s.name for s in all_stages if m in s.input_tags()])
-                    for m in missing_inputs}
-
-
-                msg = f"""
-                Some required inputs to the pipeline could not be found,
-                (or possibly your pipeline is cyclic).
-
-                These inputs are never generated or specified:
-                {missing_inputs}
-
-                They are needed by these stages:
-                {stages_requiring_missing_inputs}
-                """
-            raise ValueError(msg)
+{msg1}
+""")
 
         return ordered_stages
 
