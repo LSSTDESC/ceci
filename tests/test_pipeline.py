@@ -1,6 +1,6 @@
 from ceci import PipelineStage, MiniPipeline, ParslPipeline, Pipeline, DryRunPipeline
 from ceci_example.types import TextFile
-from ceci.sites import load
+from ceci.sites import load, reset_default_site
 import pytest
 from parsl import clear
 import yaml
@@ -96,10 +96,14 @@ def _return_value_test_(resume):
 
     # Parsl pipeline should not run stage either
     launcher_config = {'name':'parsl'}
+    site_config = {'name': 'local', 'max_threads':1}
+    load(launcher_config, [site_config])
+    # the above sets the new default to be the parsl-configured site
     pipeline = ParslPipeline([{'name': 'FailingStage'}], launcher_config)
     status = pipeline.run({}, './tests/inputs', './tests/logs', resume, 'tests/config.yml')
     assert status == expected_status
-    clear()
+    clear() # clear parsl settings
+    reset_default_site() # reset so default is minirunner again
 
 def test_resume():
     _return_value_test_(True)

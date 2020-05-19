@@ -17,4 +17,5 @@ def test_run_cwl():
 
 
 if __name__ == '__main__':
+    test_run_parsl()
     test_run_mini()
