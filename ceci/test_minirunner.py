@@ -92,8 +92,3 @@ def test_minirununer_serial():
     assert r.queued_jobs == []
 
 
-
-
-
-if __name__ == '__main__':
-    test()
