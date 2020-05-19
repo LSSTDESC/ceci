@@ -1,6 +1,6 @@
-from .pipeline import StageExecutionConfig
-from .sites.local import LocalSite
-from .sites.cori import CoriBatchSite
+from ceci.pipeline import StageExecutionConfig
+from ceci.sites.local import LocalSite
+from ceci.sites.cori import CoriBatchSite
 
 class MockSite:
     def __init__(self):

@@ -1,4 +1,4 @@
-from . stage import PipelineStage
+from ceci.stage import PipelineStage
 import pytest
 
 class MockCommunicator:
@@ -23,9 +23,9 @@ def test_construct():
         config = {}
 
     assert PipelineStage.get_stage('test') == TestStage
-    assert TestStage.get_module() == 'ceci.test_stage'
+    assert TestStage.get_module() == 'test_stage'
 
-    s = TestStage({'config': 'test/config.yml'})
+    s = TestStage({'config': 'tests/config.yml'})
 
     assert s.rank == 0
     assert s.size == 1
@@ -40,7 +40,7 @@ def test_construct():
 
     # Fake that we are processor 4/10
     comm = MockCommunicator(10, 4)
-    s = TestStage({'config': 'test/config.yml'}, comm=comm)
+    s = TestStage({'config': 'tests/config.yml'}, comm=comm)
 
     assert s.rank == 4
     assert s.size == 10

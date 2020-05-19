@@ -1,5 +1,5 @@
 # Things to test
-from .minirunner import Runner, WAITING, COMPLETE, Job, Node
+from ceci.minirunner import Runner, WAITING, COMPLETE, Job, Node
 import time
 # - miniirunner behaviour
 
