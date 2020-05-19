@@ -359,7 +359,7 @@ class DryRunPipeline(Pipeline):
             print(cmd)
             print()
             cmds.append(cmd)
-        self.pipeline_results = {}
+        self.pipeline_results = cmds
         return 0
 
 class ParslPipeline(Pipeline):

@@ -1,8 +1,10 @@
-from ceci import PipelineStage, MiniPipeline, ParslPipeline, Pipeline
+from ceci import PipelineStage, MiniPipeline, ParslPipeline, Pipeline, DryRunPipeline
 from ceci_example.types import TextFile
 from ceci.sites import load
 import pytest
 from parsl import clear
+import yaml
+import os
 
 # This one should work
 class AAA(PipelineStage):
@@ -34,12 +36,11 @@ def test_orderings():
 
     # TODO: make it so less boilerplate is needed here
     launcher_config = {'interval': 0.5, 'name':'mini'}
-    site = load(launcher_config, [{'name': 'local'}])[0]
 
-    A = {'name': 'AAA', 'site':site}
-    B = {'name': 'BBB', 'site':site}
-    C = {'name': 'CCC', 'site':site}
-    D = {'name': 'DDD', 'site':site}
+    A = {'name': 'AAA'}
+    B = {'name': 'BBB'}
+    C = {'name': 'CCC'}
+    D = {'name': 'DDD'}
 
         
     # This one should work - basic pipeline
@@ -89,24 +90,43 @@ def _return_value_test_(resume):
     expected_status = 0 if resume else 1
     # Mini pipeline should not run
     launcher_config = {'interval': 0.5, 'name':'mini'}
-    site = load(launcher_config, [{'name': 'local'}])[0]
-    stage = {'name': 'FailingStage', 'site':site}
-    pipeline = MiniPipeline([stage], launcher_config)
+    pipeline = MiniPipeline([{'name': 'FailingStage'}], launcher_config)
     status = pipeline.run({}, './tests/inputs', './tests/logs', resume, 'tests/config.yml')
     assert status == expected_status
 
     # Parsl pipeline should not run stage either
     launcher_config = {'name':'parsl'}
-    site = load(launcher_config, [{'name': 'local', 'max_threads':2}])[0]
-    stage = {'name': 'FailingStage', 'site':site}
-    pipeline = ParslPipeline([stage], launcher_config)
+    pipeline = ParslPipeline([{'name': 'FailingStage'}], launcher_config)
     status = pipeline.run({}, './tests/inputs', './tests/logs', resume, 'tests/config.yml')
     assert status == expected_status
     clear()
-
 
 def test_resume():
     _return_value_test_(True)
 
 def test_fail():
     _return_value_test_(False)
+
+def test_dry_run():
+    import ceci_example
+    config = yaml.safe_load(open('tests/test.yml'))
+    launcher_config = {'interval': 0.5, 'name':'mini'}
+
+    pipeline = DryRunPipeline(config['stages'], launcher_config)
+
+    status = pipeline.run(
+        config['inputs'],
+        config['output_dir'],
+        config['log_dir'],
+        False,
+        config['config']
+    )
+
+    assert status == 0
+    for cmd in pipeline.pipeline_results:
+        print(f"running {cmd} with os.system")
+        status = os.system(cmd)
+        assert status == 0
+
+if __name__ == '__main__':
+    test_dry_run()
