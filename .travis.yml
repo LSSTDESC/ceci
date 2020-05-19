@@ -19,10 +19,10 @@ script:
   - export PYTHONPATH=$PYTHONPATH:$PWD
   # These tests are actually repeated in the
   # pytest below, but it's useful to check the CLI works.
-  - ceci test/test.yml
-  - ceci --dry-run test/test.yml
-  - ceci test/test.yml launcher.name=parsl launcher.max_threads=3
-  - ceci test/test.yml launcher.name=cwl launcher.dir=test/cwl launcher.launch=cwltool
+  - ceci tests/test.yml
+  - ceci --dry-run tests/test.yml
+  - ceci tests/test.yml launcher.name=parsl launcher.max_threads=3
+  - ceci tests/test.yml launcher.name=cwl launcher.dir=test/cwl launcher.launch=cwltool
   - pytest --cov=ceci
 
 after_success:
