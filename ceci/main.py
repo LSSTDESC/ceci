@@ -53,7 +53,6 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     launcher_config = pipe_config.get("launcher", {'name':"mini"})
     launcher_name = launcher_config['name']
 
-
     # Python modules in which to search for pipeline stages
     modules = pipe_config['modules'].split()
 
@@ -70,11 +69,15 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     load(launcher_config, [site_config])
 
     # Inputs and outputs
-    output_dir = pipe_config['output_dir']
     inputs = pipe_config['inputs']
-    log_dir = pipe_config['log_dir']
-    resume = pipe_config['resume']
     stages_config = pipe_config['config']
+
+    run_config = {
+        'output_dir': pipe_config['output_dir'],
+        'log_dir': pipe_config['log_dir'],
+        'resume': pipe_config['resume'],
+    }
+
 
     for module in modules:
         __import__(module)
@@ -93,7 +96,7 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         raise ValueError('Unknown pipeline launcher {launcher_name}')
 
     p = pipeline_class(stages, launcher_config)
-    status = p.run(inputs, output_dir, log_dir, resume, stages_config)
+    status = p.run(inputs, run_config, stages_config)
 
     # The load command above changes the default site.
     # So that this function doesn't confuse later things,

@@ -140,7 +140,10 @@ class Pipeline:
         self.stage_names.remove(name)
         del self.stage_execution_config[name]
 
-    def find_outputs(self, stage, outdir):
+    def find_inputs(self, stage, data_elements, run_config):
+        return {tag: data_elements[tag] for tag, _ in stage.inputs}
+
+    def find_outputs(self, stage, run_config):
         """Get the names of all the outputs a stage will generate.
 
         The name is determined from the output tag, the type of the file,
@@ -158,7 +161,8 @@ class Pipeline:
         returns: list[str]
             Complete paths to all outputs of the stage.
         """
-        return [f'{outdir}/{ftype.make_name(tag)}' for tag,ftype in stage.outputs]
+        outdir = run_config['output_dir']
+        return {tag: f'{outdir}/{ftype.make_name(tag)}' for tag, ftype in stage.outputs}
 
 
 
@@ -273,7 +277,7 @@ Some required inputs to the pipeline could not be found,
 
 
 
-    def generate_full_command(self, stage, inputs, config, outdir):
+    def generate_full_command(self, stage, inputs, outputs, config, run_config, missing_inputs_in_outdir=False):
         """Generate the complete command to run a stage.
 
         This includes any mpirun commands, settings of env vars, and
@@ -301,11 +305,74 @@ Some required inputs to the pipeline could not be found,
             Complete command to be executed
 
         """
-        core = stage.generate_command(inputs, config, outdir, missing_inputs_in_outdir=True)
+        core = stage.generate_command(inputs, config, outputs, missing_inputs_in_outdir=missing_inputs_in_outdir)
         sec = self.stage_execution_config[stage.name]
         cmd = sec.site.command(core, sec)
         return cmd
 
+
+    def run(self, overall_inputs, run_config, stages_config):
+        # Make a copy, since we'll be modifying this.
+        data_elements = overall_inputs.copy()
+
+        # Get the stages in the order we need.
+        stages = self.ordered_stages(overall_inputs)
+
+        # Initiate the run.
+        # This is an implementation detail for the different subclasses to store 
+        # necessary information about the run if necessary.
+        # Usually, the arguments are ignored, but they are provided in case a class needs to
+        # do something special with any of them.
+        run_info = self.initiate_run(stages, data_elements, run_config, stages_config)
+
+
+
+        # make sure output directories exist
+        os.makedirs(run_config['output_dir'], exist_ok=True)
+        os.makedirs(run_config['log_dir'], exist_ok=True)
+
+        for stage in stages:
+            # If we are in "resume" mode and the pipeline has already been run
+            # then we re-use any existing outputs.  User is responsible for making
+            # sure they are complete!
+            print(stage)
+            if self.should_skip_stage(stage, run_config):
+                self.already_finished_job(stage, run_info)
+                output_paths = self.find_outputs(stage, run_config)
+                data_elements.update(output_paths)
+
+            # Otherwise, run the pipeline and register any outputs from the
+            # pipe element.
+            else:
+                stage_outputs = self.enqueue_job(stage, data_elements, stages_config, run_info, run_config)
+                data_elements.update(stage_outputs)
+
+        status = self.run_jobs(run_info, run_config)
+
+        # When the
+        self.run_info = run_info
+        self.pipeline_outputs = self.find_all_outputs(stages, run_config)
+
+        return status
+
+    def already_finished_job(self, stage, run_info):
+        print(f"Skipping stage {stage.name} because its inputs exist already")
+
+
+    def should_skip_stage(self, stage, run_config):
+        outputs = self.find_outputs(stage, run_config).values()
+        already_run_stage = all(os.path.exists(output) for output in outputs)
+        print(outputs)
+        print([os.path.exists(output) for output in outputs])
+        print(run_config['resume'])
+        return already_run_stage and run_config['resume']
+
+    def find_all_outputs(self, stages, run_config):
+        outputs = {}
+        for stage in stages:
+            stage_outputs = self.find_outputs(stage, run_config)
+            outputs.update(stage_outputs)
+        return outputs
 
 
 
@@ -317,218 +384,79 @@ class DryRunPipeline(Pipeline):
 
     No additional attributes.
     """
-    def run(self, overall_inputs, output_dir, log_dir, resume, stages_config):
-        """Dry-run the pipeline and print out all stage command lines
+    def initiate_run(self, stages, overall_inputs, run_config, stages_config):
+        return []
 
-        Some of the arguments here are unused by this sub-class, but are retained
-        for consistency with other pipeline subclasses.
+    def should_skip_stage(self, stage, run_config):
+        return False
 
-        In case useful for scripting, this command also returns a list of all the
-        commands it prints.
+    def enqueue_job(self, stage, data_elements, stages_config, run_info, run_config):
+        outputs = run_config['output_dir']
+        cmd = self.generate_full_command(stage, data_elements, outputs, stages_config, run_config)
+        run_info.append(cmd)
+        return self.find_outputs(stage, run_config)
 
-        Parameters
-        ----------
-        overall_inputs: dict{str: str}
-            Any inputs that do not need to be generated by the pipeline but are
-            instead already supplied at the start.  Mapping is from tag -> path.
-
-        output_dir: str
-            Path to directory where command would put outputs.
-        
-        log_dir: str
-            Directory in which to write stage log files. Unused.
-
-        resume: bool
-            Whether to resume the pipeline and avoid executing stages whose
-            outputs already exist.  Unused: all stage commands are printed.
-            TODO: Change this.
-
-        stages_config: str
-            Path to configuration file for the pipeline stages.
-
-        Returns
-        -------
-        cmds: list[str]
-            A list of all the command line invocations.
-
-        """
-        cmds = []
-        for stage in self.ordered_stages(overall_inputs):
-            sec = self.stage_execution_config[stage.name]
-            cmd = self.generate_full_command(stage, overall_inputs, stages_config, output_dir)
+    def run_jobs(self, run_info, run_config):
+        for cmd in run_info:
             print(cmd)
-            print()
-            cmds.append(cmd)
-        self.pipeline_results = cmds
+            print("\n")
         return 0
+
+    def find_all_outputs(self, stages, run_config):
+        return {}
+
+
 
 class ParslPipeline(Pipeline):
     """A subclass of Pipeline that uses Parsl to manage workflow.
     """
 
-    def find_inputs(self, stage, data_elements):
-        from parsl.data_provider.files import File as ParslFile
-
-        """
-        """
-        inputs = []
-        for inp in stage.input_tags():
-            item = data_elements[inp]
-            if isinstance(item,str):
-                item = ParslFile(item)
-            inputs.append(item)
-        return inputs
+    def initiate_run(self, stages, overall_inputs, run_config, stages_config):
+        return [] # list of futures
 
 
 
-    def generate_app(self, stage, log_dir, sec):
-        """Build a parsl app that wraps this pipeline stage.
+    def enqueue_job(self, stage, data_elements, stages_config, run_info, run_config):
+        from parsl.data_provider.files import File
 
-        This object is passed onto parsl for execution.
+        log_dir = run_config['log_dir']
+        # convert the command into an app
+        app = self.generate_app(stage, run_config)
 
-        Parameters
-        ----------
-        stage: PipelineStage
-            The stage to wrap
+        # Convert the dicts of inputs/outputs to the list that
+        # parsl wants. 
+        # The inputs that exist already need to be converted into Parsl File objects.
+        # The ones that don't stay as data futures
+        inputs1 = self.find_inputs(stage, data_elements, run_config)
+        inputs = [File(val) if isinstance(val, str) else val for val in inputs1.values()]
+        inputs.append(File(stages_config))
+        # The outputs are just strings.  python dicts are now ordered,
+        # so this works okay.
+        outputs = list(self.find_outputs(stage, run_config).values())
 
-        log_dir: str
-            The directory to put the logs in.
+        # have parsl queue the app
+        future = app(inputs=inputs, outputs=outputs)
+        run_info.append((stage.name, future))
+        return {
+            tag: future.outputs[i]
+            for i,tag in enumerate(stage.output_tags())
+        }
 
-        sec: StageExecutionConfig
-            The execution info for this stage.
-
-        Returns
-        -------
-        app: App
-            A parsl app object
-
-        """
-        import parsl
-        module = stage.get_module()
-        module = module.split('.')[0]
-
-        inputs = {}
-        outputs = {}
-
-        # Parsl wants a function with the inputs and outputs
-        # extracted from lists.  That function should iself return
-        # a string representing the bash cmd line.
-        # We build up all these components here.
-
-        # Parsl wants our functions to take their input/output paths
-        # from inputs[0], inputs[1], etc.
-        for i,inp in enumerate(stage.input_tags()):
-            inputs[inp] = f'{{inputs[{i}]}}'
-        for i,out in enumerate(stage.output_tags()):
-            outputs[out] = f'{{outputs[{i}]}}'
-
-        # The last input file is always the config file
-        config_index = len(stage.input_tags())
-        config = f'{{inputs[{config_index}]}}'
-
-        # This includes all the "mpirun" stuff.
-        cmd1 = self.generate_full_command(stage, inputs, config, outputs)
-        executor = sec.site.info['executor']
-
-        # We will be exec'ing this here.  We can't just define it inline
-        # because it just gets too painful with all the i/o names, so instead
-        # we build and exec a string.
-        template = f"""
-@parsl.app.app.bash_app(executors=[executor])
-def {stage.name}(inputs, outputs, stdout='{log_dir}/{stage.name}.out', stderr='{log_dir}/{stage.name}.err'):
-    cmd = '{cmd1}'.format(inputs=inputs,outputs=outputs)
-    print("Launching command:")
-    print(cmd, " 2> {log_dir}/{stage.name}.err 1> {log_dir}/{stage.name}.log")
-    return cmd
-"""
-        # local variables for creating this function.
-        d = {'executor':executor.label, 'cmd1':cmd1}
-        exec(template, {'parsl':parsl}, d)
-
-        # Return the function itself.
-        return d[stage.name]
-
-
-
-    def run(self, overall_inputs, output_dir, log_dir, resume, stages_config):
-        """Run the pipeline under Parsl.
-
-        Parameters
-        ----------
-        overall_inputs: dict{str: str}
-            Any inputs that do not need to be generated by the pipeline but are
-            instead already supplied at the start.  Mapping is from tag -> path.
-
-        output_dir: str
-            Path to directory where pipeline will put outputs.
-        
-        log_dir: str
-            Directory in which to write stage log files.
-
-        resume: bool
-            Whether to resume the pipeline and avoid executing stages whose
-            outputs already exist.
-
-        stages_config: str
-            Path to configuration file for the pipeline stages.
-
-        Returns
-        -------
-        data_elements: dict{str:str}
-            Paths to all output files.
-
-        """
-        from parsl.data_provider.files import File as ParslFile
+    def run_jobs(self, run_info, run_config):
         from parsl.app.errors import AppFailure
-
-        stages = self.ordered_stages(overall_inputs)
-        data_elements = overall_inputs.copy()
-        futures = []
-
-        os.makedirs(output_dir, exist_ok=True)
-        os.makedirs(log_dir, exist_ok=True)
-
-        if resume:
-            print("Since parameter 'resume' is True we will skip steps whose outputs exist already")
-
-        for stage in stages:
-            sec = self.stage_execution_config[stage.name]
-            app = self.generate_app(stage, log_dir, sec)
-            inputs = self.find_inputs(stage, data_elements)
-            outputs = self.find_outputs(stage, output_dir)
-            # All pipeline stages implicitly get the overall configuration file
-            inputs.append(ParslFile(stages_config))
-            already_run_stage = all(os.path.exists(output) for output in outputs)
-            # If we are in "resume" mode and the pipeline has already been run
-            # then we re-use any existing outputs.  User is responsible for making
-            # sure they are complete!
-            if resume and already_run_stage:
-                print(f"Skipping stage {stage.name} because its outputs exist already")
-                for (tag,_),filename in zip(stage.outputs, outputs):
-                    data_elements[tag] = filename
-            # Otherwise, run the pipeline and register any outputs from the
-            # pipe element as a "future" - a file that the pipeline will
-            # create later
-            else:
-                print(f"Pipeline queuing stage {stage.name} with {sec.nprocess} processes")
-                future = app(inputs=inputs, outputs=outputs)
-                future._ceci_name = stage.name
-                futures.append(future)
-                for i, output in enumerate(stage.output_tags()):
-                    data_elements[output] = future.outputs[i]
-
+        log_dir = run_config['log_dir']
         # Wait for the final results, from all files
-        for future in futures:
+        for stage_name, future in run_info:
             try:
                 # This waits for b/g pipeline completion.
                 future.result()
             # Parsl emits this on any non-zero status code.
             except AppFailure:
-                stdout_file = f'{log_dir}/{future._ceci_name}.err'
-                stderr_file = f'{log_dir}/{future._ceci_name}.out'
+                stdout_file = f'{log_dir}/{stage_name}.err'
+                stderr_file = f'{log_dir}/{stage_name}.out'
                 sys.stderr.write(f"""
 *************************************************
-Error running pipeline stage {future._ceci_name}.
+Error running pipeline stage {stage_name}.
 
 Standard output and error streams below.
 
@@ -557,12 +485,86 @@ Standard error:
                     sys.stderr.write("STDERR MISSING!\n\n")
                 print("Pipeline failed.  No joy sparked.")
                 return 1
-
-        # Return a dictionary of the resulting file outputs
-        print("Pipeline suceeded.  Joy is sparked.")
-
-        self.pipeline_results = data_elements
         return 0
+
+
+
+    def generate_app(self, stage, run_config):
+        """Build a parsl app that wraps this pipeline stage.
+
+        This object is passed onto parsl for execution.
+
+        Parameters
+        ----------
+        stage: PipelineStage
+            The stage to wrap
+
+        log_dir: str
+            The directory to put the logs in.
+
+        sec: StageExecutionConfig
+            The execution info for this stage.
+
+        Returns
+        -------
+        app: App
+            A parsl app object
+
+        """
+        import parsl
+        module = stage.get_module()
+        module = module.split('.')[0]
+
+        inputs = {}
+        outputs = {}
+
+
+        # Parsl wants a function with the inputs and outputs
+        # extracted from lists.  That function should iself return
+        # a string representing the bash cmd line.
+        # We build up all these components here.
+
+        # Parsl wants our functions to take their input/output paths
+        # from inputs[0], inputs[1], etc.
+        for i,inp in enumerate(stage.input_tags()):
+            inputs[inp] = f'{{inputs[{i}]}}'
+        for i,out in enumerate(stage.output_tags()):
+            outputs[out] = f'{{outputs[{i}]}}'
+
+        # The last input file is always the config file
+        config_index = len(stage.input_tags())
+        config = f'{{inputs[{config_index}]}}'
+
+        # This includes all the "mpirun" stuff.
+        sec = self.stage_execution_config[stage.name]
+        executor = sec.site.info['executor']
+
+
+        # Construct the command line call
+        core = self.generate_full_command(stage, inputs, outputs, config, run_config)
+        cmd1 = sec.site.command(core, sec)
+        log_dir = run_config['log_dir']
+
+
+        # We will be exec'ing this here.  We can't just define it inline
+        # because it just gets too painful with all the i/o names, so instead
+        # we build and exec a string.
+        template = f"""
+@parsl.app.app.bash_app(executors=[executor])
+def {stage.name}(inputs, outputs, stdout='{log_dir}/{stage.name}.out', stderr='{log_dir}/{stage.name}.err'):
+    cmd = '{cmd1}'.format(inputs=inputs,outputs=outputs)
+    print("Launching command:")
+    print(cmd, " 2> {log_dir}/{stage.name}.err 1> {log_dir}/{stage.name}.log")
+    return cmd
+"""
+        print(template)
+
+        # local variables for creating this function.
+        d = {'executor':executor.label, 'cmd1':cmd1}
+        exec(template, {'parsl':parsl}, d)
+
+        # Return the function itself.
+        return d[stage.name]
 
 
 
@@ -608,93 +610,30 @@ class MiniPipeline(Pipeline):
                         depend[job].append(jobs[potential_parent.name])
         return depend
 
-    def build_jobs(self, stages, overall_inputs, stages_config, output_dir):
-        """Build the Minirunner Job objects wrapping the stages
 
-        Parameters
-        ----------
-        stages: list[PipelineStage]
-            The stages to build jobs for.
-
-        overall_inputs: dict{str: str}
-            Any inputs that do not need to be generated by the pipeline but are
-            instead already supplied at the start.  Mapping is from tag -> path.
-
-        stages_config: str
-            Path to configuration file for the pipeline stages.
-
-        output_dir: str
-            Path to directory where pipeline will put outputs.
-
-        Returns
-        -------
-        dict: {str: Job}
-            The wrapped jobs
-        """
+    def initiate_run(self, stages, overall_inputs, run_config, stages_config):
         jobs = {}
-        for stage in stages:
-            sec = self.stage_execution_config[stage.name]
-            cmd = self.generate_full_command(stage, overall_inputs, stages_config, output_dir)
-            jobs[stage.name] = minirunner.Job(stage.name, cmd, 
-                cores=sec.threads_per_process*sec.nprocess, nodes=sec.nodes)
-        return jobs
+        stages = []
+        return jobs, stages
 
+    def enqueue_job(self, stage, data_elements, stages_config, run_info, run_config):
+        jobs, stages = run_info
+        sec = self.stage_execution_config[stage.name]
+        cmd = self.generate_full_command(stage, data_elements, run_config['output_dir'], 
+            stages_config, run_config,
+            missing_inputs_in_outdir=True)
+        job = minirunner.Job(stage.name, cmd, 
+            cores=sec.threads_per_process*sec.nprocess, nodes=sec.nodes)
+        jobs[stage.name] = job
+        stages.append(stage)
+        return self.find_outputs(stage, run_config)
 
-
-    def run(self, overall_inputs, output_dir, log_dir, resume, stages_config):
-        """Run the pipeline under Minirunner.
-
-        Parameters
-        ----------
-        overall_inputs: dict{str: str}
-            Any inputs that do not need to be generated by the pipeline but are
-            instead already supplied at the start.  Mapping is from tag -> path.
-
-        output_dir: str
-            Path to directory where pipeline will put outputs.
-        
-        log_dir: str
-            Directory in which to write stage log files.
-
-        resume: bool
-            Whether to resume the pipeline and avoid executing stages whose
-            outputs already exist.
-
-        stages_config: str
-            Path to configuration file for the pipeline stages.
-        """
-
-        # copy this as we mutate it later
-        overall_inputs = overall_inputs.copy()
-        # run using minirunner instead of parsl
-        os.makedirs(output_dir, exist_ok=True)
-        os.makedirs(log_dir, exist_ok=True)
-
-        # We just run this to check that the pipeline is valid
-        self.ordered_stages(overall_inputs)
-
-        stages = [PipelineStage.get_stage(stage_name) for stage_name in self.stage_names]
-
-        # If we are skipping complete pipeline stages then we do this by
-        # adding any completed stage output files to the overall inptus dict
-        # and making a new list of incomplete stages.
-        if resume:
-            stages2 = []
-            for stage in stages:
-                output_paths = self.find_outputs(stage, output_dir)
-                already_run_stage = all(os.path.exists(output) for output in output_paths)
-                if already_run_stage:
-                    print(f"Stage {stage.name} has already been completed - skipping.")
-                    for output_info, output_path in zip(stage.outputs, output_paths):
-                        tag = output_info[0]
-                        overall_inputs[tag] = output_path
-                else:
-                    stages2.append(stage)
-            stages = stages2
-
-        # Build and order the jobs
-        jobs = self.build_jobs(stages, overall_inputs, stages_config, output_dir)
+    def run_jobs(self, run_info, run_config):
+        jobs, stages = run_info
+        # Now the jobs have all been queued, build them into a graph
         graph = self.build_dag(stages, jobs)
+        nodes = get_default_site().info['nodes']
+        log_dir = run_config['log_dir']
 
         # This pipeline, being mainly for testing, can only
         # run at a single site, so we can assume here that the
@@ -717,9 +656,6 @@ Standard output and error streams above.
 """)
             return 1
 
-        all_outputs = sum([self.find_outputs(stage, output_dir) for stage in stages],
-                          [])
-        self.pipeline_results = all_outputs
         return 0
 
 
@@ -778,41 +714,9 @@ class CWLPipeline(Pipeline):
             yaml.dump(inputs, f)
 
 
-
-    def run(self, overall_inputs, output_dir, log_dir, resume, stages_config):
-        """Exports the pipeline as a CWL object, and then if a specific CWL tool is chosen, launch it with that.
-
-        Parameters
-        ----------
-        overall_inputs: dict{str: str}
-            Any inputs that do not need to be generated by the pipeline but are
-            instead already supplied at the start.  Mapping is from tag -> path.
-
-        output_dir: str
-            Path to directory where pipeline will put outputs.
-        
-        log_dir: str
-            Directory in which to write stage log files.
-
-        resume: bool
-            Whether to resume the pipeline and avoid executing stages whose
-            outputs already exist.
-
-        stages_config: str
-            Path to configuration file for the pipeline stages.
-
-        Returns
-        -------
-        wf: Workflow
-            The workflow object
-
-        """
-        import cwlgen
-        import cwlgen.workflow
-        wf = cwlgen.workflow.Workflow()
-
-        # List all the workflow steps and order them
-        stages = self.ordered_stages(overall_inputs)
+    def initiate_run(self, stages, overall_inputs, run_config, stages_config):
+        from cwlgen.workflow import Workflow
+        wf = Workflow()
 
         cwl_dir = self.launcher_config['dir']
         os.makedirs(cwl_dir, exist_ok=True)
@@ -821,84 +725,109 @@ class CWLPipeline(Pipeline):
         inputs_file = f'{cwl_dir}/cwl_inputs.yml'
         self.make_inputs_file(stages, overall_inputs, stages_config, inputs_file)
 
-        known_outputs ={}
-        workflow_inputs= {}
+        # CWL treats overall inputs differently, storing
+        # them in the inputs file.  We keep the 
+        overall_inputs.clear()
+
+        return {
+            'workflow': wf,
+            'cwl_dir': cwl_dir,
+            'inputs_file': inputs_file,
+            # keeps track of overall pipeline inputs we have already found
+            'workflow_inputs': set(),
+            'workflow_outputs': {},
+        }
 
 
-        cwl_steps = []
-        for stage in stages:
-            # Get the CWL tool for that stage
-            cwl_tool = stage.generate_cwl()
-            cwl_tool.export(f'{cwl_dir}/{stage.name}.cwl')
 
-            step = cwlgen.workflowdeps.WorkflowStep(stage.name,
-                                   run='%s.cwl'%cwl_tool.id)
+    def enqueue_job(self, stage, data_elements, stages_config, run_info, run_config):
+        from cwlgen.workflowdeps import WorkflowStep, WorkflowStepInput
+        from cwlgen.workflowdeps import WorkflowOutputParameter, InputParameter
 
-            # Loop over the inputs of the tool
-            for inp in cwl_tool.inputs:
+        cwl_dir = run_info['cwl_dir']
+        workflow = run_info['workflow']
 
-                # Check if we have encountered this parameter before
-                if inp.id in known_outputs:
-                    src = known_outputs[inp.id]+'/'+inp.id
-                else:
-                    # If we haven't seen that parameter before, first check if
-                    # it's an option, in which case gave it a special name so
-                    # that it's not confused with another pipeline stage
-                    if inp.id in stage.config_options:
-                        src = f'{inp.id}@{cwl_tool.id}'
-                        workflow_inputs[src] = inp
-                    else:
-                        # Otherwise, treat it as a shared pipeline input
-                        src = inp.id
-                        if src not in workflow_inputs:
-                            workflow_inputs[src] = inp
+        # Create a CWL representation of this step
+        cwl_tool = stage.generate_cwl()
+        cwl_tool.export(f'{cwl_dir}/{stage.name}.cwl')
 
-                step.inputs.append(cwlgen.workflowdeps.WorkflowStepInput(input_id=inp.id, source=src))
+        # Load that representation again and add it to the pipeline
+        step = WorkflowStep(stage.name, run=f'{cwl_tool.id}.cwl')
 
-            for o in stage.outputs:
-                step.out.append(o[0])
+        # For CWL these inputs are a mix of file and config inputs,
+        # so not he same as the data_elements we usually see
+        for inp in cwl_tool.inputs:
 
-            # Keeping track of known output providers
-            for o in stage.outputs:
-                known_outputs[o[0]] = step.id
+            # If this input is an putput from an earlier stage
+            # then it takes its name based on that
+            if inp.id in data_elements:
+                name = data_elements[inp.id]+'/'+inp.id
+            # otherwise if it's a config option we mangle
+            # it to avod clashes
+            elif inp.id in stage.config_options:
+                name = f'{inp.id}@{cwl_tool.id}'
+            # otherwise just leave it as-is
+            else:
+                name = inp.id
 
-            cwl_steps.append(step)
+            # If it's an overall input to the entire pipeline we
+            # record that.  We only want things that aren't outputs
+            # (first clause) and that we haven't already recorded (second)
+            if (inp.id not in data_elements) and (name not in run_info['workflow_inputs']):
+                run_info['workflow_inputs'].add(name)
+                # These are the overall inputs to the enture pipeline.
+                # Convert them to CWL input parameters
+                cwl_inp = InputParameter(name,
+                                         label=inp.label,
+                                         param_type=inp.type,
+                                         param_format=inp.format)
+                cwl_inp.default = inp.default
 
-        wf.steps = cwl_steps
+                # Bypassing cwlgen type check in case of arrays
+                if type(inp.type) == dict:
+                    cwl_inp.type = inp.type
 
-        # Export the inputs of the workflow
-        for inp in workflow_inputs:
-            cwl_inp = cwlgen.workflowdeps.InputParameter(inp,
-                                                     label=workflow_inputs[inp].label,
-                                                     param_type=workflow_inputs[inp].type,
-                                                     param_format=workflow_inputs[inp].format)
-            cwl_inp.default = workflow_inputs[inp].default
-            # Bypassing cwlgen type check in case of arrays
-            if type(workflow_inputs[inp].type) == dict:
-                cwl_inp.type = workflow_inputs[inp].type
-            wf.inputs.append(cwl_inp)
+                # record that these are overall pipeline inputs
+                workflow.inputs.append(cwl_inp)
+
+            # Record that thisis an input to the step.
+            step.inputs.append(
+                WorkflowStepInput(input_id=inp.id, source=name)
+            )
+
+        # Also record that we want all the pipeline outputs
+        for tag, ftype in stage.outputs:
+            # Record the expected output for this tag
+            step.out.append(tag)
+
+            # Also record that each file is an output to the entire pipeline
+            cwl_out = WorkflowOutputParameter(tag, f'{step.id}/{tag}',
+                                              label=tag,
+                                              param_type='File',
+                                              param_format=ftype.__name__)
+            workflow.outputs.append(cwl_out)
+
+        # This step is now ready - add it to the list
+        workflow.steps.append(step)
+
+        # In CWL our data elemnts dict just records which step each
+        # output is made in
+        return {tag: step.id for tag in stage.output_tags()}
 
 
-        # By default only keep the output of the last stage as output
-        last_stage = stages[-1]
-        for o in last_stage.outputs:
-            cwl_out = cwlgen.workflowdeps.WorkflowOutputParameter(o[0], known_outputs[o[0]]+'/'+o[0],
-                                                              label=o[0],
-                                                              param_type='File',
-                                                              param_format=o[1].__name__)
-            wf.outputs.append(cwl_out)
-
-
-        wf.export(f'{cwl_dir}/pipeline.cwl')
+    def run_jobs(self, run_info, run_config):
+        workflow = run_info['workflow']
+        cwl_dir = run_info['cwl_dir']
+        inputs_file = run_info['inputs_file']
+        workflow.export(f'{cwl_dir}/pipeline.cwl')
 
         # If 'launcher' is defined, use that
-        launcher = self.launcher_config.get('launch', '')
+        launcher = self.launcher_config.get('launch', 'cwltool')
 
         if launcher:
             cmd = f'{launcher} {cwl_dir}/pipeline.cwl {inputs_file}'
             print(cmd)
             os.system(cmd)
 
-        self.pipeline_results = wf
 
         return 0

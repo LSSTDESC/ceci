@@ -68,8 +68,20 @@ class CoriSite(Site):
             else:
                 node_names = [node_list]
 
-            # cori default
-            cpus_per_node = 32
+            # We use "CPU"s here to indicate the number of processes
+            # we can run, not the NERSC docs meaning which is the number of threads.
+            # On Haswell there are 32 cores with 2 hyper threads each, so this
+            # env var reports 64, but we should run 32 processes.
+            # On KNL it's 68 cores with 4 threads each, so we should run 68.
+            slurm_cpus_on_node = os.envioron.get('SLURM_CPUS_ON_NODE')
+            if slurm_cpus_on_node == '64':
+                cpus_per_node = 32
+            elif slurm_cpus_on_node == '272':
+                cpus_per_node = 68
+            else:
+                print("Cannot detect NERSC system - assuming 32 processes per node")
+                cpus_per_node = 32
+
             
             # collect list.
             nodes = [Node(name, cpus_per_node) for name in node_names]

@@ -90,8 +90,14 @@ def _return_value_test_(resume):
     expected_status = 0 if resume else 1
     # Mini pipeline should not run
     launcher_config = {'interval': 0.5, 'name':'mini'}
+    run_config ={
+        'log_dir': './tests/logs',
+        'output_dir': './tests/inputs',
+        'resume': resume,
+    }
+
     pipeline = MiniPipeline([{'name': 'FailingStage'}], launcher_config)
-    status = pipeline.run({}, './tests/inputs', './tests/logs', resume, 'tests/config.yml')
+    status = pipeline.run({}, run_config, 'tests/config.yml')
     assert status == expected_status
 
     # Parsl pipeline should not run stage either
@@ -100,7 +106,7 @@ def _return_value_test_(resume):
     load(launcher_config, [site_config])
     # the above sets the new default to be the parsl-configured site
     pipeline = ParslPipeline([{'name': 'FailingStage'}], launcher_config)
-    status = pipeline.run({}, './tests/inputs', './tests/logs', resume, 'tests/config.yml')
+    status = pipeline.run({}, run_config, 'tests/config.yml')
     assert status == expected_status
     clear() # clear parsl settings
     reset_default_site() # reset so default is minirunner again
@@ -118,19 +124,24 @@ def test_dry_run():
 
     pipeline = DryRunPipeline(config['stages'], launcher_config)
 
+    run_config ={
+        'log_dir': config['log_dir'],
+        'output_dir': config['output_dir'],
+        'resume': False,
+    }
+
     status = pipeline.run(
         config['inputs'],
-        config['output_dir'],
-        config['log_dir'],
-        False,
+        run_config,
         config['config']
     )
 
     assert status == 0
-    for cmd in pipeline.pipeline_results:
+    for cmd in pipeline.pipeline_outputs:
         print(f"running {cmd} with os.system")
         status = os.system(cmd)
         assert status == 0
 
+# this has to be here because we test running the pipeline
 if __name__ == '__main__':
-    test_dry_run()
+    PipelineStage.main()

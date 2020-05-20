@@ -61,7 +61,6 @@ class LocalSite(Site):
         name = socket.gethostname()
         nodes = [Node(name, cores)]
 
-        print("Running on one 'node'")
         self.info['nodes'] = nodes
 
     def configure_for_cwl(self):

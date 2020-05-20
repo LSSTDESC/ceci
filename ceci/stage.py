@@ -225,7 +225,10 @@ the input called 'config'.
         Print a usage message.
         """
         stage_names = "\n- ".join(cls.pipeline_stages.keys())
-        module = cls.get_module().split('.')[0]
+        try:
+            module = cls.get_module().split('.')[0]
+        except:
+            module = "<module_name>"
         sys.stderr.write(f"""
 Usage: python -m {module} <stage_name> <stage_arguments>
 
@@ -739,7 +742,7 @@ I currently know about these stages:
         module = cls.get_module()
         module = module.split('.')[0]
 
-        flags = [cls.name, f'--config={config}']
+        flags = [cls.name]
 
         def get_path(d, tag, ftype):
             return fpath
@@ -757,6 +760,8 @@ I currently know about these stages:
             else:
                 raise ValueError(f"Missing input location {tag}")
             flags.append(f'--{tag}={fpath}')
+
+        flags.append(f'--config={config}')
 
         for tag,ftype in cls.outputs:
             if isinstance(outputs, str):
