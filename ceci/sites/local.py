@@ -32,7 +32,7 @@ class LocalSite(Site):
         mpi2 = f"--mpi" if sec.nprocess > 1 else ""
         volume_flag = f'-v {sec.volume} ' if sec.volume else ''
 
-
+        # TODO: allow other container types here, like singularity
         if sec.image:
             return f'docker run '\
                    f'--env OMP_NUM_THREADS={sec.threads_per_process} '\

@@ -30,12 +30,33 @@ class PipelineStage:
     def __init__(self, args, comm=None):
         """Construct a pipeline stage, specifying the inputs, outputs, and configuration for it.
 
-        The constructor needs a dict or namespace specifying:
-        - the path to the config file with info in for this stage
-        - the paths to input files
-        - the paths to output files (optional, but usual - otherwise they will be put 
-        in the current directory)
-        - any configuration values not specified in the config file and withouut defaults
+        The constructor needs a dict or namespace. It should include:
+        - input paths (required)
+        - config path (required)
+        - output paths (optional but usual)
+        - additional configuration (required if not specified elsewhere)
+
+        Input and output paths should map tags to paths.
+        Tags are strings, and the first elements in each item in the subclass's
+        "inputs" and "output" attributes.
+        e.g. for a subclass with:
+            inputs = [('eggs', TextFile)]
+            outputs = [('spam', TextFile)]
+        the args could contain:
+            {'eggs': 'inputs/eggs.txt', 
+             'spam': 'outputs/spam.txt' }
+        If spam is not specified it will default to "./spam.txt"
+
+        }
+        
+        The config should map "config" to a path where a YAML config file
+        is located, e.g. {'config':'/path/to/config.yml'}
+
+        Any config variables that are specified in the class's config attribute
+        will be searched for first in args, then in the config file, and then
+        by looking at any default value they have been given.
+        If they have no default value (and just a type, like int, is listed), then
+        it's an error if they are not specified somewhere.
 
         The execute method can instantiate and run the class together, with added bonuses
         like profiling and debugging tools.
@@ -44,6 +65,8 @@ class PipelineStage:
         ----------
         args: dict or namespace
             Specification of input and output paths and any missing config options
+        comm: MPI communicator
+            (default is None) An MPI comm object to use in preference to COMM_WORLD
         """
         if not isinstance(args, dict):
             args = vars(args)
@@ -202,8 +225,9 @@ the input called 'config'.
         Print a usage message.
         """
         stage_names = "\n- ".join(cls.pipeline_stages.keys())
+        module = cls.get_module().split('.')[0]
         sys.stderr.write(f"""
-Usage: python -m txpipe <stage_name> <stage_arguments>
+Usage: python -m {module} <stage_name> <stage_arguments>
 
 If no stage_arguments are given then usage information
 for the chosen stage will be given.
@@ -665,6 +689,8 @@ I currently know about these stages:
     def iterate_fits(self, tag, hdunum, cols, chunk_rows):
         """
         Loop through chunks of the input data from a FITS file with the given tag
+
+        TODO: add ceci tests of these functions
         """
         fits = self.open_input(tag)
         ext = fits[hdunum]
@@ -679,6 +705,7 @@ I currently know about these stages:
 
         All the selected columns must have the same length.
 
+        TODO: add ceci tests of these functions
         """
         import numpy as np
         hdf = self.open_input(tag)
@@ -721,7 +748,7 @@ I currently know about these stages:
         for tag,ftype in cls.inputs:
             if isinstance(inputs, str):
                 fn = ftype.make_name(tag)
-                fpath = f'{source}/{fn}'
+                fpath = f'{inputs}/{fn}'
             elif tag in inputs:
                 fpath = inputs[tag]
             elif isinstance(outputs, str) and missing_inputs_in_outdir:

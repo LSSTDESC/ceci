@@ -34,6 +34,10 @@ class CoriSite(Site):
         if sec.nodes:
             mpi1 += f" --nodes {sec.nodes}"
 
+        if (sec.nprocess > 1) and (os.environ.get('SLURM_JOB_ID') is None):
+            raise ValueError("You cannot use MPI (by setting nprocess > 1) "
+                             "on Cori login nodes, only inside jobs.")
+
         if sec.image:
             return f'{mpi1} ' \
                    f'shifter '\
@@ -69,7 +73,6 @@ class CoriSite(Site):
             
             # collect list.
             nodes = [Node(name, cpus_per_node) for name in node_names]
-
         else:
             # running on login node
             # use at most 4 procs to avoid annoying people
@@ -91,7 +94,10 @@ class CoriBatchSite(CoriSite):
         cpu_type = self.config.get('cpu_type', 'haswell')
         queue = self.config.get('queue', 'debug')
         max_slurm_jobs = self.config.get('max_jobs', 2)
-        account = self.config.get('account', 'm1727')
+        account = self.config.get('account')
+        if account is None:
+            print("Using LSST DESC account. Specify 'account' in the site config to override")
+            account = 'm1727'
         walltime = self.config.get('walltime', '00:30:00')
         setup_script = self.config.get('setup', '/global/projecta/projectdirs/lsst/groups/WL/users/zuntz/setup-cori')
 

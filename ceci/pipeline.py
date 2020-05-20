@@ -385,7 +385,6 @@ class ParslPipeline(Pipeline):
         """Build a parsl app that wraps this pipeline stage.
 
         This object is passed onto parsl for execution.
-        We do this 
 
         Parameters
         ----------
