@@ -856,8 +856,8 @@ class CWLPipeline(Pipeline):
 
         if status == 0:
             for step in run_info['workflow'].steps:
-                shutil.move(f'{output_dir}/{step.id}.out', log_dir)
-                shutil.move(f'{output_dir}/{step.id}.err', log_dir)
+                shutil.move(f'{output_dir}/{step.id}.out', f'{log_dir}/{step.id}.out')
+                shutil.move(f'{output_dir}/{step.id}.err', f'{log_dir}/{step.id}.err')
 
 
         return status
