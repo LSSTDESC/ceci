@@ -735,7 +735,7 @@ I currently know about these stages:
 ################################
 
     @classmethod
-    def generate_command(cls, inputs, config, outputs, missing_inputs_in_outdir=False):
+    def generate_command(cls, inputs, config, outputs):
         """
         Generate a command line that will run the stage
         """
@@ -744,32 +744,19 @@ I currently know about these stages:
 
         flags = [cls.name]
 
-        def get_path(d, tag, ftype):
-            return fpath
-
-
         for tag,ftype in cls.inputs:
-            if isinstance(inputs, str):
-                fn = ftype.make_name(tag)
-                fpath = f'{inputs}/{fn}'
-            elif tag in inputs:
+            try:
                 fpath = inputs[tag]
-            elif isinstance(outputs, str) and missing_inputs_in_outdir:
-                fn = ftype.make_name(tag)
-                fpath = f'{outputs}/{fn}'
-            else:
+            except KeyError:
                 raise ValueError(f"Missing input location {tag}")
             flags.append(f'--{tag}={fpath}')
 
         flags.append(f'--config={config}')
 
         for tag,ftype in cls.outputs:
-            if isinstance(outputs, str):
-                fn = ftype.make_name(tag)
-                fpath = f'{outputs}/{fn}'
-            elif tag in outputs:
+            try:
                 fpath = outputs[tag]
-            else:
+            except:
                 raise ValueError(f"Missing output location {tag}")
             flags.append(f'--{tag}={fpath}')
 

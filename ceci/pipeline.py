@@ -297,8 +297,8 @@ Some required inputs to the pipeline could not be found,
         config: str
             Path to stage configuration file for pipeline stages
 
-        outdir: str:
-            Path to directory in which to put outputs
+        outdir: dict{str: str}
+            Mapping of outputs of the stage to paths
 
         Returns
         -------
@@ -306,7 +306,7 @@ Some required inputs to the pipeline could not be found,
             Complete command to be executed
 
         """
-        core = stage.generate_command(inputs, config, outputs, missing_inputs_in_outdir=missing_inputs_in_outdir)
+        core = stage.generate_command(inputs, config, outputs)
         sec = self.stage_execution_config[stage.name]
         cmd = sec.site.command(core, sec)
         return cmd
@@ -392,10 +392,10 @@ class DryRunPipeline(Pipeline):
         return False
 
     def enqueue_job(self, stage, data_elements, stages_config, run_info, run_config):
-        outputs = run_config['output_dir']
+        outputs = self.find_outputs(stage, run_config)
         cmd = self.generate_full_command(stage, data_elements, outputs, stages_config, run_config)
         run_info.append(cmd)
-        return self.find_outputs(stage, run_config)
+        return outputs
 
     def run_jobs(self, run_info, run_config):
         for cmd in run_info:
@@ -620,14 +620,14 @@ class MiniPipeline(Pipeline):
     def enqueue_job(self, stage, data_elements, stages_config, run_info, run_config):
         jobs, stages = run_info
         sec = self.stage_execution_config[stage.name]
-        cmd = self.generate_full_command(stage, data_elements, run_config['output_dir'], 
-            stages_config, run_config,
-            missing_inputs_in_outdir=True)
+        outputs = self.find_outputs(stage, run_config)
+        cmd = self.generate_full_command(stage, data_elements, outputs, 
+            stages_config, run_config)
         job = minirunner.Job(stage.name, cmd, 
             cores=sec.threads_per_process*sec.nprocess, nodes=sec.nodes)
         jobs[stage.name] = job
         stages.append(stage)
-        return self.find_outputs(stage, run_config)
+        return outputs
 
     def run_jobs(self, run_info, run_config):
         jobs, stages = run_info
