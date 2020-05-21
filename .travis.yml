@@ -1,17 +1,24 @@
 language: python
+
 python:
   - "3.6"
-
-before_install:
-  - pip install git+git://github.com/EiffL/python-cwlgen.git
-  - pip install cwltool
+  - "3.7"
+  - "3.8"
 
 install:
   - python setup.py install
+  # For parsl
+  - pip install flask parsl==0.8.0
+  # for CWL
+  - pip install cwlgen==0.4 cwltool==2.0.20200126090152
+  # For code coverage testing
+  - pip install codecov pytest-cov
 
+# Test three different pipelines
 script:
   - export PYTHONPATH=$PYTHONPATH:$PWD
-  - ceci test/test.yml
-  # Now testing some CWL magic
-  - ceci --export-cwl test/cwl test/test.yml
-  - cwltool test/cwl/pipeline.cwl test/cwl/cwl_inputs.yml
+  - ceci tests/test.yml
+  - pytest --cov=ceci
+
+after_success:
+    - codecov

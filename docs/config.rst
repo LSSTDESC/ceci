@@ -9,8 +9,15 @@ Here is an example, from test/test.yml:
 .. code-block:: yaml
 
   # There are currently three defined launchers
+  # mini, parsl, and cwl
+  launcher:
+      name: mini
+      interval: 0.5
+  # and three sites:
   # local, cori, and cori-interactive
-  launcher: local
+  site:
+      name: local
+      max_threads: 2
 
 
   # The list of stages to run and the number of processors
@@ -53,9 +60,5 @@ Here is an example, from test/test.yml:
 
   # Put the logs from the individual stages in this directory:
   log_dir: ./test/logs
-
-  # Put the log for the overall pipeline infrastructure in this file:
-  pipeline_log: log.txt
-
 
 

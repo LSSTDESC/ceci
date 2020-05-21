@@ -1,27 +1,110 @@
-from . import cori
-from . import local
-from . import cori_interactive
+from .cori import CoriBatchSite, CoriInteractiveSite
+from .local import LocalSite, Site
+import os
 
 
-def activate_site(site, site_config):
+# Maps names from config files to classes.
+site_classes = {
+    'local': LocalSite,
+    'cori-interactive': CoriInteractiveSite,
+    'cori-batch': CoriBatchSite,
+}
 
-    # Known sites an the functions that generate their
-    # configurations
-    activators = {
-        'local': local.activate,
-        'cori-interactive': cori_interactive.activate,
-        'cori': cori.activate,
-    }
 
-    # Find the right one for this site or complain if unknown
-    try:
-        activator = activators[site]
-    except KeyError:
-        raise ValueError(f"Unknown site {site}")
+# by default use a local site configured.
+# Overwritten if you call load below.
 
-    # Generate the site config.  This tells the parsl library
-    # to associate a particular label with a particular configuration.
-    executor_labels, mpi_command = activator(site_config)
+def set_default_site(site):
+    global _default_site
+    _default_site = site
+    return _default_site
 
-    # These are needed by the pipeline to know how to launch jobs
-    return executor_labels, mpi_command
+def reset_default_site():
+    site = LocalSite({'max_threads':2})
+    site.configure_for_mini()
+    set_default_site(site)
+
+def get_default_site():
+    return _default_site
+
+reset_default_site()
+
+
+
+def load(launcher_config, site_configs):
+    """Configure a launcher and the sites it will execute on.
+
+    This is the only site function needed in the main entry points to the code.
+
+    The launcher_config argument should contain at least the "name" argument.
+    Which additional arguments are accepted then depends on the choice of that.
+    See test.yml for examples.
+
+    The site_configs list has a similar structure.
+
+    Parameters
+    ----------
+    launcher_config: dict
+        Configuration information on launchers (parsl, minirunner, CWL).
+
+    site_configs: list[dict]
+        list of configs for different sites (local, cori-batch, cori-interactive).
+
+    """
+    sites = []
+    
+    launcher_name = launcher_config['name']
+
+    # Create an object for each site.
+    for site_config in site_configs:
+        site_name = site_config['name']
+
+        try:
+            cls = site_classes[site_name]
+        except KeyError:
+            raise ValueError(f'Unknown site {name}')
+
+        site = cls(site_config)
+        site.configure_for_launcher(launcher_name)
+        sites.append(site)
+
+    setup_launcher(launcher_config, sites)
+
+    # replace the default site with the first
+    # one found here
+    set_default_site(sites[0])
+
+    return sites
+
+
+def setup_launcher(launcher_config, sites):
+    """
+    Some launchers need an initial setup function to be run.
+    Do that here.
+    """
+    name = launcher_config['name']
+
+    if name == 'parsl':
+        setup_parsl(launcher_config, sites)
+    # no setup to do for other managers
+    else:
+        pass
+
+def setup_parsl(launcher_config, sites):
+    """
+    Set up parsl for use with the specified sites.
+    """
+    from parsl import load as parsl_load
+    from parsl.config import Config
+    from parsl import set_file_logger
+
+    executors = [site.info['executor'] for site in sites]
+    config = Config(executors=executors)
+    parsl_load(config)
+
+    # Optional logging of pipeline infrastructure to file.
+    log_file = launcher_config.get('log')
+    if log_file:
+        log_file_dir = os.path.split(os.path.abspath(log_file))[0]
+        os.makedirs(log_file_dir, exist_ok=True)
+        set_file_logger(log_file)

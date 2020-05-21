@@ -1,22 +1,43 @@
 import os
 import yaml
 import sys
-import parsl
 import argparse
-from . import Pipeline, PipelineStage
-from . import sites
+from . import pipeline
+from .sites import load, set_default_site, get_default_site
 
 # Add the current dir to the path - often very useful
 sys.path.append(os.getcwd())
 
 parser = argparse.ArgumentParser(description='Run a Ceci pipeline from a configuration file')
 parser.add_argument('pipeline_config', help='Pipeline configuration file in YAML format.')
-parser.add_argument('--export-cwl', type=str, help='Exports pipeline in CWL format to provided path and exits')
 parser.add_argument('--dry-run', action='store_true', help='Just print out the commands the pipeline would run without executing them')
+parser.add_argument('extra_config', nargs='*', help='Over-ride the main pipeline yaml file e.g. launcher.name=cwl')
 
-def run(pipeline_config_filename, dry_run=False):
+def run(pipeline_config_filename, extra_config=None, dry_run=False):
     """
-    Runs the pipeline
+    Runs the pipeline.
+
+    The pipeline takes a main configuration file, which specifies
+    which stages are to be run, and how, where to look for them, what overall
+    inputs there are to the pipeline, and where to find a file configuring
+    the individual stages. See test.yml for an example.
+
+    The extra_config argument lets you override parameters in the config file,
+    as long as they are stored in dictionaries.
+    For example, if the config file contains:
+    launcher:
+        name: x
+
+    Then you could include "launcher.name=y" to change this to "y".
+
+    Parameters
+    ----------
+    pipeline_config_filename: str
+        The path to the configuration file
+    extra_config: list[str]
+        Config parameters to override
+    dry_run: bool
+        Whether to do a dry-run of the pipeline, not running anything.
     """
     # YAML input file.
     # Load the text and then expand any environment variables
@@ -25,88 +46,91 @@ def run(pipeline_config_filename, dry_run=False):
     # Then parse with YAML
     pipe_config = yaml.safe_load(config_text)
 
-    # Optional logging of pipeline infrastructure to
-    # file.
-    log_file = pipe_config.get('pipeline_log')
-    if log_file:
-        parsl.set_file_logger(log_file)
+    if extra_config:
+        override_config(pipe_config, extra_config)
 
+    # parsl execution/launcher configuration information
+    launcher_config = pipe_config.get("launcher", {'name':"mini"})
+    launcher_name = launcher_config['name']
 
     # Python modules in which to search for pipeline stages
     modules = pipe_config['modules'].split()
-
-    # parsl execution/launcher configuration information
-    site = pipe_config.get("launcher", "local")
 
     # Required configuration information
     # List of stage names, must be imported somewhere
     stages = pipe_config['stages']
 
-    # Each stage know which site it runs on.  This is to support
-    # future work where this varies between stages.
-    for stage in stages:
-        stage['site'] = site
-        
+    # configure the default site based on the config.
+    # TODO: allow multiple sites in config files
+    # current default site, to be restored later
+    default_site = get_default_site()
 
-    site_config = pipe_config.get('site', {})
-
-    executor_labels, mpi_command = sites.activate_site(site, site_config)
+    site_config = pipe_config.get('site', {'name':'local'})
+    load(launcher_config, [site_config])
 
     # Inputs and outputs
-    output_dir = pipe_config['output_dir']
     inputs = pipe_config['inputs']
-    log_dir = pipe_config['log_dir']
-    resume = pipe_config['resume']
-
     stages_config = pipe_config['config']
 
+    run_config = {
+        'output_dir': pipe_config['output_dir'],
+        'log_dir': pipe_config['log_dir'],
+        'resume': pipe_config['resume'],
+    }
+
     for module in modules:
         __import__(module)
 
-    # Create and run pipeline
-    pipeline = Pipeline(stages, mpi_command)
-
+    # Choice of actual pipeline type to run
     if dry_run:
-        pipeline.dry_run(inputs, output_dir, stages_config)
+        pipeline_class = pipeline.DryRunPipeline
+    elif launcher_name == 'cwl':
+        pipeline_class = pipeline.CWLPipeline
+    elif launcher_name == 'parsl':
+        pipeline_class = pipeline.ParslPipeline
+    elif launcher_name == 'mini':
+        pipeline_class = pipeline.MiniPipeline
     else:
-        pipeline.run(inputs, output_dir, log_dir, resume, stages_config)
+        raise ValueError('Unknown pipeline launcher {launcher_name}')
 
-def export_cwl(args):
-    """
-    Function exports pipeline or pipeline stages into CWL format.
-    """
-    path = args.export_cwl
-    # YAML input file.
-    config = yaml.safe_load(open(args.pipeline_config))
+    p = pipeline_class(stages, launcher_config)
+    status = p.run(inputs, run_config, stages_config)
 
-    # Python modules in which to search for pipeline stages
-    modules = config['modules'].split()
-    for module in modules:
-        __import__(module)
+    # The load command above changes the default site.
+    # So that this function doesn't confuse later things,
+    # reset that site now.
+    set_default_site(default_site)
 
-    # Export each pipeline stage as a CWL app
-    for k in PipelineStage.pipeline_stages:
-        tool = PipelineStage.pipeline_stages[k][0].generate_cwl()
-        tool.export(f'{path}/{k}.cwl')
+    return status
 
-    stages = config['stages']
-    inputs = config['inputs']
 
-    for stage in stages:
-        stage['site'] = 'local'
+def override_config(config, extra):
+    print("Over-riding config parameters from command line:")
 
-    mpi_command = 'mpirun -n'
+    for arg in extra:
+        key, value = arg.split('=', 1)
+        item = key.split('.')
+        p = config
+        print(f"    {key}: {value}")
 
-    pipeline = Pipeline(stages, mpi_command)
-    cwl_wf = pipeline.generate_cwl(inputs)
-    cwl_wf.export(f'{path}/pipeline.cwl')
+        for x in item[:-1]:
+            if x in p:
+                p = p[x]
+            else:
+                p[x] = {}
+                p = p[x]
+        p[item[-1]] = value
+
+
 
 def main():
     args = parser.parse_args()
-    if args.export_cwl is not None:
-        export_cwl(args)
+    status = run(args.pipeline_config, args.extra_config, dry_run=args.dry_run)
+    if status == 0:
+        print("Pipeline successful.  Joy is sparked.")
     else:
-        run(args.pipeline_config, dry_run=args.dry_run)
+        print("Pipeline failed.  No joy sparked.")
+    return status
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
