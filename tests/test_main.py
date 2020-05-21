@@ -28,7 +28,7 @@ def test_run_mini():
     run1()
 
 def test_run_dry_run():
-    run1(dry_run=True, expect_fail=True, expect_outputs=False)
+    run1(dry_run=True, expect_fail=False, expect_outputs=False)
 
 def test_run_parsl():
     run1('launcher.name=parsl', 'launcher.max_threads=3')
