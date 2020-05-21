@@ -356,7 +356,7 @@ Some required inputs to the pipeline could not be found,
         return status
 
     def already_finished_job(self, stage, run_info):
-        print(f"Skipping stage {stage.name} because its inputs exist already")
+        print(f"Skipping stage {stage.name} because its outputs exist already")
 
 
     def should_skip_stage(self, stage, run_config):
