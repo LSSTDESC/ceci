@@ -217,7 +217,7 @@ class Runner:
         cmd = job.cmd
 
         print(f"Command is:\n{cmd}")
-        stdout_file = f'{self.log_dir}/{job.name}.log'
+        stdout_file = f'{self.log_dir}/{job.name}.out'
         print(f"Output writing to {stdout_file}\n")
 
         stdout = open(stdout_file, 'w')

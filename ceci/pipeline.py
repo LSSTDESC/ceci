@@ -552,9 +552,9 @@ Standard error:
         template = f"""
 @parsl.app.app.bash_app(executors=[executor])
 def {stage.name}(inputs, outputs, stdout='{log_dir}/{stage.name}.out', stderr='{log_dir}/{stage.name}.err'):
-    cmd = '{cmd1}'.format(inputs=inputs,outputs=outputs)
+    cmd = '{cmd1}'.format(inputs=inputs, outputs=outputs)
     print("Launching command:")
-    print(cmd, " 2> {log_dir}/{stage.name}.err 1> {log_dir}/{stage.name}.log")
+    print(cmd, " 2> {log_dir}/{stage.name}.err 1> {log_dir}/{stage.name}.out")
     return cmd
 """
         print(template)
