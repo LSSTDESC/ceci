@@ -1,10 +1,9 @@
 # Things to test
 from ceci.minirunner import Runner, WAITING, COMPLETE, Job, Node
 import time
-# - miniirunner behaviour
+from test_helpers import in_temp_dir
 
-
-
+@in_temp_dir
 def test_minirununer_parallel():
     job1 = Job("Job1", "echo start 1; sleep 1; echo end 1", cores=1, nodes=1)
     job2 = Job("Job2", "echo start 2; sleep 1; echo end 2", cores=1, nodes=1)
@@ -42,7 +41,7 @@ def test_minirununer_parallel():
     assert status == COMPLETE
     assert r.completed_jobs in [[job1, job2], [job2, job1]]
 
-
+@in_temp_dir
 def test_minirununer_serial():
     job1 = Job("Job1", "echo start 1; sleep 1; echo end 1", cores=1, nodes=1)
     job2 = Job("Job2", "echo start 2; sleep 1; echo end 2", cores=1, nodes=1)
