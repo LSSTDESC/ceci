@@ -12,7 +12,7 @@ A mock pipeline, which just reads from and writes to a series of small text file
 
 .. code-block:: bash
 
-    ceci test/test.yml
+    ceci tests/test.yml
 
 Making a new pipeline
 ---------------------

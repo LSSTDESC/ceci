@@ -3,9 +3,6 @@ import os
 import socket
 from ..minirunner import Node
 
-from parsl.executors import IPyParallelExecutor, ThreadPoolExecutor
-from parsl.providers import SlurmProvider
-
 
 class LocalSite(Site):
     """Object representing execution in the local environment, e.g. a laptop.
@@ -35,7 +32,7 @@ class LocalSite(Site):
         mpi2 = f"--mpi" if sec.nprocess > 1 else ""
         volume_flag = f'-v {sec.volume} ' if sec.volume else ''
 
-
+        # TODO: allow other container types here, like singularity
         if sec.image:
             return f'docker run '\
                    f'--env OMP_NUM_THREADS={sec.threads_per_process} '\
@@ -49,6 +46,7 @@ class LocalSite(Site):
                    f'{cmd} {mpi2}'
 
     def configure_for_parsl(self):
+        from parsl.executors import ThreadPoolExecutor
         max_threads = self.config.get('max_threads', 4)
         executor = ThreadPoolExecutor(label='local', max_threads=max_threads)
         executors = [executor]
@@ -63,7 +61,6 @@ class LocalSite(Site):
         name = socket.gethostname()
         nodes = [Node(name, cores)]
 
-        print("Running on one 'node'")
         self.info['nodes'] = nodes
 
     def configure_for_cwl(self):

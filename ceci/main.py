@@ -1,11 +1,10 @@
 import os
 import yaml
 import sys
-import parsl
 import argparse
 import subprocess
 from . import pipeline
-from . import sites as sites_module
+from .sites import load, set_default_site, get_default_site
 
 # Add the current dir to the path - often very useful
 sys.path.append(os.getcwd())
@@ -52,9 +51,8 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         override_config(pipe_config, extra_config)
 
     # parsl execution/launcher configuration information
-    launcher_config = pipe_config.get("launcher", {'name':"local"})
+    launcher_config = pipe_config.get("launcher", {'name':"mini"})
     launcher_name = launcher_config['name']
-
 
     # Python modules in which to search for pipeline stages
     modules = pipe_config['modules'].split()
@@ -63,23 +61,16 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     # List of stage names, must be imported somewhere
     stages = pipe_config['stages']
 
-    # 
+    # configure the default site based on the config.
+    # TODO: allow multiple sites in config files
+    # current default site, to be restored later
+    default_site = get_default_site()
+
     site_config = pipe_config.get('site', {'name':'local'})
-    sites = sites_module.load(launcher_config, [site_config])
-
-    # Each stage know which site it runs on.  This is to support
-    # future work where this varies between stages.
-    for stage in stages:
-        stage['site'] = sites[0]
-
-    site_info = sites[0].info
-
+    load(launcher_config, [site_config])
 
     # Inputs and outputs
-    output_dir = pipe_config['output_dir']
     inputs = pipe_config['inputs']
-    log_dir = pipe_config['log_dir']
-    resume = pipe_config['resume']
     stages_config = pipe_config['config']
 
     # Pre- and post-scripts are run locally
@@ -96,9 +87,14 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     if extra_config:
         script_args += extra_config
 
+    run_config = {
+        'output_dir': pipe_config['output_dir'],
+        'log_dir': pipe_config['log_dir'],
+        'resume': pipe_config['resume'],
+    }
+
     for module in modules:
         __import__(module)
-
 
     # Choice of actual pipeline type to run
     if dry_run:
@@ -120,7 +116,15 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
 
     # Create and run the pipeline
     p = pipeline_class(stages, launcher_config)
-    p.run(inputs, output_dir, log_dir, resume, stages_config)
+    status = p.run(inputs, run_config, stages_config)
+
+    # The load command above changes the default site.
+    # So that this function doesn't confuse later things,
+    # reset that site now.
+    set_default_site(default_site)
+
+    if status:
+        return status
 
     # Run the post-script.  There seems less point raising an actual error
     # here, as the pipeline is complete, so we just issue a warning and
@@ -134,7 +138,7 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         return return_code
     # Otherwise everything must have gone fine.
     else:
-        return 0
+        return status
 
 
 def override_config(config, extra):
@@ -159,6 +163,10 @@ def override_config(config, extra):
 def main():
     args = parser.parse_args()
     status = run(args.pipeline_config, args.extra_config, dry_run=args.dry_run)
+    if status == 0:
+        print("Pipeline successful.  Joy is sparked.")
+    else:
+        print("Pipeline failed.  No joy sparked.")
     return status
 
 if __name__ == '__main__':

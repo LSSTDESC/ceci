@@ -4,7 +4,7 @@ Minirunner is a very minimal execution level of a workflow manager.
 It understands jobs requiring multiple nodes or cores.
 It does minimal checking.
 
-It launches only local job, so is designed for debugging or for use on NERSC interactive mode.
+It launches only local jobs, so is designed for debugging or for use on NERSC interactive mode.
 """
 import subprocess
 import os
@@ -27,7 +27,9 @@ class NoJobsReady(RunnerError):
 
 class FailedJob(RunnerError):
     """Error for when a job has failed."""
-    pass
+    def __init__(self, msg, job_name):
+        super().__init__(msg)
+        self.job_name = job_name
 
 
 class Node:
@@ -183,13 +185,19 @@ class Runner:
 
         """
         status = WAITING
-        while status == WAITING:
-            status = self._update()
-            try:
+        try:
+            while status == WAITING:
+                status = self._update()
                 time.sleep(interval)
-            except KeyboardInterrupt:
-                self.abort()
-                raise
+        except Exception:
+            # The pipeline should be cleaned up
+            # in the event of any error.
+            # There should be nothing to clean up
+            # if the pipeline ends cleanly
+            # TODO: add a test for this
+            self.abort()
+            raise
+
 
     def abort(self):
         """End the pipeline and kill all running jobs."""
@@ -209,7 +217,7 @@ class Runner:
         cmd = job.cmd
 
         print(f"Command is:\n{cmd}")
-        stdout_file = f'{self.log_dir}/{job.name}.log'
+        stdout_file = f'{self.log_dir}/{job.name}.out'
         print(f"Output writing to {stdout_file}\n")
 
         stdout = open(stdout_file, 'w')
@@ -267,7 +275,7 @@ class Runner:
             elif status:
                 print(f"Job {job.name} has failed with status {status}")
                 self.abort()
-                raise FailedJob(job.cmd)
+                raise FailedJob(job.cmd, job.name)
             # status==0 indicates sucess in job, so free resources
             else:
                 print(f"Job {job.name} has completed successfully!")

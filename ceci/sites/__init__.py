@@ -1,8 +1,5 @@
 from .cori import CoriBatchSite, CoriInteractiveSite
 from .local import LocalSite, Site
-from parsl.config import Config
-from parsl import load as parsl_load
-from parsl import set_file_logger as set_parsl_logger
 import os
 
 
@@ -13,6 +10,24 @@ site_classes = {
     'cori-batch': CoriBatchSite,
 }
 
+
+# by default use a local site configured.
+# Overwritten if you call load below.
+
+def set_default_site(site):
+    global _default_site
+    _default_site = site
+    return _default_site
+
+def reset_default_site():
+    site = LocalSite({'max_threads':2})
+    site.configure_for_mini()
+    set_default_site(site)
+
+def get_default_site():
+    return _default_site
+
+reset_default_site()
 
 
 
@@ -55,6 +70,10 @@ def load(launcher_config, site_configs):
 
     setup_launcher(launcher_config, sites)
 
+    # replace the default site with the first
+    # one found here
+    set_default_site(sites[0])
+
     return sites
 
 
@@ -75,6 +94,10 @@ def setup_parsl(launcher_config, sites):
     """
     Set up parsl for use with the specified sites.
     """
+    from parsl import load as parsl_load
+    from parsl.config import Config
+    from parsl import set_file_logger
+
     executors = [site.info['executor'] for site in sites]
     config = Config(executors=executors)
     parsl_load(config)
@@ -84,5 +107,4 @@ def setup_parsl(launcher_config, sites):
     if log_file:
         log_file_dir = os.path.split(os.path.abspath(log_file))[0]
         os.makedirs(log_file_dir, exist_ok=True)
-        set_parsl_logger(log_file)
-
+        set_file_logger(log_file)

@@ -3,8 +3,6 @@ import sys
 from textwrap import dedent
 import shutil
 import cProfile
-import parsl
-
 
 SERIAL = 'serial'
 MPI_PARALLEL = 'mpi'
@@ -32,12 +30,33 @@ class PipelineStage:
     def __init__(self, args, comm=None):
         """Construct a pipeline stage, specifying the inputs, outputs, and configuration for it.
 
-        The constructor needs a dict or namespace specifying:
-        - the path to the config file with info in for this stage
-        - the paths to input files
-        - the paths to output files (optional, but usual - otherwise they will be put 
-        in the current directory)
-        - any configuration values not specified in the config file and withouut defaults
+        The constructor needs a dict or namespace. It should include:
+        - input paths (required)
+        - config path (required)
+        - output paths (optional but usual)
+        - additional configuration (required if not specified elsewhere)
+
+        Input and output paths should map tags to paths.
+        Tags are strings, and the first elements in each item in the subclass's
+        "inputs" and "output" attributes.
+        e.g. for a subclass with:
+            inputs = [('eggs', TextFile)]
+            outputs = [('spam', TextFile)]
+        the args could contain:
+            {'eggs': 'inputs/eggs.txt', 
+             'spam': 'outputs/spam.txt' }
+        If spam is not specified it will default to "./spam.txt"
+
+        }
+        
+        The config should map "config" to a path where a YAML config file
+        is located, e.g. {'config':'/path/to/config.yml'}
+
+        Any config variables that are specified in the class's config attribute
+        will be searched for first in args, then in the config file, and then
+        by looking at any default value they have been given.
+        If they have no default value (and just a type, like int, is listed), then
+        it's an error if they are not specified somewhere.
 
         The execute method can instantiate and run the class together, with added bonuses
         like profiling and debugging tools.
@@ -46,6 +65,8 @@ class PipelineStage:
         ----------
         args: dict or namespace
             Specification of input and output paths and any missing config options
+        comm: MPI communicator
+            (default is None) An MPI comm object to use in preference to COMM_WORLD
         """
         if not isinstance(args, dict):
             args = vars(args)
@@ -204,8 +225,12 @@ the input called 'config'.
         Print a usage message.
         """
         stage_names = "\n- ".join(cls.pipeline_stages.keys())
+        try:
+            module = cls.get_module().split('.')[0]
+        except:
+            module = "<module_name>"
         sys.stderr.write(f"""
-Usage: python -m txpipe <stage_name> <stage_arguments>
+Usage: python -m {module} <stage_name> <stage_arguments>
 
 If no stage_arguments are given then usage information
 for the chosen stage will be given.
@@ -667,6 +692,8 @@ I currently know about these stages:
     def iterate_fits(self, tag, hdunum, cols, chunk_rows):
         """
         Loop through chunks of the input data from a FITS file with the given tag
+
+        TODO: add ceci tests of these functions
         """
         fits = self.open_input(tag)
         ext = fits[hdunum]
@@ -681,6 +708,7 @@ I currently know about these stages:
 
         All the selected columns must have the same length.
 
+        TODO: add ceci tests of these functions
         """
         import numpy as np
         hdf = self.open_input(tag)
@@ -707,39 +735,28 @@ I currently know about these stages:
 ################################
 
     @classmethod
-    def generate_command(cls, inputs, config, outputs, missing_inputs_in_outdir=False):
+    def generate_command(cls, inputs, config, outputs):
         """
         Generate a command line that will run the stage
         """
         module = cls.get_module()
         module = module.split('.')[0]
 
-        flags = [cls.name, f'--config={config}']
-
-        def get_path(d, tag, ftype):
-            return fpath
-
+        flags = [cls.name]
 
         for tag,ftype in cls.inputs:
-            if isinstance(inputs, str):
-                fn = ftype.make_name(tag)
-                fpath = f'{source}/{fn}'
-            elif tag in inputs:
+            try:
                 fpath = inputs[tag]
-            elif isinstance(outputs, str) and missing_inputs_in_outdir:
-                fn = ftype.make_name(tag)
-                fpath = f'{outputs}/{fn}'
-            else:
+            except KeyError:
                 raise ValueError(f"Missing input location {tag}")
             flags.append(f'--{tag}={fpath}')
 
+        flags.append(f'--config={config}')
+
         for tag,ftype in cls.outputs:
-            if isinstance(outputs, str):
-                fn = ftype.make_name(tag)
-                fpath = f'{outputs}/{fn}'
-            elif tag in outputs:
+            try:
                 fpath = outputs[tag]
-            else:
+            except:
                 raise ValueError(f"Missing output location {tag}")
             flags.append(f'--{tag}={fpath}')
 
@@ -752,7 +769,7 @@ I currently know about these stages:
 
 
     @classmethod
-    def generate_cwl(cls):
+    def generate_cwl(cls, log_dir=None):
         """
         Produces a CWL App object which can then be exported to yaml
         """
@@ -766,6 +783,9 @@ I currently know about these stages:
                                           base_command='python3',
                                           cwl_version='v1.0',
                                           doc=cls.__doc__)
+        if log_dir is not None:
+            cwl_tool.stdout = f'{cls.name}.out'
+            cwl_tool.stderr = f'{cls.name}.err'
 
         # Adds the first input binding with the name of the module and pipeline stage
         input_arg = cwlgen.CommandLineBinding(position=-1, value_from=f'-m{module}')
@@ -840,6 +860,19 @@ I currently know about these stages:
                                             param_format=cls.outputs[i][1].format,
                                             doc='Some results produced by the pipeline element')
             cwl_tool.outputs.append(output)
+
+        if log_dir is not None:
+            output = cwlgen.CommandOutputParameter(f'{cls.name}@stdout',
+                                            label='stdout',
+                                            param_type='stdout',
+                                            doc='Pipeline elements standard output')
+            cwl_tool.outputs.append(output)
+            error = cwlgen.CommandOutputParameter(f'{cls.name}@stderr',
+                                            label='stderr',
+                                            param_type='stderr',
+                                            doc='Pipeline elements standard output')
+            cwl_tool.outputs.append(error)
+
 
         # Potentially add more metadata
         # This requires a schema however...

@@ -7,12 +7,18 @@ python:
 
 install:
   - python setup.py install
+  # For parsl
+  - pip install flask parsl==0.8.0
+  # for CWL
+  - pip install cwlgen==0.4 cwltool==2.0.20200126090152
+  # For code coverage testing
+  - pip install codecov pytest-cov
 
 # Test three different pipelines
 script:
   - export PYTHONPATH=$PYTHONPATH:$PWD
-  - ceci test/test.yml
-  - ceci --dry-run test/test.yml
-  - ceci test/test.yml launcher.name=parsl launcher.max_threads=3
-  - ceci test/test.yml launcher.name=cwl launcher.dir=test/cwl launcher.launch=cwltool
-  - pytest
+  - ceci tests/test.yml
+  - pytest --cov=ceci
+
+after_success:
+    - codecov

@@ -2,8 +2,6 @@ import os
 from ..minirunner import Node
 
 from .site import Site
-from parsl.executors import IPyParallelExecutor, ThreadPoolExecutor
-from parsl.providers import SlurmProvider
 
 class CoriSite(Site):
     default_mpi_command = 'srun -u -n'
@@ -36,6 +34,10 @@ class CoriSite(Site):
         if sec.nodes:
             mpi1 += f" --nodes {sec.nodes}"
 
+        if (sec.nprocess > 1) and (os.environ.get('SLURM_JOB_ID') is None):
+            raise ValueError("You cannot use MPI (by setting nprocess > 1) "
+                             "on Cori login nodes, only inside jobs.")
+
         if sec.image:
             return f'{mpi1} ' \
                    f'shifter '\
@@ -66,12 +68,23 @@ class CoriSite(Site):
             else:
                 node_names = [node_list]
 
-            # cori default
-            cpus_per_node = 32
+            # We use "CPU"s here to indicate the number of processes
+            # we can run, not the NERSC docs meaning which is the number of threads.
+            # On Haswell there are 32 cores with 2 hyper threads each, so this
+            # env var reports 64, but we should run 32 processes.
+            # On KNL it's 68 cores with 4 threads each, so we should run 68.
+            slurm_cpus_on_node = os.envioron.get('SLURM_CPUS_ON_NODE')
+            if slurm_cpus_on_node == '64':
+                cpus_per_node = 32
+            elif slurm_cpus_on_node == '272':
+                cpus_per_node = 68
+            else:
+                print("Cannot detect NERSC system - assuming 32 processes per node")
+                cpus_per_node = 32
+
             
             # collect list.
             nodes = [Node(name, cpus_per_node) for name in node_names]
-
         else:
             # running on login node
             # use at most 4 procs to avoid annoying people
@@ -86,11 +99,17 @@ class CoriSite(Site):
 
 class CoriBatchSite(CoriSite):
     def configure_for_parsl(self):
+        from parsl.executors import IPyParallelExecutor
+        from parsl.providers import SlurmProvider
+
         # Get the site details that we need    
         cpu_type = self.config.get('cpu_type', 'haswell')
         queue = self.config.get('queue', 'debug')
         max_slurm_jobs = self.config.get('max_jobs', 2)
-        account = self.config.get('account', 'm1727')
+        account = self.config.get('account')
+        if account is None:
+            print("Using LSST DESC account. Specify 'account' in the site config to override")
+            account = 'm1727'
         walltime = self.config.get('walltime', '00:30:00')
         setup_script = self.config.get('setup', '/global/projecta/projectdirs/lsst/groups/WL/users/zuntz/setup-cori')
 
@@ -117,37 +136,38 @@ class CoriBatchSite(CoriSite):
 
 class CoriInteractiveSite(CoriSite):
     def configure_for_parsl(self):
+        from parsl.executors import ThreadPoolExecutor
         max_threads = int(os.environ.get('SLURM_JOB_NUM_NODES', 1))
         executor = ThreadPoolExecutor(label='local', max_threads=max_threads)
         self.info['executor'] = executor
 
 
 def parse_int_set(nputstr):
-  selection = set()
-  invalid = set()
-  # tokens are comma seperated values
-  tokens = [x.strip() for x in nputstr.split(',')]
-  for i in tokens:
-     try:
-        # typically tokens are plain old integers
-        selection.add(int(i))
-     except:
-        # if not, then it might be a range
+    # https://stackoverflow.com/questions/712460/interpreting-number-ranges-in-python/712483
+    selection = set()
+    invalid = set()
+    # tokens are comma seperated values
+    tokens = [x.strip() for x in nputstr.split(',')]
+    for i in tokens:
         try:
-           token = [int(k.strip()) for k in i.split('-')]
-           if len(token) > 1:
-              token.sort()
-              # we have items seperated by a dash
-              # try to build a valid range
-              first = token[0]
-              last = token[len(token)-1]
-              for x in range(first, last+1):
-                 selection.add(x)
+            # typically tokens are plain old integers
+            selection.add(int(i))
         except:
-           # not an int and not a range...
-           invalid.add(i)
-  # Report invalid tokens before returning valid selection
-  if invalid:
-      raise ValueError(f"Invalid node list: {nputstr}")
-  return selection
-# end parseIntSet
+            # if not, then it might be a range
+            try:
+                token = [int(k.strip()) for k in i.split('-')]
+                if len(token) > 1:
+                    token.sort()
+                    # we have items seperated by a dash
+                    # try to build a valid range
+                    first = token[0]
+                    last = token[len(token)-1]
+                    for x in range(first, last+1):
+                        selection.add(x)
+            except:
+               # not an int and not a range...
+               invalid.add(i)
+    # Report invalid tokens before returning valid selection
+    if invalid:
+        raise ValueError(f"Invalid node list: {nputstr}")
+    return selection

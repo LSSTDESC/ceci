@@ -1,5 +1,5 @@
-from .sites.cori import parse_int_set
-from .main import override_config
+from ceci.sites.cori import parse_int_set
+from ceci.main import override_config
 
 
 def test_parse_ints():
