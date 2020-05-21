@@ -3,6 +3,7 @@ import sys
 import time
 import collections
 import yaml
+import shutil
 from .stage import PipelineStage
 from . import minirunner
 from .sites import get_default_site
@@ -746,9 +747,10 @@ class CWLPipeline(Pipeline):
 
         cwl_dir = run_info['cwl_dir']
         workflow = run_info['workflow']
+        log_dir = run_config['log_dir']
 
         # Create a CWL representation of this step
-        cwl_tool = stage.generate_cwl()
+        cwl_tool = stage.generate_cwl(log_dir)
         cwl_tool.export(f'{cwl_dir}/{stage.name}.cwl')
 
         # Load that representation again and add it to the pipeline
@@ -807,6 +809,21 @@ class CWLPipeline(Pipeline):
                                               param_format=ftype.__name__)
             workflow.outputs.append(cwl_out)
 
+        # Also capture stdout and stderr as outputs
+        cwl_out = WorkflowOutputParameter(f'{step.id}@stdout',
+                                          output_source=f'{step.id}/{step.id}@stdout',
+                                          label='stdout',
+                                          param_type='File')
+        step.out.append(f'{step.id}@stdout')
+        workflow.outputs.append(cwl_out)
+
+        cwl_out = WorkflowOutputParameter(f'{step.id}@stderr',
+                                         f'{step.id}/{step.id}@stderr',
+                                          label='stderr',
+                                          param_type='File')
+        step.out.append(f'{step.id}@stderr')
+        workflow.outputs.append(cwl_out)
+
         # This step is now ready - add it to the list
         workflow.steps.append(step)
 
@@ -818,16 +835,29 @@ class CWLPipeline(Pipeline):
     def run_jobs(self, run_info, run_config):
         workflow = run_info['workflow']
         cwl_dir = run_info['cwl_dir']
+        output_dir = run_config['output_dir']
+        log_dir = run_config['log_dir']
         inputs_file = run_info['inputs_file']
         workflow.export(f'{cwl_dir}/pipeline.cwl')
 
         # If 'launcher' is defined, use that
-        launcher = self.launcher_config.get('launch', 'cwltool')
+        launcher = self.launcher_config.get('launch', f'cwltool --outdir {output_dir}')
+        if launcher == 'cwltool':
+            launcher = f'cwltool --outdir {output_dir}'
 
         if launcher:
             cmd = f'{launcher} {cwl_dir}/pipeline.cwl {inputs_file}'
             print(cmd)
-            os.system(cmd)
+            status = os.system(cmd)
+
+        # Parsl insists on putting everything in the same output directory,
+        # both logs and file outputs.
+        # we need to move those
+
+        if status == 0:
+            for step in run_info['workflow'].steps:
+                shutil.move(f'{output_dir}/{step.id}.out', log_dir)
+                shutil.move(f'{output_dir}/{step.id}.err', log_dir)
 
 
-        return 0
+        return status

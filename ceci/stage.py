@@ -782,7 +782,7 @@ I currently know about these stages:
 
 
     @classmethod
-    def generate_cwl(cls):
+    def generate_cwl(cls, log_dir=None):
         """
         Produces a CWL App object which can then be exported to yaml
         """
@@ -796,6 +796,9 @@ I currently know about these stages:
                                           base_command='python3',
                                           cwl_version='v1.0',
                                           doc=cls.__doc__)
+        if log_dir is not None:
+            cwl_tool.stdout = f'{cls.name}.out'
+            cwl_tool.stderr = f'{cls.name}.err'
 
         # Adds the first input binding with the name of the module and pipeline stage
         input_arg = cwlgen.CommandLineBinding(position=-1, value_from=f'-m{module}')
@@ -870,6 +873,19 @@ I currently know about these stages:
                                             param_format=cls.outputs[i][1].format,
                                             doc='Some results produced by the pipeline element')
             cwl_tool.outputs.append(output)
+
+        if log_dir is not None:
+            output = cwlgen.CommandOutputParameter(f'{cls.name}@stdout',
+                                            label='stdout',
+                                            param_type='stdout',
+                                            doc='Pipeline elements standard output')
+            cwl_tool.outputs.append(output)
+            error = cwlgen.CommandOutputParameter(f'{cls.name}@stderr',
+                                            label='stderr',
+                                            param_type='stderr',
+                                            doc='Pipeline elements standard output')
+            cwl_tool.outputs.append(error)
+
 
         # Potentially add more metadata
         # This requires a schema however...
