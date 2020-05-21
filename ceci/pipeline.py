@@ -141,8 +141,8 @@ class Pipeline:
         self.stage_names.remove(name)
         del self.stage_execution_config[name]
 
-    def find_inputs(self, stage, data_elements, run_config):
-        return {tag: data_elements[tag] for tag, _ in stage.inputs}
+    def find_inputs(self, stage, pipeline_files, run_config):
+        return {tag: pipeline_files[tag] for tag, _ in stage.inputs}
 
     def find_outputs(self, stage, run_config):
         """Get the names of all the outputs a stage will generate.
@@ -314,7 +314,7 @@ Some required inputs to the pipeline could not be found,
 
     def run(self, overall_inputs, run_config, stages_config):
         # Make a copy, since we'll be modifying this.
-        data_elements = overall_inputs.copy()
+        pipeline_files = overall_inputs.copy()
 
         # Get the stages in the order we need.
         stages = self.ordered_stages(overall_inputs)
@@ -324,7 +324,7 @@ Some required inputs to the pipeline could not be found,
         # necessary information about the run if necessary.
         # Usually, the arguments are ignored, but they are provided in case a class needs to
         # do something special with any of them.
-        run_info = self.initiate_run(stages, data_elements, run_config, stages_config)
+        run_info = self.initiate_run(stages, pipeline_files, run_config, stages_config)
 
 
 
@@ -340,13 +340,13 @@ Some required inputs to the pipeline could not be found,
             if self.should_skip_stage(stage, run_config):
                 self.already_finished_job(stage, run_info)
                 output_paths = self.find_outputs(stage, run_config)
-                data_elements.update(output_paths)
+                pipeline_files.update(output_paths)
 
             # Otherwise, run the pipeline and register any outputs from the
             # pipe element.
             else:
-                stage_outputs = self.enqueue_job(stage, data_elements, stages_config, run_info, run_config)
-                data_elements.update(stage_outputs)
+                stage_outputs = self.enqueue_job(stage, pipeline_files, stages_config, run_info, run_config)
+                pipeline_files.update(stage_outputs)
 
         status = self.run_jobs(run_info, run_config)
 
@@ -391,9 +391,9 @@ class DryRunPipeline(Pipeline):
     def should_skip_stage(self, stage, run_config):
         return False
 
-    def enqueue_job(self, stage, data_elements, stages_config, run_info, run_config):
+    def enqueue_job(self, stage, pipeline_files, stages_config, run_info, run_config):
         outputs = self.find_outputs(stage, run_config)
-        cmd = self.generate_full_command(stage, data_elements, outputs, stages_config, run_config)
+        cmd = self.generate_full_command(stage, pipeline_files, outputs, stages_config, run_config)
         run_info.append(cmd)
         return outputs
 
@@ -417,7 +417,7 @@ class ParslPipeline(Pipeline):
 
 
 
-    def enqueue_job(self, stage, data_elements, stages_config, run_info, run_config):
+    def enqueue_job(self, stage, pipeline_files, stages_config, run_info, run_config):
         from parsl.data_provider.files import File
 
         log_dir = run_config['log_dir']
@@ -428,7 +428,7 @@ class ParslPipeline(Pipeline):
         # parsl wants. 
         # The inputs that exist already need to be converted into Parsl File objects.
         # The ones that don't stay as data futures
-        inputs1 = self.find_inputs(stage, data_elements, run_config)
+        inputs1 = self.find_inputs(stage, pipeline_files, run_config)
         inputs = [File(val) if isinstance(val, str) else val for val in inputs1.values()]
         inputs.append(File(stages_config))
         # The outputs are just strings.  python dicts are now ordered,
@@ -617,11 +617,11 @@ class MiniPipeline(Pipeline):
         stages = []
         return jobs, stages
 
-    def enqueue_job(self, stage, data_elements, stages_config, run_info, run_config):
+    def enqueue_job(self, stage, pipeline_files, stages_config, run_info, run_config):
         jobs, stages = run_info
         sec = self.stage_execution_config[stage.name]
         outputs = self.find_outputs(stage, run_config)
-        cmd = self.generate_full_command(stage, data_elements, outputs, 
+        cmd = self.generate_full_command(stage, pipeline_files, outputs, 
             stages_config, run_config)
         job = minirunner.Job(stage.name, cmd, 
             cores=sec.threads_per_process*sec.nprocess, nodes=sec.nodes)
@@ -741,7 +741,7 @@ class CWLPipeline(Pipeline):
 
 
 
-    def enqueue_job(self, stage, data_elements, stages_config, run_info, run_config):
+    def enqueue_job(self, stage, pipeline_files, stages_config, run_info, run_config):
         from cwlgen.workflowdeps import WorkflowStep, WorkflowStepInput
         from cwlgen.workflowdeps import WorkflowOutputParameter, InputParameter
 
@@ -757,13 +757,13 @@ class CWLPipeline(Pipeline):
         step = WorkflowStep(stage.name, run=f'{cwl_tool.id}.cwl')
 
         # For CWL these inputs are a mix of file and config inputs,
-        # so not he same as the data_elements we usually see
+        # so not he same as the pipeline_files we usually see
         for inp in cwl_tool.inputs:
 
             # If this input is an putput from an earlier stage
             # then it takes its name based on that
-            if inp.id in data_elements:
-                name = data_elements[inp.id]+'/'+inp.id
+            if inp.id in pipeline_files:
+                name = pipeline_files[inp.id]+'/'+inp.id
             # otherwise if it's a config option we mangle
             # it to avod clashes
             elif inp.id in stage.config_options:
@@ -775,7 +775,7 @@ class CWLPipeline(Pipeline):
             # If it's an overall input to the entire pipeline we
             # record that.  We only want things that aren't outputs
             # (first clause) and that we haven't already recorded (second)
-            if (inp.id not in data_elements) and (name not in run_info['workflow_inputs']):
+            if (inp.id not in pipeline_files) and (name not in run_info['workflow_inputs']):
                 run_info['workflow_inputs'].add(name)
                 # These are the overall inputs to the enture pipeline.
                 # Convert them to CWL input parameters
