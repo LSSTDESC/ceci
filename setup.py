@@ -19,7 +19,7 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.7',
     ],
-    packages=['ceci', 'ceci.sites', 'ceci_example'],
+    packages=['ceci', 'ceci.sites'],
     entry_points={
         'console_scripts':['ceci=ceci.main:main']
     },
