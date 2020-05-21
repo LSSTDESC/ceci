@@ -837,9 +837,12 @@ class CWLPipeline(Pipeline):
         workflow.export(f'{cwl_dir}/pipeline.cwl')
 
         # If 'launcher' is defined, use that
-        launcher = self.launcher_config.get('launch', f'cwltool --outdir {output_dir}')
+        launcher = self.launcher_config.get('launch',
+                                            f'cwltool --outdir {output_dir} '
+                                             '--preserve-environment PYTHONPATH')
         if launcher == 'cwltool':
-            launcher = f'cwltool --outdir {output_dir} --preserve-environment PYTHONPATH'
+            launcher = f'cwltool --outdir {output_dir} ' \
+                        '--preserve-environment PYTHONPATH'
 
         if launcher:
             # need to include the CWD on the path for CWL as it
