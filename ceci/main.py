@@ -78,10 +78,8 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         'resume': pipe_config['resume'],
     }
 
-
     for module in modules:
         __import__(module)
-
 
     # Choice of actual pipeline type to run
     if dry_run:
