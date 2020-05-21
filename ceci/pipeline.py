@@ -336,7 +336,6 @@ Some required inputs to the pipeline could not be found,
             # If we are in "resume" mode and the pipeline has already been run
             # then we re-use any existing outputs.  User is responsible for making
             # sure they are complete!
-            print(stage)
             if self.should_skip_stage(stage, run_config):
                 self.already_finished_job(stage, run_info)
                 output_paths = self.find_outputs(stage, run_config)
@@ -363,9 +362,6 @@ Some required inputs to the pipeline could not be found,
     def should_skip_stage(self, stage, run_config):
         outputs = self.find_outputs(stage, run_config).values()
         already_run_stage = all(os.path.exists(output) for output in outputs)
-        print(outputs)
-        print([os.path.exists(output) for output in outputs])
-        print(run_config['resume'])
         return already_run_stage and run_config['resume']
 
     def find_all_outputs(self, stages, run_config):
@@ -843,12 +839,20 @@ class CWLPipeline(Pipeline):
         # If 'launcher' is defined, use that
         launcher = self.launcher_config.get('launch', f'cwltool --outdir {output_dir}')
         if launcher == 'cwltool':
-            launcher = f'cwltool --outdir {output_dir}'
+            launcher = f'cwltool --outdir {output_dir} --preserve-environment PYTHONPATH'
 
         if launcher:
+            # need to include the CWD on the path for CWL as it
+            # runs in an isolated directory
+            pypath = os.environ.get("PYTHONPATH", "")
+            os.environ["PYTHONPATH"] = pypath + ":" + os.getcwd()
             cmd = f'{launcher} {cwl_dir}/pipeline.cwl {inputs_file}'
             print(cmd)
             status = os.system(cmd)
+            if pypath:
+                os.environ['PYTHONPATH'] = pypath
+            else:
+                del os.environ['PYTHONPATH']
 
         # Parsl insists on putting everything in the same output directory,
         # both logs and file outputs.
