@@ -1,6 +1,9 @@
 from ceci.stage import PipelineStage
 import pytest
 
+# TODO: test MPI facilities properly with:
+# https://github.com/rmjarvis/TreeCorr/blob/releases/4.1/tests/mock_mpi.py
+
 class MockCommunicator:
     def __init__(self, size, rank):
         self.size = size
