@@ -480,7 +480,6 @@ Standard error:
                     sys.stderr.write(open(stderr_file).read())
                 else:
                     sys.stderr.write("STDERR MISSING!\n\n")
-                print("Pipeline failed.  No joy sparked.")
                 return 1
         return 0
 
@@ -644,11 +643,11 @@ class MiniPipeline(Pipeline):
         try:
             runner.run(interval)
         except minirunner.FailedJob as error:
-            sys.stderr.write("""
+            sys.stderr.write(f"""
 *************************************************
 Error running pipeline stage {error.job_name}.
 
-Standard output and error streams above.
+Standard output and error streams in {log_dir}/{error.job_name}.out
 *************************************************
 """)
             return 1

@@ -125,7 +125,12 @@ def override_config(config, extra):
 
 def main():
     args = parser.parse_args()
-    return run(args.pipeline_config, args.extra_config, dry_run=args.dry_run)
+    status = run(args.pipeline_config, args.extra_config, dry_run=args.dry_run)
+    if status == 0:
+        print("Pipeline successful.  Joy is sparked.")
+    else:
+        print("Pipeline failed.  No joy sparked.")
+    return status
 
 if __name__ == '__main__':
     sys.exit(main())
