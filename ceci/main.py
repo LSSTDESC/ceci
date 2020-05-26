@@ -2,6 +2,7 @@ import os
 import yaml
 import sys
 import argparse
+import subprocess
 from . import pipeline
 from .sites import load, set_default_site, get_default_site
 
@@ -72,6 +73,20 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     inputs = pipe_config['inputs']
     stages_config = pipe_config['config']
 
+    # Pre- and post-scripts are run locally
+    # before and after the pipeline is complete
+    # They are called with the same arguments as
+    # this script.  If the pre_script returns non-zero
+    # then the pipeline is not run.
+    # These scripts ar not run in the dry-run case.
+    # In both cases we pass the script the pipeline_config
+    # filename and any extra args.
+    pre_script = pipe_config.get('pre_script')
+    post_script = pipe_config.get('post_script')
+    script_args = [pipeline_config_filename]
+    if extra_config:
+        script_args += extra_config
+
     run_config = {
         'output_dir': pipe_config['output_dir'],
         'log_dir': pipe_config['log_dir'],
@@ -93,6 +108,13 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     else:
         raise ValueError('Unknown pipeline launcher {launcher_name}')
 
+    # Run the pre-script.  Since it's an error for this to fail (because
+    # it is useful as a validation check) then we raise an error if it
+    # fails using check_call.
+    if pre_script and not dry_run:
+        subprocess.check_call(pre_script.split() + script_args, shell=True)
+
+    # Create and run the pipeline
     p = pipeline_class(stages, launcher_config)
     status = p.run(inputs, run_config, stages_config)
 
@@ -101,7 +123,22 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     # reset that site now.
     set_default_site(default_site)
 
-    return status
+    if status:
+        return status
+
+    # Run the post-script.  There seems less point raising an actual error
+    # here, as the pipeline is complete, so we just issue a warning and
+    # return a status code to the caller (e.g. to the command line).
+    # Thoughts on this welcome.
+    if post_script and not dry_run:
+        return_code = subprocess.call(post_script.split() + script_args, shell=True)
+        if return_code:
+            sys.stderr.write(f"\nWARNING: The post-script command {post_script} "
+                              "returned error status {return_code}\n\n")
+        return return_code
+    # Otherwise everything must have gone fine.
+    else:
+        return status
 
 
 def override_config(config, extra):
