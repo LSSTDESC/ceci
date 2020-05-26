@@ -156,7 +156,7 @@ def override_config(config, extra):
             else:
                 p[x] = {}
                 p = p[x]
-        p[item[-1]] = value
+        p[item[-1]] = yaml.safe_load(value)
 
 
 
