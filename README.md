@@ -1,6 +1,7 @@
 Ceci Pipeline Software
 ----------------------
 [![Build Status](https://travis-ci.org/LSSTDESC/ceci.svg?branch=master)](https://travis-ci.org/LSSTDESC/ceci)
+[![codecov](https://codecov.io/gh/LSSTDESC/ceci/branch/master/graph/badge.svg)](https://codecov.io/gh/LSSTDESC/ceci)
 
 A lightweight parsl-based framework for running DESC pipelines. Documentation available here: http://ceci.readthedocs.io
 
