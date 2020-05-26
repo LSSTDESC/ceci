@@ -91,7 +91,7 @@ def _test_cori(job_id):
         # don't want to test too specifically here, since it may change
         assert 'shifter' in cmd
         assert '--image username/potato' in cmd
-        assert '-v a:b' in cmd
+        assert '-V a:b' in cmd
         assert 'srun -u -n 2' in cmd
         assert '--env OMP_NUM_THREADS=4' in cmd
         assert '--nodes 3' in cmd
