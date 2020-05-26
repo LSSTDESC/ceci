@@ -73,7 +73,7 @@ class CoriSite(Site):
             # On Haswell there are 32 cores with 2 hyper threads each, so this
             # env var reports 64, but we should run 32 processes.
             # On KNL it's 68 cores with 4 threads each, so we should run 68.
-            slurm_cpus_on_node = os.envioron.get('SLURM_CPUS_ON_NODE')
+            slurm_cpus_on_node = os.environ.get('SLURM_CPUS_ON_NODE')
             if slurm_cpus_on_node == '64':
                 cpus_per_node = 32
             elif slurm_cpus_on_node == '272':
