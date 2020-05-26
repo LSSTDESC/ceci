@@ -6,9 +6,11 @@ http://opensource.org/licenses/MIT
 """
 from setuptools import setup
 
+version = open('./ceci/version.py').read().split('=')[1].strip().strip("'")
+
 setup(
     name='ceci',
-    version='1.0.0',
+    version=version,
     description='Lightweight pipeline engine for LSST DESC',
     url='https://github.com/LSSTDESC/ceci',
     maintainer='Joe Zuntz',
