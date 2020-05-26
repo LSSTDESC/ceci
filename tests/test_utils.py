@@ -11,9 +11,10 @@ def test_parse_ints():
 def test_override_config():
     config = {
         'a': 'b',
-        'c': {'d':'e'}
+        'c': {'d':'e'},
+        'h': True,
     }
-    override_config(config, ['a=a', 'c.d=e', 'f.x.y.z=g'])
+    override_config(config, ['a=a', 'c.d=e', 'f.x.y.z=g', 'h=False'])
 
     assert config['a'] == 'a'
     assert config['c'] == {'d':'e'}
@@ -24,3 +25,4 @@ def test_override_config():
             }
         }
     }
+    assert config['h'] is False
