@@ -39,19 +39,19 @@ def test_run_cwl():
 def test_pre_script():
     # use the bash "true" command to simulate a
     # pre-script suceeding
-    run1("pre_script=true")
+    run1("pre_script='true'")
     # and false to simulate a failure
     with pytest.raises(subprocess.CalledProcessError):
         # error should happen before we get to the asserts, so no expect_fail etc
-        run1("pre_script=false")
+        run1("pre_script='false'")
 
 def test_post_script():
     # use the bash "true" command to simulate a
     # pre-script suceeding
-    run1("post_script=true")
+    run1("post_script='true'")
     # and false to simulate a failure - should not raise an error
     # but should fail.  Outputs should exist.
-    run1("post_script=false", expect_fail=True, expect_outputs=True)
+    run1("post_script='false'", expect_fail=True, expect_outputs=True)
 
 if __name__ == '__main__':
     test_run_dry_run()
