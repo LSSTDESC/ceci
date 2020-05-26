@@ -12,7 +12,7 @@ class Site:
         requirements = {
             'parsl': ['parsl'],
             'cwl': ['cwlgen', 'cwltool'],
-            'mini': [],
+            'mini': ['psutil'],
         }
         if launcher not in requirements:
             raise ValueError(f"Unknown launcher '{launcher}'")
