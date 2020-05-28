@@ -6,11 +6,8 @@ http://opensource.org/licenses/MIT
 """
 from setuptools import setup
 
-version = open('./ceci/version.py').read().split('=')[1].strip().strip("'")
-
 setup(
     name='ceci',
-    version=version,
     description='Lightweight pipeline engine for LSST DESC',
     url='https://github.com/LSSTDESC/ceci',
     maintainer='Joe Zuntz',
@@ -25,6 +22,8 @@ setup(
     entry_points={
         'console_scripts':['ceci=ceci.main:main']
     },
+    use_scm_version=True,
+    setup_requires=["setuptools_scm"],
     # flask is actually a parsl dependency, but a setuptools bug
     # means that capitalizing "Flask" as written in the parsl
     # setup doesn't work.
