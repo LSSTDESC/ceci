@@ -1,9 +1,19 @@
-Ceci Pipeline Software
-----------------------
-[![Build Status](https://travis-ci.org/LSSTDESC/ceci.svg?branch=master)](https://travis-ci.org/LSSTDESC/ceci)
-[![codecov](https://codecov.io/gh/LSSTDESC/ceci/branch/master/graph/badge.svg)](https://codecov.io/gh/LSSTDESC/ceci)
+![Ceci Logo](ceci.png)
 
-A lightweight parsl-based framework for running DESC pipelines. Documentation available here: http://ceci.readthedocs.io
+
+<h2 align="center">Ceci Pipeline Software</h2>
+
+<p align="center">
+<a href="https://travis-ci.org/LSSTDESC/ceci"><img alt="Build Status" src="https://travis-ci.org/LSSTDESC/ceci.svg?branch=master"></a>
+<a href='https://ceci.readthedocs.io/en/latest/?badge=latest'><img src='https://readthedocs.org/projects/ceci/badge/?version=latest' alt='Documentation Status' /></a>
+<a href="https://codecov.io/gh/LSSTDESC/ceci"><img alt="Coverage Status" src="https://codecov.io/gh/LSSTDESC/ceci/branch/master/graph/badge.svg"></a>
+<a href="https://pypi.org/project/ceci/"><img alt="PyPI" src="https://img.shields.io/pypi/v/ceci"></a>
+<a href="https://pepy.tech/project/ceci"><img alt="Downloads" src="https://pepy.tech/badge/ceci"></a>
+</p>
+
+> “Ceci n'est pas une pipeline.”
+
+A lightweight parsl-based framework for running DESC pipelines.
 
 This is now alpha status.
 
@@ -20,16 +30,6 @@ You can then run an example pipeline from the ceci_lib directory using:
 export PYTHONPATH=$PYTHONPATH:$PWD
 ceci test/test.yml
 ```
-
-## Roadmap
-
-- MPI on cori and site generation for parsl
-- Generating a marker file when a task is completely complete to allow resuming better
-- Improved logging
-- Data File types
-- Metadata operationson FITS and HDF5 files
-- Single shared docker/shifter image support
-- Export yaml representation of stage inputs etc, for ingestion by javascript GUI
 
 
 Adding Pipeline Stages
