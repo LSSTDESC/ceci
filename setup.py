@@ -23,7 +23,7 @@ setup(
         'console_scripts':['ceci=ceci.main:main']
     },
     use_scm_version=True,
-￼    setup_requires=["setuptools_scm"],
+    setup_requires=["setuptools_scm"],
     # flask is actually a parsl dependency, but a setuptools bug
     # means that capitalizing "Flask" as written in the parsl
     # setup doesn't work.
