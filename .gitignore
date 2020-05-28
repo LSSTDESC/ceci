@@ -11,3 +11,6 @@ tests/log*
 tests/cwl
 .ipynb_checkpoints/
 .coverage
+.eggs
+out/
+test/
