@@ -6,13 +6,7 @@ python:
   - "3.8"
 
 install:
-  - python setup.py install
-  # For parsl
-  - pip install flask parsl==0.8.0
-  # for CWL
-  - pip install cwlgen==0.4 cwltool==2.0.20200126090152
-  # For code coverage testing
-  - pip install codecov pytest-cov
+  - pip install .[test,cwl,parsl]
 
 # Test three different pipelines
 script:
