@@ -1,5 +1,5 @@
 # Things to test
-from ceci.minirunner import Runner, WAITING, COMPLETE, Job, Node, NoJobsReady
+from ceci.minirunner import Runner, WAITING, COMPLETE, Job, Node, CannotRun, TimeOut
 import time
 from test_helpers import in_temp_dir
 from pytest import raises
@@ -92,13 +92,23 @@ def test_minirununer_serial():
     assert r.queued_jobs == []
 
 @in_temp_dir
+def test_timeout():
+    node1 = Node('node1', 1)
+    nodes = [node1]
+    job1 = Job("Job1", "sleep 60", nodes=1, cores=1)
+    job_dependencies = {job1: []}
+    r = Runner(nodes, job_dependencies, '.')
+    with raises(TimeOut):
+        r.run(0.5, timeout=1)
+
+
+@in_temp_dir
 def test_cannot_run():
     node1 = Node('node1', 1)
     nodes = [node1]
     job1 = Job("Job1", "echo start 1", nodes=2, cores=1)
-    job_dependencies = {}
+    job_dependencies = {job1: []}
     r = Runner(nodes, job_dependencies, '.')
 
-    with raises(NoJobsReady):
-        r._update()
-
+    with raises(CannotRun):
+        r.run(0.5, timeout=5)
