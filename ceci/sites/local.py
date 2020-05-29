@@ -57,7 +57,7 @@ class LocalSite(Site):
     def configure_for_mini(self):
         import psutil
         cores = psutil.cpu_count(logical=False)
-        cores = min(cores, self.config.get('max_threads', 100))
+        cores = self.config.get('max_threads', cores)
         name = socket.gethostname()
         nodes = [Node(name, cores)]
 
