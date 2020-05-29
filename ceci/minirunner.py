@@ -252,9 +252,11 @@ class Runner:
 
         for job in self.queued_jobs:
             if job.nodes > n_node:
-                raise CannotRun(f"Job {job} cannot be run - it needs too many nodes")
+                raise CannotRun(f"Job {job} cannot be run - it needs {job.nodes}"
+                                f" nodes but only {n_node} is/are available")
             elif job.cores > n_core:
-                raise CannotRun(f"Job {job} cannot be run - it needs too many cores")
+                raise CannotRun(f"Job {job} cannot be run - it needs {job.cores}"
+                                f" cores but only {n_core} is/are available")
 
 
     def _update(self):
