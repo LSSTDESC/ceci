@@ -20,9 +20,10 @@ This is now alpha status.
 ## Install
 
 ```bash
-pip install git+git://github.com/EiffL/python-cwlgen.git
-python setup.py install
+pip install ceci
 ```
+This installs the simplest version of ceci, if you want to be able
+to use the parsl backend, install instead `ceci[parsl]`.
 
 You can then run an example pipeline from the ceci_lib directory using:
 
