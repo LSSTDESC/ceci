@@ -10,6 +10,8 @@ import subprocess
 import os
 import time
 import socket
+import sys
+from timeit import default_timer
 
 # Constant indicators
 COMPLETE = 0
@@ -20,7 +22,11 @@ class RunnerError(Exception):
     pass
 
 
-class NoJobsReady(RunnerError):
+class CannotRun(RunnerError):
+    """Error for when no jobs can be run and the pipeline is blocked."""
+    pass
+
+class TimeOut(RunnerError):
     """Error for when no jobs can be run and the pipeline is blocked."""
     pass
 
@@ -67,6 +73,8 @@ class Node:
 
     def __str__(self):
         return f"Node('{self.id}', {self.cores})"
+
+    __repr__ = __str__
 
     def __hash__(self):
         return hash(self.id)
@@ -124,6 +132,8 @@ class Job:
     def __str__(self):
         return f"<Job {self.name}>"
 
+    __repr__ = __str__
+
 
 class Runner:
     """The main pipeline runner class.
@@ -175,7 +185,7 @@ class Runner:
         self.queued_jobs = list(job_graph.keys())
 
 
-    def run(self, interval):
+    def run(self, interval, timeout=1e300):
         """Launch the pipeline.
 
         Parameters
@@ -185,10 +195,15 @@ class Runner:
 
         """
         status = WAITING
+        t0 = default_timer()
         try:
             while status == WAITING:
                 status = self._update()
                 time.sleep(interval)
+                t = default_timer() - t0
+                if t > timeout:
+                    raise TimeOut(f"Pipeline did not finish within {timeout} seconds. "
+                                  f"These jobs were still running: {self.running}")
         except Exception:
             # The pipeline should be cleaned up
             # in the event of any error.
@@ -231,19 +246,29 @@ class Runner:
         return [job for job in self.queued_jobs if 
             all(p in self.completed_jobs for p in self.job_graph[job])]
 
+    def _check_impossible(self):
+        n_node = len(self.nodes)
+        n_core = sum(node.cores for node in self.nodes)
+
+        for job in self.queued_jobs:
+            if job.nodes > n_node:
+                raise CannotRun(f"Job {job} cannot be run - it needs too many nodes")
+            elif job.cores > n_core:
+                raise CannotRun(f"Job {job} cannot be run - it needs too many cores")
+
 
     def _update(self):
         # Iterate, checking the status of all jobs and launching any new ones
         self._check_completed()
+        self._check_impossible()
 
         # If all jobs are done, exit
+
         if len(self.completed_jobs) == len(self.job_graph):
             return COMPLETE
 
         # Otherwise check what jobs can now run
         ready = self._ready_jobs()
-        if (not self.running) and (not ready):
-            raise NoJobReady("Some jobs cannot be run - not enough cores.")
         
         # and launch them all
         for job in ready:
