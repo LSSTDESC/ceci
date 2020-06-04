@@ -7,15 +7,12 @@ http://opensource.org/licenses/MIT
 from setuptools import setup
 from io import open
 
-version = open('./ceci/version.py').read().split('=')[1].strip().strip("'")
-
 # read the contents of the README file
 with open('README.md', encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
     name='ceci',
-    version=version,
     description='Lightweight pipeline engine for LSST DESC',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -35,6 +32,8 @@ setup(
     entry_points={
         'console_scripts':['ceci=ceci.main:main']
     },
+    use_scm_version=True,
+    setup_requires=["setuptools_scm"],
     install_requires=['pyyaml', 'psutil'],
     extras_require={
       'parsl': ['flask', 'parsl==0.8.0'],
