@@ -17,22 +17,28 @@ from timeit import default_timer
 COMPLETE = 0
 WAITING = 1
 
+
 class RunnerError(Exception):
     """Base error class."""
+
     pass
 
 
 class CannotRun(RunnerError):
     """Error for when no jobs can be run and the pipeline is blocked."""
+
     pass
+
 
 class TimeOut(RunnerError):
     """Error for when no jobs can be run and the pipeline is blocked."""
+
     pass
 
 
 class FailedJob(RunnerError):
     """Error for when a job has failed."""
+
     def __init__(self, msg, job_name):
         super().__init__(msg)
         self.job_name = job_name
@@ -44,6 +50,7 @@ class Node:
     Nodes have an ID and a number of cores.  Can add more capabilities later
     if needed.
     """
+
     def __init__(self, node_id, cores):
         """Create a node.
 
@@ -92,6 +99,7 @@ class Job:
     """Small wrapper for a job to be run by minirunner, incorporating
     the command line and the resources needed to run it.
     """
+
     def __init__(self, name, cmd, nodes, cores):
         """Create a node.
 
@@ -123,7 +131,7 @@ class Job:
 
         nodes: int
             Number of nodes needed for the job
-        """        
+        """
         self.name = name
         self.cmd = cmd
         self.nodes = nodes
@@ -162,6 +170,7 @@ class Runner:
         Dir where the logs are put
 
     """
+
     def __init__(self, nodes, job_graph, log_dir):
         """Create a Runner
 
@@ -184,7 +193,6 @@ class Runner:
         self.log_dir = log_dir
         self.queued_jobs = list(job_graph.keys())
 
-
     def run(self, interval, timeout=1e300):
         """Launch the pipeline.
 
@@ -202,8 +210,10 @@ class Runner:
                 time.sleep(interval)
                 t = default_timer() - t0
                 if t > timeout:
-                    raise TimeOut(f"Pipeline did not finish within {timeout} seconds. "
-                                  f"These jobs were still running: {self.running}")
+                    raise TimeOut(
+                        f"Pipeline did not finish within {timeout} seconds. "
+                        f"These jobs were still running: {self.running}"
+                    )
         except Exception:
             # The pipeline should be cleaned up
             # in the event of any error.
@@ -213,14 +223,12 @@ class Runner:
             self.abort()
             raise
 
-
     def abort(self):
         """End the pipeline and kill all running jobs."""
         for process, job, alloc in self.running:
             process.kill()
         for node in self.nodes:
             node.free()
-
 
     def _launch(self, job, alloc):
         # launch the specified job on the specified nodes
@@ -232,19 +240,21 @@ class Runner:
         cmd = job.cmd
 
         print(f"Command is:\n{cmd}")
-        stdout_file = f'{self.log_dir}/{job.name}.out'
+        stdout_file = f"{self.log_dir}/{job.name}.out"
         print(f"Output writing to {stdout_file}\n")
 
-        stdout = open(stdout_file, 'w')
+        stdout = open(stdout_file, "w")
         # launch cmd in a subprocess, and keep track in running jobs
         p = subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT)
         self.running.append((p, job, alloc))
 
-
     def _ready_jobs(self):
         # Find jobs ready to be run now
-        return [job for job in self.queued_jobs if 
-            all(p in self.completed_jobs for p in self.job_graph[job])]
+        return [
+            job
+            for job in self.queued_jobs
+            if all(p in self.completed_jobs for p in self.job_graph[job])
+        ]
 
     def _check_impossible(self):
         n_node = len(self.nodes)
@@ -252,12 +262,15 @@ class Runner:
 
         for job in self.queued_jobs:
             if job.nodes > n_node:
-                raise CannotRun(f"Job {job} cannot be run - it needs {job.nodes}"
-                                f" nodes but only {n_node} is/are available")
+                raise CannotRun(
+                    f"Job {job} cannot be run - it needs {job.nodes}"
+                    f" nodes but only {n_node} is/are available"
+                )
             elif job.cores > n_core:
-                raise CannotRun(f"Job {job} cannot be run - it needs {job.cores}"
-                                f" cores but only {n_core} is/are available")
-
+                raise CannotRun(
+                    f"Job {job} cannot be run - it needs {job.cores}"
+                    f" cores but only {n_core} is/are available"
+                )
 
     def _update(self):
         # Iterate, checking the status of all jobs and launching any new ones
@@ -271,7 +284,7 @@ class Runner:
 
         # Otherwise check what jobs can now run
         ready = self._ready_jobs()
-        
+
         # and launch them all
         for job in ready:
             # find nodes to run them on
@@ -284,7 +297,6 @@ class Runner:
 
         # indicate that we are still running.
         return WAITING
-
 
     def _check_completed(self):
         # check if any running jobs have completed
@@ -315,7 +327,6 @@ class Runner:
         for job in completed_jobs:
             self.completed_jobs.append(job)
 
-
     def _check_availability(self, job):
         # check if there are nodes available to run this job
         # Return them if so, or None if not.
@@ -325,7 +336,7 @@ class Runner:
 
         free_nodes = [node for node in self.nodes if not node.is_assigned]
         if len(free_nodes) >= job.nodes:
-            alloc = free_nodes[:job.nodes]
+            alloc = free_nodes[: job.nodes]
         else:
             alloc = None
 

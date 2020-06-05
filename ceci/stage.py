@@ -4,10 +4,11 @@ from textwrap import dedent
 import shutil
 import cProfile
 
-SERIAL = 'serial'
-MPI_PARALLEL = 'mpi'
+SERIAL = "serial"
+MPI_PARALLEL = "mpi"
 
-IN_PROGRESS_PREFIX = 'inprogress_'
+IN_PROGRESS_PREFIX = "inprogress_"
+
 
 class PipelineStage:
     """A PipelineStage implements a single calculation step within a wider pipeline.
@@ -23,9 +24,10 @@ class PipelineStage:
     See documentation pages for more details.
 
     """
+
     parallel = True
     config_options = {}
-    doc=""
+    doc = ""
 
     def __init__(self, args, comm=None):
         """Construct a pipeline stage, specifying the inputs, outputs, and configuration for it.
@@ -76,20 +78,22 @@ class PipelineStage:
         for x in self.input_tags():
             val = args[x]
             if val is None:
-                missing_inputs.append(f'--{x}')
+                missing_inputs.append(f"--{x}")
         if missing_inputs:
-            missing_inputs = '  '.join(missing_inputs)
-            raise ValueError(f"""
+            missing_inputs = "  ".join(missing_inputs)
+            raise ValueError(
+                f"""
 
 Missing these names on the command line:
-    Input names: {missing_inputs}""")
+    Input names: {missing_inputs}"""
+            )
 
-        self._inputs = {x:args[x] for x in self.input_tags()}
+        self._inputs = {x: args[x] for x in self.input_tags()}
         # We alwys assume the config arg exists, whether it is in input_tags or not
-        if args.get('config') is None:
+        if args.get("config") is None:
             raise ValueError("The argument --config was missing on the command line.")
 
-        self._inputs["config"] = args['config']
+        self._inputs["config"] = args["config"]
 
         # We prefer to receive explicit filenames for the outputs but will
         # tolerate missing output filenames and will default to tag name in
@@ -106,13 +110,13 @@ Missing these names on the command line:
         # command line arguments and optional 'config' file
         self._configs = self.read_config(args)
 
-        use_mpi = args.get('mpi', False)
+        use_mpi = args.get("mpi", False)
         if use_mpi:
             try:
                 # This isn't a ceci dependency, so give a sensible error message if not installed.
                 import mpi4py.MPI
             except ImportError:
-                print('ERROR: Using --mpi option requires mpi4py to be installed.')
+                print("ERROR: Using --mpi option requires mpi4py to be installed.")
                 raise
 
         # For scripting and testing we allow an MPI communicator or anything
@@ -122,7 +126,7 @@ Missing these names on the command line:
             self._parallel = MPI_PARALLEL
             self._comm = comm
             self._size = self._comm.Get_size()
-            self._rank = self._comm.Get_rank()            
+            self._rank = self._comm.Get_rank()
         elif use_mpi:
             self._parallel = MPI_PARALLEL
             self._comm = mpi4py.MPI.COMM_WORLD
@@ -135,6 +139,7 @@ Missing these names on the command line:
             self._rank = 0
 
     pipeline_stages = {}
+
     def __init_subclass__(cls, **kwargs):
         """
         Python 3.6+ provides a facility to automatically
@@ -151,13 +156,18 @@ Missing these names on the command line:
         filename = sys.modules[cls.__module__].__file__
 
         # Make sure the pipeline stage has a name
-        if not hasattr(cls, 'name'):
-            raise ValueError(f"Pipeline stage defined in {filename} must be given a name.")
-        if not hasattr(cls, 'outputs'):
-            raise ValueError(f"Pipeline stage {cls.name} defined in {filename} must be given a list of outputs.")
-        if not hasattr(cls, 'inputs'):
-            raise ValueError(f"Pipeline stage {cls.name} defined in {filename} must be given a list of inputs.")
-
+        if not hasattr(cls, "name"):
+            raise ValueError(
+                f"Pipeline stage defined in {filename} must be given a name."
+            )
+        if not hasattr(cls, "outputs"):
+            raise ValueError(
+                f"Pipeline stage {cls.name} defined in {filename} must be given a list of outputs."
+            )
+        if not hasattr(cls, "inputs"):
+            raise ValueError(
+                f"Pipeline stage {cls.name} defined in {filename} must be given a list of inputs."
+            )
 
         # Check for two stages with the same name.
         # Not sure if we actually do want to allow this?
@@ -166,21 +176,21 @@ Missing these names on the command line:
 
         # Check for "config" in the inputs list - this is now implicit
         for name, _ in cls.inputs:
-            if name=='config':
-                raise ValueError(f"""An input called 'config' is now implicit in each pipeline stage
+            if name == "config":
+                raise ValueError(
+                    f"""An input called 'config' is now implicit in each pipeline stage
 and should not be added explicitly.  Please update your pipeline stage called {cls.name} to remove
 the input called 'config'.
-""")
+"""
+                )
 
         # Find the absolute path to the class defining the file
         path = pathlib.Path(filename).resolve()
         cls.pipeline_stages[cls.name] = (cls, path)
 
-
-#############################################
-# Life cycle-related methods and properties.
-#############################################
-
+    #############################################
+    # Life cycle-related methods and properties.
+    #############################################
 
     @classmethod
     def get_stage(cls, name):
@@ -197,7 +207,6 @@ the input called 'config'.
             The corresponding subclass
         """
         return cls.pipeline_stages[name][0]
-
 
     @classmethod
     def get_module(cls):
@@ -226,10 +235,11 @@ the input called 'config'.
         """
         stage_names = "\n- ".join(cls.pipeline_stages.keys())
         try:
-            module = cls.get_module().split('.')[0]
+            module = cls.get_module().split(".")[0]
         except:
             module = "<module_name>"
-        sys.stderr.write(f"""
+        sys.stderr.write(
+            f"""
 Usage: python -m {module} <stage_name> <stage_arguments>
 
 If no stage_arguments are given then usage information
@@ -237,7 +247,8 @@ for the chosen stage will be given.
 
 I currently know about these stages:
 - {stage_names}
-""")
+"""
+        )
 
     @classmethod
     def main(cls):
@@ -250,7 +261,7 @@ I currently know about these stages:
         except IndexError:
             cls.usage()
             return 1
-        if stage_name in ['--help', '-h'] and len(sys.argv)==2:
+        if stage_name in ["--help", "-h"] and len(sys.argv) == 2:
             cls.usage()
             return 1
         stage = cls.get_stage(stage_name)
@@ -258,11 +269,11 @@ I currently know about these stages:
         stage.execute(args)
         return 0
 
-
     @classmethod
     def _parse_command_line(cls):
         cmd = " ".join(sys.argv[:])
         import argparse
+
         parser = argparse.ArgumentParser(description=f"Run pipeline stage {cls.name}")
         parser.add_argument("stage_name")
         for conf in cls.config_options:
@@ -270,27 +281,45 @@ I currently know about these stages:
             opt_type = def_val if type(def_val) == type else type(def_val)
 
             if opt_type == bool:
-                parser.add_argument(f'--{conf}', action='store_const', const=True)
+                parser.add_argument(f"--{conf}", action="store_const", const=True)
             elif opt_type == list:
                 out_type = def_val[0] if type(def_val[0]) == type else type(def_val[0])
                 if out_type is str:
-                    parser.add_argument(f'--{conf}', type=lambda string: string.split(',') )
+                    parser.add_argument(
+                        f"--{conf}", type=lambda string: string.split(",")
+                    )
                 elif out_type is int:
-                    parser.add_argument(f'--{conf}', type=lambda string: [int(i) for i in string.split(',')])
+                    parser.add_argument(
+                        f"--{conf}",
+                        type=lambda string: [int(i) for i in string.split(",")],
+                    )
                 elif out_type is float:
-                    parser.add_argument(f'--{conf}', type=lambda string: [float(i) for i in string.split(',')])
+                    parser.add_argument(
+                        f"--{conf}",
+                        type=lambda string: [float(i) for i in string.split(",")],
+                    )
                 else:
-                    raise NotImplementedError("Only handles str, int and float list arguments")
+                    raise NotImplementedError(
+                        "Only handles str, int and float list arguments"
+                    )
             else:
-                parser.add_argument(f'--{conf}', type=opt_type)
+                parser.add_argument(f"--{conf}", type=opt_type)
         for inp in cls.input_tags():
-            parser.add_argument(f'--{inp}')
+            parser.add_argument(f"--{inp}")
         for out in cls.output_tags():
-            parser.add_argument(f'--{out}')
-        parser.add_argument('--config')
-        parser.add_argument('--mpi', action='store_true', help="Set up MPI parallelism")
-        parser.add_argument('--pdb', action='store_true', help="Run under the python debugger")
-        parser.add_argument('--cprofile', action='store', default='', type=str, help="Profile the stage using the python cProfile tool")
+            parser.add_argument(f"--{out}")
+        parser.add_argument("--config")
+        parser.add_argument("--mpi", action="store_true", help="Set up MPI parallelism")
+        parser.add_argument(
+            "--pdb", action="store_true", help="Run under the python debugger"
+        )
+        parser.add_argument(
+            "--cprofile",
+            action="store",
+            default="",
+            type=str,
+            help="Profile the stage using the python cProfile tool",
+        )
         args = parser.parse_args()
         return args
 
@@ -308,9 +337,10 @@ I currently know about these stages:
             The argparse namespace for this subclass.
         """
         import pdb
+
         stage = cls(args)
 
-        if stage.rank==0:
+        if stage.rank == 0:
             print(f"Executing stage: {cls.name}")
 
         if args.cprofile:
@@ -321,7 +351,9 @@ I currently know about these stages:
             stage.run()
         except Exception as error:
             if args.pdb:
-                print("There was an exception - starting python debugger because you ran with --pdb")
+                print(
+                    "There was an exception - starting python debugger because you ran with --pdb"
+                )
                 print(error)
                 pdb.post_mortem()
             else:
@@ -330,7 +362,9 @@ I currently know about these stages:
             stage.finalize()
         except Exception as error:
             if args.pdb:
-                print("There was an exception in the finalization - starting python debugger because you ran with --pdb")
+                print(
+                    "There was an exception in the finalization - starting python debugger because you ran with --pdb"
+                )
                 print(error)
                 pdb.post_mortem()
             else:
@@ -338,11 +372,10 @@ I currently know about these stages:
         if args.cprofile:
             profile.disable()
             profile.dump_stats(args.cprofile)
-            profile.print_stats('cumtime')
+            profile.print_stats("cumtime")
 
-        if stage.rank==0:
+        if stage.rank == 0:
             print(f"Stage complete: {cls.name}")
-
 
     def finalize(self):
         """Finalize the stage, moving all its outputs to their final locations.
@@ -368,12 +401,13 @@ I currently know about these stages:
                         shutil.rmtree(final_name)
                     shutil.move(temp_name, final_name)
                 else:
-                    sys.stderr.write(f"NOTE/WARNING: Expected output file {final_name} was not generated.\n")
+                    sys.stderr.write(
+                        f"NOTE/WARNING: Expected output file {final_name} was not generated.\n"
+                    )
 
-
-#############################################
-# Parallelism-related methods and properties.
-#############################################
+    #############################################
+    # Parallelism-related methods and properties.
+    #############################################
 
     @property
     def rank(self):
@@ -405,8 +439,6 @@ I currently know about these stages:
         """
         return self._parallel == MPI_PARALLEL
 
-
-
     def split_tasks_by_rank(self, tasks):
         """Iterate through a list of items, yielding ones this process is responsible for/
 
@@ -418,8 +450,8 @@ I currently know about these stages:
             Tasks to split up
         
         """
-        for i,task in enumerate(tasks):
-            if i%self.size==self.rank:
+        for i, task in enumerate(tasks):
+            if i % self.size == self.rank:
                 yield task
 
     def data_ranges_by_rank(self, n_rows, chunk_rows):
@@ -436,16 +468,17 @@ I currently know about these stages:
         chunk_rows: int
             Size of each chunk to be read.
         """
-        n_chunks = n_rows//chunk_rows
-        if n_chunks*chunk_rows<n_rows:
+        n_chunks = n_rows // chunk_rows
+        if n_chunks * chunk_rows < n_rows:
             n_chunks += 1
         for i in self.split_tasks_by_rank(range(n_chunks)):
-            start = i*chunk_rows
-            end = min((i+1)*chunk_rows, n_rows)
+            start = i * chunk_rows
+            end = min((i + 1) * chunk_rows, n_rows)
             yield start, end
-##################################################
-# Input and output-related methods and properties.
-##################################################
+
+    ##################################################
+    # Input and output-related methods and properties.
+    ##################################################
 
     def get_input(self, tag):
         """Return the path of an input file with the given tag"""
@@ -479,7 +512,7 @@ I currently know about these stages:
         """
         path = self.get_input(tag)
         input_class = self.get_input_type(tag)
-        obj = input_class(path, 'r', **kwargs)
+        obj = input_class(path, "r", **kwargs)
 
         if wrapper:
             return obj
@@ -524,17 +557,20 @@ I currently know about these stages:
         # - we have been told to open in parallel
         # - we are actually running under MPI
         # and adds the flags required if all these are true
-        run_parallel = kwargs.pop('parallel', False) and self.is_mpi()
+        run_parallel = kwargs.pop("parallel", False) and self.is_mpi()
         if run_parallel:
-            kwargs['driver'] = 'mpio'
-            kwargs['comm'] = self.comm
+            kwargs["driver"] = "mpio"
+            kwargs["comm"] = self.comm
 
             # XXX: This is also not a dependency, but it should be.
             #      Or even better would be to make it a dependency of descformats where it
             #      is actually used.
             import h5py
+
             if not h5py.get_config().mpi:
-                print(dedent("""\
+                print(
+                    dedent(
+                        """\
                 Your h5py installation is not MPI-enabled.
                 Options include:
                   1) Set nprocess to 1 for all stages
@@ -542,11 +578,13 @@ I currently know about these stages:
                      http://docs.h5py.org/en/latest/build.html#custom-installation
                 Note: If using conda, the most straightforward way is to enable it is
                     conda install -c spectraldns h5py-parallel
-                """))
+                """
+                    )
+                )
                 raise RuntimeError("h5py module is not MPI-enabled.")
 
         # Return an opened object representing the file
-        obj = output_class(path, 'w', **kwargs)
+        obj = output_class(path, "w", **kwargs)
         if wrapper:
             return obj
         else:
@@ -557,35 +595,32 @@ I currently know about these stages:
         """
         Return the list of output tags required by this stage
         """
-        return [tag for tag,_ in cls.outputs]
+        return [tag for tag, _ in cls.outputs]
 
     @classmethod
     def input_tags(cls):
         """
         Return the list of input tags required by this stage
         """
-        return [tag for tag,_ in cls.inputs]
-
+        return [tag for tag, _ in cls.inputs]
 
     def get_input_type(self, tag):
         """Return the file type class of an input file with the given tag."""
-        for t,dt in self.inputs:
-            if t==tag:
+        for t, dt in self.inputs:
+            if t == tag:
                 return dt
         raise ValueError(f"Tag {tag} is not a known input")
 
     def get_output_type(self, tag):
         """Return the file type class of an output file with the given tag."""
-        for t,dt in self.outputs:
-            if t==tag:
+        for t, dt in self.outputs:
+            if t == tag:
                 return dt
         raise ValueError(f"Tag {tag} is not a known output")
 
-
-
-##################################################
-# Configuration-related methods and properties.
-##################################################
+    ##################################################
+    # Configuration-related methods and properties.
+    ##################################################
 
     @property
     def config(self):
@@ -594,7 +629,6 @@ I currently know about these stages:
         line options and optional configuration file.
         """
         return self._configs
-
 
     def read_config(self, args):
         """
@@ -616,18 +650,17 @@ I currently know about these stages:
 
         # This is all the config information in the file, including
         # things for other stages
-        overall_config = yaml.safe_load(open(self.get_input('config')))
+        overall_config = yaml.safe_load(open(self.get_input("config")))
 
         # The user can define global options that are inherited by
         # all the other sections if not already specified there.
-        input_config = overall_config.get('global', {})
+        input_config = overall_config.get("global", {})
 
         # This is just the config info in the file for this stage.
         # It may be incomplete - there may be things specified on the
         # command line instead, or just using their default values
         stage_config = overall_config.get(self.name, {})
         input_config.update(stage_config)
-
 
         # Here we build up the actual configuration we use on this
         # run from all these sources
@@ -669,14 +702,16 @@ I currently know about these stages:
 
             # Finally, check that we got at least some value for this option
             if opt is None:
-                raise ValueError(f"Missing configuration option {x} for stage {self.name}")
+                raise ValueError(
+                    f"Missing configuration option {x} for stage {self.name}"
+                )
 
             my_config[x] = opt
 
         # Unspecified parameters can also be copied over.
         # This will be needed for parameters that are more complicated, such
         # as dictionaries or other more structured parameter information.
-        for x,val in input_config.items():
+        for x, val in input_config.items():
             # Omit things we've already dealt with above
             if x in self.config_options:
                 continue
@@ -684,10 +719,7 @@ I currently know about these stages:
             else:
                 my_config[x] = val
 
-
-
         return my_config
-
 
     def iterate_fits(self, tag, hdunum, cols, chunk_rows):
         """
@@ -698,7 +730,7 @@ I currently know about these stages:
         fits = self.open_input(tag)
         ext = fits[hdunum]
         n = ext.get_nrows()
-        for start,end in self.data_ranges_by_rank(n, chunk_rows):
+        for start, end in self.data_ranges_by_rank(n, chunk_rows):
             data = ext.read_columns(cols, rows=range(start, end))
             yield start, end, data
 
@@ -711,28 +743,27 @@ I currently know about these stages:
         TODO: add ceci tests of these functions
         """
         import numpy as np
+
         hdf = self.open_input(tag)
         group = hdf[group_name]
 
         # Check all the columns are the same length
         N = [len(group[col]) for col in cols]
         n = N[0]
-        if not np.equal(N,n).all():
-            raise ValueError(f"Different columns among {cols} in file {tag}\
-            group {group_name} are different sizes - cannot use iterate_hdf")
+        if not np.equal(N, n).all():
+            raise ValueError(
+                f"Different columns among {cols} in file {tag}\
+            group {group_name} are different sizes - cannot use iterate_hdf"
+            )
 
         # Iterate through the data providing chunks
         for start, end in self.data_ranges_by_rank(n, chunk_rows):
             data = {col: group[col][start:end] for col in cols}
             yield start, end, data
 
-
-
-
-
-################################
-# Pipeline-related methods
-################################
+    ################################
+    # Pipeline-related methods
+    ################################
 
     @classmethod
     def generate_command(cls, inputs, config, outputs):
@@ -740,33 +771,32 @@ I currently know about these stages:
         Generate a command line that will run the stage
         """
         module = cls.get_module()
-        module = module.split('.')[0]
+        module = module.split(".")[0]
 
         flags = [cls.name]
 
-        for tag,ftype in cls.inputs:
+        for tag, ftype in cls.inputs:
             try:
                 fpath = inputs[tag]
             except KeyError:
                 raise ValueError(f"Missing input location {tag}")
-            flags.append(f'--{tag}={fpath}')
+            flags.append(f"--{tag}={fpath}")
 
-        flags.append(f'--config={config}')
+        flags.append(f"--config={config}")
 
-        for tag,ftype in cls.outputs:
+        for tag, ftype in cls.outputs:
             try:
                 fpath = outputs[tag]
             except:
                 raise ValueError(f"Missing output location {tag}")
-            flags.append(f'--{tag}={fpath}')
+            flags.append(f"--{tag}={fpath}")
 
         flags = "   ".join(flags)
 
         # We just return this, instead of wrapping it in a
         # parsl job
-        cmd = f'python3 -m {module} {flags}'
+        cmd = f"python3 -m {module} {flags}"
         return cmd
-
 
     @classmethod
     def generate_cwl(cls, log_dir=None):
@@ -774,26 +804,29 @@ I currently know about these stages:
         Produces a CWL App object which can then be exported to yaml
         """
         import cwlgen
+
         module = cls.get_module()
-        module = module.split('.')[0]
+        module = module.split(".")[0]
 
         # Basic definition of the tool
-        cwl_tool = cwlgen.CommandLineTool(tool_id=cls.name,
-                                          label=cls.name,
-                                          base_command='python3',
-                                          cwl_version='v1.0',
-                                          doc=cls.__doc__)
+        cwl_tool = cwlgen.CommandLineTool(
+            tool_id=cls.name,
+            label=cls.name,
+            base_command="python3",
+            cwl_version="v1.0",
+            doc=cls.__doc__,
+        )
         if log_dir is not None:
-            cwl_tool.stdout = f'{cls.name}.out'
-            cwl_tool.stderr = f'{cls.name}.err'
+            cwl_tool.stdout = f"{cls.name}.out"
+            cwl_tool.stderr = f"{cls.name}.err"
 
         # Adds the first input binding with the name of the module and pipeline stage
-        input_arg = cwlgen.CommandLineBinding(position=-1, value_from=f'-m{module}')
+        input_arg = cwlgen.CommandLineBinding(position=-1, value_from=f"-m{module}")
         cwl_tool.arguments.append(input_arg)
-        input_arg = cwlgen.CommandLineBinding(position=0, value_from=f'{cls.name}')
+        input_arg = cwlgen.CommandLineBinding(position=0, value_from=f"{cls.name}")
         cwl_tool.arguments.append(input_arg)
 
-        type_dict={int: 'int', float:'float', str:'string', bool:'boolean'}
+        type_dict = {int: "int", float: "float", str: "string", bool: "boolean"}
         # Adds the parameters of the tool
         for opt in cls.config_options:
             def_val = cls.config_options[opt]
@@ -801,23 +834,36 @@ I currently know about these stages:
             # Handles special case of lists:
             if type(def_val) is list:
                 v = def_val[0]
-                param_type = {'type':'array', 'items': type_dict[v] if type(v) == type else type_dict[type(v)] }
+                param_type = {
+                    "type": "array",
+                    "items": type_dict[v] if type(v) == type else type_dict[type(v)],
+                }
                 default = def_val if type(v) != type else None
-                input_binding = cwlgen.CommandLineBinding(prefix='--{}='.format(opt), item_separator=',', separate=False)
+                input_binding = cwlgen.CommandLineBinding(
+                    prefix="--{}=".format(opt), item_separator=",", separate=False
+                )
             else:
-                param_type=type_dict[def_val] if type(def_val) == type else type_dict[type(def_val)]
-                default=def_val if type(def_val) != type else None
-                if param_type == 'boolean':
-                    input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(opt))
+                param_type = (
+                    type_dict[def_val]
+                    if type(def_val) == type
+                    else type_dict[type(def_val)]
+                )
+                default = def_val if type(def_val) != type else None
+                if param_type == "boolean":
+                    input_binding = cwlgen.CommandLineBinding(prefix="--{}".format(opt))
                 else:
-                    input_binding = cwlgen.CommandLineBinding(prefix='--{}='.format(opt), separate=False)
+                    input_binding = cwlgen.CommandLineBinding(
+                        prefix="--{}=".format(opt), separate=False
+                    )
 
-            input_param = cwlgen.CommandInputParameter(opt,
-                                                       label=opt,
-                                                       param_type=param_type,
-                                                       input_binding=input_binding,
-                                                       default=default,
-                                                       doc='Some documentation about this parameter')
+            input_param = cwlgen.CommandInputParameter(
+                opt,
+                label=opt,
+                param_type=param_type,
+                input_binding=input_binding,
+                default=default,
+                doc="Some documentation about this parameter",
+            )
 
             # We are bypassing the cwlgen builtin type check for the special case
             # of arrays until that gets added to the standard
@@ -826,53 +872,60 @@ I currently know about these stages:
 
             cwl_tool.inputs.append(input_param)
 
-
         # Add the inputs of the tool
-        for i,inp in enumerate(cls.input_tags()):
-            input_binding = cwlgen.CommandLineBinding(prefix='--{}'.format(inp))
-            input_param   = cwlgen.CommandInputParameter(inp,
-                                                         label=inp,
-                                                         param_type='File',
-                                                         param_format=cls.inputs[i][1].format,
-                                                         input_binding=input_binding,
-                                                         doc='Some documentation about the input')
+        for i, inp in enumerate(cls.input_tags()):
+            input_binding = cwlgen.CommandLineBinding(prefix="--{}".format(inp))
+            input_param = cwlgen.CommandInputParameter(
+                inp,
+                label=inp,
+                param_type="File",
+                param_format=cls.inputs[i][1].format,
+                input_binding=input_binding,
+                doc="Some documentation about the input",
+            )
             cwl_tool.inputs.append(input_param)
 
         # Adds the overall configuration file
-        input_binding = cwlgen.CommandLineBinding(prefix='--config')
-        input_param   = cwlgen.CommandInputParameter('config',
-                                                     label='config',
-                                                     param_type='File',
-                                                     param_format='http://edamontology.org/format_3750',
-                                                     input_binding=input_binding,
-                                                     doc='Configuration file')
+        input_binding = cwlgen.CommandLineBinding(prefix="--config")
+        input_param = cwlgen.CommandInputParameter(
+            "config",
+            label="config",
+            param_type="File",
+            param_format="http://edamontology.org/format_3750",
+            input_binding=input_binding,
+            doc="Configuration file",
+        )
         cwl_tool.inputs.append(input_param)
 
-
         # Add the definition of the outputs
-        for i,out in enumerate(cls.output_tags()):
+        for i, out in enumerate(cls.output_tags()):
             output_name = cls.outputs[i][1].make_name(out)
             output_binding = cwlgen.CommandOutputBinding(glob=output_name)
-            output = cwlgen.CommandOutputParameter(out,
-                                            label=out,
-                                            param_type='File',
-                                            output_binding=output_binding,
-                                            param_format=cls.outputs[i][1].format,
-                                            doc='Some results produced by the pipeline element')
+            output = cwlgen.CommandOutputParameter(
+                out,
+                label=out,
+                param_type="File",
+                output_binding=output_binding,
+                param_format=cls.outputs[i][1].format,
+                doc="Some results produced by the pipeline element",
+            )
             cwl_tool.outputs.append(output)
 
         if log_dir is not None:
-            output = cwlgen.CommandOutputParameter(f'{cls.name}@stdout',
-                                            label='stdout',
-                                            param_type='stdout',
-                                            doc='Pipeline elements standard output')
+            output = cwlgen.CommandOutputParameter(
+                f"{cls.name}@stdout",
+                label="stdout",
+                param_type="stdout",
+                doc="Pipeline elements standard output",
+            )
             cwl_tool.outputs.append(output)
-            error = cwlgen.CommandOutputParameter(f'{cls.name}@stderr',
-                                            label='stderr',
-                                            param_type='stderr',
-                                            doc='Pipeline elements standard output')
+            error = cwlgen.CommandOutputParameter(
+                f"{cls.name}@stderr",
+                label="stderr",
+                param_type="stderr",
+                doc="Pipeline elements standard output",
+            )
             cwl_tool.outputs.append(error)
-
 
         # Potentially add more metadata
         # This requires a schema however...
