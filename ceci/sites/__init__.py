@@ -5,30 +5,33 @@ import os
 
 # Maps names from config files to classes.
 site_classes = {
-    'local': LocalSite,
-    'cori-interactive': CoriInteractiveSite,
-    'cori-batch': CoriBatchSite,
+    "local": LocalSite,
+    "cori-interactive": CoriInteractiveSite,
+    "cori-batch": CoriBatchSite,
 }
 
 
 # by default use a local site configured.
 # Overwritten if you call load below.
 
+
 def set_default_site(site):
     global _default_site
     _default_site = site
     return _default_site
 
+
 def reset_default_site():
-    site = LocalSite({'max_threads':2})
+    site = LocalSite({"max_threads": 2})
     site.configure_for_mini()
     set_default_site(site)
+
 
 def get_default_site():
     return _default_site
 
-reset_default_site()
 
+reset_default_site()
 
 
 def load(launcher_config, site_configs):
@@ -52,17 +55,17 @@ def load(launcher_config, site_configs):
 
     """
     sites = []
-    
-    launcher_name = launcher_config['name']
+
+    launcher_name = launcher_config["name"]
 
     # Create an object for each site.
     for site_config in site_configs:
-        site_name = site_config['name']
+        site_name = site_config["name"]
 
         try:
             cls = site_classes[site_name]
         except KeyError:
-            raise ValueError(f'Unknown site {name}')
+            raise ValueError(f"Unknown site {name}")
 
         site = cls(site_config)
         site.configure_for_launcher(launcher_name)
@@ -82,13 +85,14 @@ def setup_launcher(launcher_config, sites):
     Some launchers need an initial setup function to be run.
     Do that here.
     """
-    name = launcher_config['name']
+    name = launcher_config["name"]
 
-    if name == 'parsl':
+    if name == "parsl":
         setup_parsl(launcher_config, sites)
     # no setup to do for other managers
     else:
         pass
+
 
 def setup_parsl(launcher_config, sites):
     """
@@ -98,12 +102,12 @@ def setup_parsl(launcher_config, sites):
     from parsl.config import Config
     from parsl import set_file_logger
 
-    executors = [site.info['executor'] for site in sites]
+    executors = [site.info["executor"] for site in sites]
     config = Config(executors=executors)
     parsl_load(config)
 
     # Optional logging of pipeline infrastructure to file.
-    log_file = launcher_config.get('log')
+    log_file = launcher_config.get("log")
     if log_file:
         log_file_dir = os.path.split(os.path.abspath(log_file))[0]
         os.makedirs(log_file_dir, exist_ok=True)

@@ -4,6 +4,7 @@ import time
 from test_helpers import in_temp_dir
 from pytest import raises
 
+
 @in_temp_dir
 def test_minirununer_parallel():
     job1 = Job("Job1", "echo start 1; sleep 1; echo end 1", cores=1, nodes=1)
@@ -14,16 +15,15 @@ def test_minirununer_parallel():
     }
 
     # Two nodes with 1 core each
-    node1 = Node('node1', 1)
-    node2 = Node('node2', 2)
+    node1 = Node("node1", 1)
+    node2 = Node("node2", 2)
     nodes = [node1, node2]
-    r = Runner(nodes, job_dependencies, '.')
+    r = Runner(nodes, job_dependencies, ".")
 
     # Both jobs should be ready to run now.  Order is not required
     assert r.queued_jobs in [[job1, job2], [job2, job1]]
     assert r._ready_jobs() in [[job1, job2], [job2, job1]]
     assert len(r._check_availability(job1)) == 1
-
 
     # Launch the jobs.  They will all take 1 second, long enough for the tasks below to work
     status = r._update()
@@ -42,6 +42,7 @@ def test_minirununer_parallel():
     assert status == COMPLETE
     assert r.completed_jobs in [[job1, job2], [job2, job1]]
 
+
 @in_temp_dir
 def test_minirununer_serial():
     job1 = Job("Job1", "echo start 1; sleep 1; echo end 1", cores=1, nodes=1)
@@ -52,17 +53,16 @@ def test_minirununer_serial():
     }
 
     # Two nodes with 1 core each
-    node1 = Node('node1', 1)
-    node2 = Node('node2', 2)
+    node1 = Node("node1", 1)
+    node2 = Node("node2", 2)
     nodes = [node1, node2]
-    r = Runner(nodes, job_dependencies, '.')
+    r = Runner(nodes, job_dependencies, ".")
 
     # Only one job should be ready to run now.  Order is not required
     assert r.queued_jobs in [[job1, job2], [job2, job1]]
     assert r._ready_jobs() == [job1]
     assert len(r._check_availability(job1)) == 1
     assert len(r._check_availability(job2)) == 1
-
 
     # Launch the jobs.  They will all take 1 second, long enough for the tasks below to work
     status = r._update()
@@ -91,24 +91,25 @@ def test_minirununer_serial():
     assert r.running == []
     assert r.queued_jobs == []
 
+
 @in_temp_dir
 def test_timeout():
-    node1 = Node('node1', 1)
+    node1 = Node("node1", 1)
     nodes = [node1]
     job1 = Job("Job1", "sleep 60", nodes=1, cores=1)
     job_dependencies = {job1: []}
-    r = Runner(nodes, job_dependencies, '.')
+    r = Runner(nodes, job_dependencies, ".")
     with raises(TimeOut):
         r.run(0.5, timeout=1)
 
 
 @in_temp_dir
 def test_cannot_run():
-    node1 = Node('node1', 1)
+    node1 = Node("node1", 1)
     nodes = [node1]
     job1 = Job("Job1", "echo start 1", nodes=2, cores=1)
     job_dependencies = {job1: []}
-    r = Runner(nodes, job_dependencies, '.')
+    r = Runner(nodes, job_dependencies, ".")
 
     with raises(CannotRun):
         r.run(0.5, timeout=5)

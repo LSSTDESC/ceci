@@ -9,10 +9,23 @@ from .sites import load, set_default_site, get_default_site
 # Add the current dir to the path - often very useful
 sys.path.append(os.getcwd())
 
-parser = argparse.ArgumentParser(description='Run a Ceci pipeline from a configuration file')
-parser.add_argument('pipeline_config', help='Pipeline configuration file in YAML format.')
-parser.add_argument('--dry-run', action='store_true', help='Just print out the commands the pipeline would run without executing them')
-parser.add_argument('extra_config', nargs='*', help='Over-ride the main pipeline yaml file e.g. launcher.name=cwl')
+parser = argparse.ArgumentParser(
+    description="Run a Ceci pipeline from a configuration file"
+)
+parser.add_argument(
+    "pipeline_config", help="Pipeline configuration file in YAML format."
+)
+parser.add_argument(
+    "--dry-run",
+    action="store_true",
+    help="Just print out the commands the pipeline would run without executing them",
+)
+parser.add_argument(
+    "extra_config",
+    nargs="*",
+    help="Over-ride the main pipeline yaml file e.g. launcher.name=cwl",
+)
+
 
 def run(pipeline_config_filename, extra_config=None, dry_run=False):
     """
@@ -51,27 +64,27 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         override_config(pipe_config, extra_config)
 
     # parsl execution/launcher configuration information
-    launcher_config = pipe_config.get("launcher", {'name':"mini"})
-    launcher_name = launcher_config['name']
+    launcher_config = pipe_config.get("launcher", {"name": "mini"})
+    launcher_name = launcher_config["name"]
 
     # Python modules in which to search for pipeline stages
-    modules = pipe_config['modules'].split()
+    modules = pipe_config["modules"].split()
 
     # Required configuration information
     # List of stage names, must be imported somewhere
-    stages = pipe_config['stages']
+    stages = pipe_config["stages"]
 
     # configure the default site based on the config.
     # TODO: allow multiple sites in config files
     # current default site, to be restored later
     default_site = get_default_site()
 
-    site_config = pipe_config.get('site', {'name':'local'})
+    site_config = pipe_config.get("site", {"name": "local"})
     load(launcher_config, [site_config])
 
     # Inputs and outputs
-    inputs = pipe_config['inputs']
-    stages_config = pipe_config['config']
+    inputs = pipe_config["inputs"]
+    stages_config = pipe_config["config"]
 
     # Pre- and post-scripts are run locally
     # before and after the pipeline is complete
@@ -81,16 +94,16 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     # These scripts ar not run in the dry-run case.
     # In both cases we pass the script the pipeline_config
     # filename and any extra args.
-    pre_script = pipe_config.get('pre_script')
-    post_script = pipe_config.get('post_script')
+    pre_script = pipe_config.get("pre_script")
+    post_script = pipe_config.get("post_script")
     script_args = [pipeline_config_filename]
     if extra_config:
         script_args += extra_config
 
     run_config = {
-        'output_dir': pipe_config['output_dir'],
-        'log_dir': pipe_config['log_dir'],
-        'resume': pipe_config['resume'],
+        "output_dir": pipe_config["output_dir"],
+        "log_dir": pipe_config["log_dir"],
+        "resume": pipe_config["resume"],
     }
 
     for module in modules:
@@ -99,14 +112,14 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     # Choice of actual pipeline type to run
     if dry_run:
         pipeline_class = pipeline.DryRunPipeline
-    elif launcher_name == 'cwl':
+    elif launcher_name == "cwl":
         pipeline_class = pipeline.CWLPipeline
-    elif launcher_name == 'parsl':
+    elif launcher_name == "parsl":
         pipeline_class = pipeline.ParslPipeline
-    elif launcher_name == 'mini':
+    elif launcher_name == "mini":
         pipeline_class = pipeline.MiniPipeline
     else:
-        raise ValueError('Unknown pipeline launcher {launcher_name}')
+        raise ValueError("Unknown pipeline launcher {launcher_name}")
 
     # Run the pre-script.  Since it's an error for this to fail (because
     # it is useful as a validation check) then we raise an error if it
@@ -133,8 +146,10 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     if post_script and not dry_run:
         return_code = subprocess.call(post_script.split() + script_args, shell=True)
         if return_code:
-            sys.stderr.write(f"\nWARNING: The post-script command {post_script} "
-                              "returned error status {return_code}\n\n")
+            sys.stderr.write(
+                f"\nWARNING: The post-script command {post_script} "
+                "returned error status {return_code}\n\n"
+            )
         return return_code
     # Otherwise everything must have gone fine.
     else:
@@ -145,8 +160,8 @@ def override_config(config, extra):
     print("Over-riding config parameters from command line:")
 
     for arg in extra:
-        key, value = arg.split('=', 1)
-        item = key.split('.')
+        key, value = arg.split("=", 1)
+        item = key.split(".")
         p = config
         print(f"    {key}: {value}")
 
@@ -159,7 +174,6 @@ def override_config(config, extra):
         p[item[-1]] = yaml.safe_load(value)
 
 
-
 def main():
     args = parser.parse_args()
     status = run(args.pipeline_config, args.extra_config, dry_run=args.dry_run)
@@ -169,5 +183,6 @@ def main():
         print("Pipeline failed.  No joy sparked.")
     return status
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sys.exit(main())

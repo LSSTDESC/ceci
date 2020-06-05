@@ -3,7 +3,6 @@ import os
 from functools import wraps
 
 
-
 def in_temp_dir(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -15,6 +14,7 @@ def in_temp_dir(f):
             finally:
                 os.chdir(orig_dir)
         return res
+
     return wrapper
 
 
@@ -24,6 +24,7 @@ def get_temp_cwd():
     print(cwd)
     return cwd
 
+
 def test_in_temp_dir():
     d1 = os.getcwd()
     d2 = get_temp_cwd()
@@ -31,5 +32,3 @@ def test_in_temp_dir():
     assert d2 != d1
     assert d3 == d1
     assert not os.path.exists(d2)
-
-

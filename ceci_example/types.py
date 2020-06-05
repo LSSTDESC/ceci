@@ -15,6 +15,7 @@ class DataFile:
     named by a tag.
 
     """
+
     @classmethod
     def open(cls, path, mode):
         """
@@ -31,9 +32,10 @@ class DataFile:
     @classmethod
     def make_name(cls, tag):
         if cls.suffix:
-            return f'{tag}.{cls.suffix}'
+            return f"{tag}.{cls.suffix}"
         else:
             return tag
+
 
 class HDFFile(DataFile):
     """
@@ -42,43 +44,53 @@ class HDFFile(DataFile):
     requires an HDF5 library installation.
 
     """
-    suffix = 'hdf'
-    format = 'http://edamontology.org/format_3590'
+
+    suffix = "hdf"
+    format = "http://edamontology.org/format_3590"
+
     @classmethod
     def open(cls, path, mode, **kwargs):
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import h5py
         return h5py.File(path, mode, **kwargs)
+
 
 class FitsFile(DataFile):
     """
     A data file in the FITS format.
     Using these files requires the fitsio package.
     """
-    suffix = 'fits'
-    format = 'http://edamontology.org/format_2333'
+
+    suffix = "fits"
+    format = "http://edamontology.org/format_2333"
 
     @classmethod
     def open(cls, path, mode, **kwargs):
         import fitsio
+
         # Fitsio doesn't have pure 'w' modes, just 'rw'.
         # Maybe we should check if the file already exists here?
-        if mode == 'w':
-            mode = 'rw'
+        if mode == "w":
+            mode = "rw"
         return fitsio.FITS(path, mode=mode, **kwargs)
+
 
 class TextFile(DataFile):
     """
     A data file in plain text format.
     """
-    suffix = 'txt'
-    format = 'http://edamontology.org/format_2330'
+
+    suffix = "txt"
+    format = "http://edamontology.org/format_2330"
+
 
 class YamlFile(DataFile):
     """
     A data file in yaml format.
     """
-    suffix = 'yml'
-    format = 'http://edamontology.org/format_3750'
+
+    suffix = "yml"
+    format = "http://edamontology.org/format_3750"
