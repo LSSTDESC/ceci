@@ -30,38 +30,41 @@ class LocalSite(Site):
 
         mpi1 = f"{self.mpi_command} {sec.nprocess}" if sec.nprocess > 1 else ""
         mpi2 = f"--mpi" if sec.nprocess > 1 else ""
-        volume_flag = f'-v {sec.volume} ' if sec.volume else ''
+        volume_flag = f"-v {sec.volume} " if sec.volume else ""
 
         # TODO: allow other container types here, like singularity
         if sec.image:
-            return f'docker run '\
-                   f'--env OMP_NUM_THREADS={sec.threads_per_process} '\
-                   f'{volume_flag} '\
-                   f'--rm -it {sec.image} '\
-                   f'{mpi1} ' \
-                   f'{cmd} {mpi2} '
+            return (
+                f"docker run "
+                f"--env OMP_NUM_THREADS={sec.threads_per_process} "
+                f"{volume_flag} "
+                f"--rm -it {sec.image} "
+                f"{mpi1} "
+                f"{cmd} {mpi2} "
+            )
         else:
-            return f'OMP_NUM_THREADS={sec.threads_per_process} '\
-                   f'{mpi1} ' \
-                   f'{cmd} {mpi2}'
+            return (
+                f"OMP_NUM_THREADS={sec.threads_per_process} " f"{mpi1} " f"{cmd} {mpi2}"
+            )
 
     def configure_for_parsl(self):
         from parsl.executors import ThreadPoolExecutor
-        max_threads = self.config.get('max_threads', 4)
-        executor = ThreadPoolExecutor(label='local', max_threads=max_threads)
+
+        max_threads = self.config.get("max_threads", 4)
+        executor = ThreadPoolExecutor(label="local", max_threads=max_threads)
         executors = [executor]
 
-        self.info['executor'] = executor
-
+        self.info["executor"] = executor
 
     def configure_for_mini(self):
         import psutil
+
         cores = psutil.cpu_count(logical=False)
-        cores = min(cores, self.config.get('max_threads', 100))
+        cores = min(cores, self.config.get("max_threads", 100))
         name = socket.gethostname()
         nodes = [Node(name, cores)]
 
-        self.info['nodes'] = nodes
+        self.info["nodes"] = nodes
 
     def configure_for_cwl(self):
         pass
