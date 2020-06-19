@@ -15,7 +15,7 @@
 
 A lightweight parsl-based framework for running DESC pipelines.
 
-This is now alpha status.
+This is now beta status.
 
 ## Install
 
