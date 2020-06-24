@@ -5,6 +5,7 @@ import argparse
 import subprocess
 from . import pipeline
 from .sites import load, set_default_site, get_default_site
+from .utils import extra_paths
 
 # Add the current dir to the path - often very useful
 sys.path.append(os.getcwd())
@@ -106,8 +107,6 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         "resume": pipe_config["resume"],
     }
 
-    for module in modules:
-        __import__(module)
 
     # Choice of actual pipeline type to run
     if dry_run:
@@ -121,39 +120,54 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     else:
         raise ValueError("Unknown pipeline launcher {launcher_name}")
 
-    # Run the pre-script.  Since it's an error for this to fail (because
-    # it is useful as a validation check) then we raise an error if it
-    # fails using check_call.
-    if pre_script and not dry_run:
-        subprocess.check_call(pre_script.split() + script_args, shell=True)
 
-    # Create and run the pipeline
-    p = pipeline_class(stages, launcher_config)
-    status = p.run(inputs, run_config, stages_config)
 
-    # The load command above changes the default site.
-    # So that this function doesn't confuse later things,
-    # reset that site now.
-    set_default_site(default_site)
 
-    if status:
-        return status
+    paths = pipe_config.get("python_paths", [])
+    if isinstance(paths, str):
+        paths = paths.split()
 
-    # Run the post-script.  There seems less point raising an actual error
-    # here, as the pipeline is complete, so we just issue a warning and
-    # return a status code to the caller (e.g. to the command line).
-    # Thoughts on this welcome.
-    if post_script and not dry_run:
-        return_code = subprocess.call(post_script.split() + script_args, shell=True)
-        if return_code:
-            sys.stderr.write(
-                f"\nWARNING: The post-script command {post_script} "
-                "returned error status {return_code}\n\n"
-            )
-        return return_code
-    # Otherwise everything must have gone fine.
-    else:
-        return status
+    # temporarily add the paths to sys.path,
+    # but remove them at the end
+    with extra_paths(paths):
+
+        for module in modules:
+            __import__(module)
+
+        # Run the pre-script.  Since it's an error for this to fail (because
+        # it is useful as a validation check) then we raise an error if it
+        # fails using check_call.
+        if pre_script and not dry_run:
+            subprocess.check_call(pre_script.split() + script_args, shell=True)
+
+        # Create and run the pipeline
+        try:
+            p = pipeline_class(stages, launcher_config)
+            status = p.run(inputs, run_config, stages_config)
+        finally:
+            # The load command above changes the default site.
+            # So that this function doesn't confuse later things,
+            # reset that site now.
+            set_default_site(default_site)
+
+        if status:
+            return status
+
+        # Run the post-script.  There seems less point raising an actual error
+        # here, as the pipeline is complete, so we just issue a warning and
+        # return a status code to the caller (e.g. to the command line).
+        # Thoughts on this welcome.
+        if post_script and not dry_run:
+            return_code = subprocess.call(post_script.split() + script_args, shell=True)
+            if return_code:
+                sys.stderr.write(
+                    f"\nWARNING: The post-script command {post_script} "
+                    "returned error status {return_code}\n\n"
+                )
+            return return_code
+        # Otherwise everything must have gone fine.
+        else:
+            return status
 
 
 def override_config(config, extra):
