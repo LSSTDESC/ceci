@@ -12,7 +12,6 @@ def test_cori_error():
     launcher_config = {
         "name": "mini",
         "interval": 1.0,
-
     }
     site_config = {
         "name": "cori-interactive",
@@ -32,8 +31,7 @@ def test_cori_error():
         site.command("xxx", sec)
 
     # should work if we do set dry-run
-    launcher_config['dry_run'] = True
+    launcher_config["dry_run"] = True
     load(launcher_config, [site_config])
     site = get_default_site()
     site.command("xxx", sec)
-
