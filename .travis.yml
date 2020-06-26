@@ -6,6 +6,7 @@ python:
   - "3.8"
 
 install:
+  - pip install --upgrade pytest codecov
   - pip install .[test,cwl,parsl]
 
 # Test three different pipelines
