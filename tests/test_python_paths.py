@@ -67,7 +67,8 @@ def test_extra_paths():
         assert sys.path[0] == p[1]
         assert sys.path[1] == p[0]
 
-    assert p not in sys.path
+    for p1 in p:
+        assert p1 not in sys.path
     assert sys.path == orig_path
 
     try:
@@ -78,7 +79,8 @@ def test_extra_paths():
     except MyError:
         pass
 
-    assert p not in sys.path
+    for p1 in p:
+        assert p1 not in sys.path
     assert sys.path == orig_path
 
 
@@ -89,7 +91,8 @@ def test_extra_paths():
         assert sys.path[-1] == p[1]
         assert sys.path[-2] == p[0]
 
-    assert p not in sys.path
+    for p1 in p:
+        assert p1 not in sys.path
     assert sys.path == orig_path
 
     try:
@@ -103,4 +106,22 @@ def test_extra_paths():
     assert p not in sys.path
     assert sys.path == orig_path
 
+    # check that if the user removes the path
+    # themselves then it is okay
+    p = ['xxx111yyy222', 'aaa222333']
+    with extra_paths(p, start=True):
+        sys.path.remove('xxx111yyy222')
 
+    assert sys.path == orig_path
+
+    # check only one copy is removed
+    sys.path.append("aaa")
+    tmp_paths = sys.path[:]
+    p = "aaa"
+    with extra_paths(p, start=True):
+        pass
+
+    assert sys.path == tmp_paths
+
+    with extra_paths(p, start=False):
+        pass
