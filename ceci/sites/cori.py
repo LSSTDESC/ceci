@@ -35,7 +35,11 @@ class CoriSite(Site):
         if sec.nodes:
             mpi1 += f" --nodes {sec.nodes}"
 
-        if (sec.nprocess > 1) and (os.environ.get("SLURM_JOB_ID") is None):
+        if (
+            (sec.nprocess > 1)
+            and (os.environ.get("SLURM_JOB_ID") is None)
+            and (not self.config.get("dry_run"))
+        ):
             raise ValueError(
                 "You cannot use MPI (by setting nprocess > 1) "
                 "on Cori login nodes, only inside jobs."

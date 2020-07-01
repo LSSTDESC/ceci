@@ -57,10 +57,17 @@ def load(launcher_config, site_configs):
     sites = []
 
     launcher_name = launcher_config["name"]
+    dry_run = launcher_config.get("dry_run", False)
 
     # Create an object for each site.
     for site_config in site_configs:
         site_name = site_config["name"]
+        # Also tell the sites whether this is a dry-run.
+        # for example, the cori site checks you're not
+        # trying to run srun on a login node, but we skip
+        # that test if we are not actually running the command,
+        # just printing it.
+        site_config["dry_run"] = dry_run
 
         try:
             cls = site_classes[site_name]

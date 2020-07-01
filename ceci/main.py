@@ -67,6 +67,8 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     # parsl execution/launcher configuration information
     launcher_config = pipe_config.get("launcher", {"name": "mini"})
     launcher_name = launcher_config["name"]
+    # Launchers may need to know if this is a dry-run
+    launcher_config["dry_run"] = dry_run
 
     # Python modules in which to search for pipeline stages
     modules = pipe_config["modules"].split()
