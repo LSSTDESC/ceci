@@ -32,7 +32,8 @@ setup(
     entry_points={
         'console_scripts':['ceci=ceci.main:main']
     },
-    use_scm_version=True,
+    use_scm_version=False,
+    version="1.0.5",
     setup_requires=["setuptools_scm"],
     install_requires=['pyyaml', 'psutil'],
     extras_require={

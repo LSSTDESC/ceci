@@ -57,9 +57,12 @@ class LocalSite(Site):
         self.info["executor"] = executor
 
     def configure_for_mini(self):
-        import psutil
+        try:
+            import psutil
+            cores = psutil.cpu_count(logical=False)
+        except ImportError:
+            cores = 1
 
-        cores = psutil.cpu_count(logical=False)
         cores = self.config.get("max_threads", cores)
         name = socket.gethostname()
         nodes = [Node(name, cores)]
