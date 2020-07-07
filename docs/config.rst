@@ -1,7 +1,9 @@
 Pipeline YAML Files
 ===================
 
-The list of which steps to run in a pipeline, the overall inputs for it, execution information, and directories for output, are all defined in a configuration file in the YAML format.
+Two YAML-format configuration files are needed to run a pipeline.
+
+The first describes which steps to run in a pipeline, the overall inputs for it, execution information, and directories for outputs.  It is described on this page.  It includes the path to the second file, (see `Config`_ below); that file is described in more depth on the page :ref:`config2`.
 
 Here is an example, from ``test/test.yml``.  The different pieces are described below.
 
@@ -61,26 +63,18 @@ Here is an example, from ``test/test.yml``.  The different pieces are described 
   # Put the logs from the individual stages in this directory:
   log_dir: ./test/logs
 
+  # These will be run before and after the pipeline respectively
+  pre_script: ""
+  post_script: ""
 
-Launcher
---------
+Modules
+-------
 
-The ``launcher`` parameter should be a dictionary that configures the workflow manager used to launch the jobs.
+The ``modules`` option, which is a string, consists of the names of python modules to import and search for pipeline stages (with spaces between each).
 
-The ``name`` item in the dictionary sets which launcher is used.  These options are currently allowed: ``mini``, ``parsl``, and ``cwl``.
+Each module is imported at the start of the pipeline.  For a stage to be found, it should be imported somewhere in the chain of imports under ``__init__.py`` in one of the packages listed here.  You can specify subpackages, like ``module.submodule`` in this list after ``module`` if you need to.
 
-See the :ref:`launchers` page for information on these launchers, and the other options they take.
-
-
-Site
-----
-
-The ``site`` parameter should be a dictionary that configures the machine on which you are running the pipeline.
-
-The ``name`` item in the dictionary sets which site is used.  These options are currently allowed: ``local``, ``cori-batch``, and ``cori-interactive``.
-
-See the :ref:`sites` page for information on these sites, and the other options they take.
-
+The ``python_paths`` option can be set to a single string or list of strings, and gives paths to add to python's ``sys.path`` before attempting the import above.
 
 Stages
 ------
@@ -105,6 +99,26 @@ Each dictionary represents one stage, and has these options, with the defaults a
 ``nprocess`` is the total number of processes, (across all nodes, not per-node).  Process-level parallelism is currently implemented only using MPI, but if you need other approaches please open an issue.
 
 
+Launcher
+--------
+
+The ``launcher`` parameter should be a dictionary that configures the workflow manager used to launch the jobs.
+
+The ``name`` item in the dictionary sets which launcher is used.  These options are currently allowed: ``mini``, ``parsl``, and ``cwl``.
+
+See the :ref:`launchers` page for information on these launchers, and the other options they take.
+
+
+Site
+----
+
+The ``site`` parameter should be a dictionary that configures the machine on which you are running the pipeline.
+
+The ``name`` item in the dictionary sets which site is used.  These options are currently allowed: ``local``, ``cori-batch``, and ``cori-interactive``.
+
+See the :ref:`sites` page for information on these sites, and the other options they take.
+
+
 Inputs
 ------
 
@@ -117,7 +131,7 @@ Config
 
 The parameter ``config`` is required, and should be set to a path to another input YAML config file.
 
-That file should contain 
+See the :ref:`config2` page for what that file should contain.
 
 Resume
 ------
@@ -134,3 +148,16 @@ Directories
 The parameter ``output_dir`` is required, and should be set to a directory where all the outputs from the pipeline will be saved.  If the directory does not exist it will be created.
 
 If the resume parameter is set to True, then this is the directory that will be checked for existing outputs.
+
+The parameter ``log_dir`` is required, and should be set to a directory where the printed output of the stages will be saved, in one file per stage.
+
+Scripts
+-------
+
+Two parameters can be set to run additional scripts before or after a pipeline stage.  You can use them to perform checks or process results.
+
+Any executable specified by ``pre_script`` will be run before the pipeline.  If it returns a non-zero status then the pipeline will not be run and an exception will be raised.
+
+Any executable specified by ``post_script`` will be run after the pipeline, but only if the pipeline completes successfully.  If the post_script returns a non-zero status then it will be returned as the ceci exit code, but no exception will be raised.
+
+Both scripts are called with the same arguments as the original executable was called with.
