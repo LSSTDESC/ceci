@@ -9,14 +9,16 @@ Welcome to Ceci's documentation!
 Ceci is a framework for defining and running DESC pipelines under the Parsl workflow management system.  This means it connects together individual tasks that depend on each other's outputs and runs them, potentially in parallel, passing the outputs of one onto the next.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
    
    installation
    overview
    tutorial
-   config
    stages
+   config
+   launchers
+   sites
 
 
 

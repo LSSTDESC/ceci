@@ -3,7 +3,7 @@ Pipeline YAML Files
 
 The list of which steps to run in a pipeline, the overall inputs for it, execution information, and directories for output, are all defined in a configuration file in the YAML format.
 
-Here is an example, from test/test.yml:
+Here is an example, from ``test/test.yml``.  The different pieces are described below.
 
 
 .. code-block:: yaml
@@ -62,3 +62,75 @@ Here is an example, from test/test.yml:
   log_dir: ./test/logs
 
 
+Launcher
+--------
+
+The ``launcher`` parameter should be a dictionary that configures the workflow manager used to launch the jobs.
+
+The ``name`` item in the dictionary sets which launcher is used.  These options are currently allowed: ``mini``, ``parsl``, and ``cwl``.
+
+See the :ref:`launchers` page for information on these launchers, and the other options they take.
+
+
+Site
+----
+
+The ``site`` parameter should be a dictionary that configures the machine on which you are running the pipeline.
+
+The ``name`` item in the dictionary sets which site is used.  These options are currently allowed: ``local``, ``cori-batch``, and ``cori-interactive``.
+
+See the :ref:`sites` page for information on these sites, and the other options they take.
+
+
+Stages
+------
+
+The ``stages`` parameter should be a list of dictionaries.  Each element in the list is one pipeline stage to be run.  You don't have to put the stages in order - ceci will figure that out for you.
+
+Each dictionary represents one stage, and has these options, with the defaults as shown:
+
+
+.. code-block:: yaml
+
+  - name: NameOfClass       # required
+    nprocess: 1             # optional
+    threads_per_process: 1  # optional
+    nodes: 1                # optional
+
+
+``threads_per_process`` is the number of threads, and therefore also the number of cores to assign to each process.  OpenMP is the usual threading method used for our jobs, so ``OMP_NUM_THREADS`` is set to this value for the job.
+
+``nodes`` is the number of nodes to assign to the job.  The processes are spread evenly across nodes.
+
+``nprocess`` is the total number of processes, (across all nodes, not per-node).  Process-level parallelism is currently implemented only using MPI, but if you need other approaches please open an issue.
+
+
+Inputs
+------
+
+The ``inputs`` parameter is required, and should be set to a dictionary.  It must describe any files that are overall inputs to the pipeline, and are not generated internally by it.  Files that are made inside the pipeline must not be listed.
+
+The keys are tags, strings from the ``inputs`` attribute on the classes that represent the pipeline stage.  They should map to values which are the paths to find those inputs.
+
+Config
+------
+
+The parameter ``config`` is required, and should be set to a path to another input YAML config file.
+
+That file should contain 
+
+Resume
+------
+
+The parameter ``resume`` is required, and should be set to ``True`` or ``False``.
+
+If the parameter is ``True``, then any pipeline stages whose outputs all exist already will be skipped and not run.
+
+In the current implementation, a pipeline stage with missing input will not cause "downstream" stages to be run as well - e.g. if the final stage in your pipeline has all its outputs present it will *not* be re-run, even if earlier stages *are* re-run because their outputs had been removed.
+
+Directories
+-----------
+
+The parameter ``output_dir`` is required, and should be set to a directory where all the outputs from the pipeline will be saved.  If the directory does not exist it will be created.
+
+If the resume parameter is set to True, then this is the directory that will be checked for existing outputs.
