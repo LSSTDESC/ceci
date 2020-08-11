@@ -1,10 +1,13 @@
 from ceci import PipelineStage, MiniPipeline, ParslPipeline, Pipeline, DryRunPipeline
 from ceci_example.types import TextFile
 from ceci.sites import load, reset_default_site
+from ceci.utils import extra_paths
 import pytest
 from parsl import clear
 import yaml
 import os
+import tempfile
+import sys
 
 # This one should work
 class AAA(PipelineStage):
@@ -143,6 +146,66 @@ def test_dry_run():
         print(f"running {cmd} with os.system")
         status = os.system(cmd)
         assert status == 0
+
+
+def test_python_paths():
+    # make a temp dir
+    with tempfile.TemporaryDirectory() as dirname:
+        os.mkdir(dirname + "/pretend")
+
+        # create a subdir of that with a module in
+        mod_dir = dirname + "/pretend"
+        mod_path = mod_dir + "/pretend_module.py"
+
+        # empty module, just to check it imports
+        open(mod_path, 'w').close()
+
+        assert os.path.exists(mod_path)
+        print(os.listdir(mod_dir))
+
+        # create a stage there that uses the submodule
+        stage_path = dirname + "/my_stage.py"
+        open(stage_path,  'w').write("""
+import ceci
+class MyStage(ceci.PipelineStage):
+    name = "MyStage"
+    inputs = []
+    outputs = []
+    config_options = {"x": int}
+    def run(self):
+        import pretend_module
+        assert self.config["x"] == 17
+""")
+
+        # pipeline admin
+        config_path = dirname + "/config.yml"
+        open(config_path, 'w').write("""
+MyStage:
+    x: 17
+            """)
+
+        run_config = {
+            "log_dir": dirname,
+            "output_dir": dirname,
+            "resume": False,
+            "python_paths": [dirname, mod_dir],
+        }
+
+        # note that we don't add the subdir here
+        with extra_paths(dirname):
+            import my_stage
+            print(os.environ["PYTHONPATH"])
+            print(sys.path)
+            print(os.listdir(dirname))
+            launcher_config = {"interval": 0.5, "name": "mini", "python_paths":[dirname, mod_dir]}
+            pipeline = MiniPipeline([{"name": "MyStage"}], launcher_config)
+            status = pipeline.run({}, run_config, config_path)
+            log = open(dirname + "/MyStage.out").read()
+            print(log)
+            assert status == 0
+
+
+
 
 
 # this has to be here because we test running the pipeline
