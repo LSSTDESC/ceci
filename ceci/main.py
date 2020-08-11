@@ -72,13 +72,12 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     launcher_config["dry_run"] = dry_run
 
     # Later we will add these paths to sys.path for running here,
-    # but we will also need to pass them to the launcher so that
+    # but we will also need to pass them to the sites below so that
     # they can be added within any containers or other launchers
     # that we use
     paths = pipe_config.get("python_paths", [])
     if isinstance(paths, str):
         paths = paths.split()
-    launcher_config["python_paths"] = paths
 
     # Python modules in which to search for pipeline stages
     modules = pipe_config["modules"].split()
@@ -93,6 +92,8 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     default_site = get_default_site()
 
     site_config = pipe_config.get("site", {"name": "local"})
+    # Pass the paths along to the site
+    site_config["python_paths"] = paths
     load(launcher_config, [site_config])
 
     # Inputs and outputs
@@ -118,6 +119,7 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         "log_dir": pipe_config["log_dir"],
         "resume": pipe_config["resume"],
     }
+
 
     # Choice of actual pipeline type to run
     if dry_run:

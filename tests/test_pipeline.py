@@ -191,21 +191,22 @@ MyStage:
             "python_paths": [dirname, mod_dir],
         }
 
+
+        launcher_config = {"interval": 0.5, "name": "mini"}
+        site_config = {"name":"local", "python_paths":[dirname, mod_dir]}
+        load(launcher_config, [site_config])
+
         # note that we don't add the subdir here
         with extra_paths(dirname):
             import my_stage
             print(os.environ["PYTHONPATH"])
             print(sys.path)
             print(os.listdir(dirname))
-            launcher_config = {"interval": 0.5, "name": "mini", "python_paths":[dirname, mod_dir]}
             pipeline = MiniPipeline([{"name": "MyStage"}], launcher_config)
             status = pipeline.run({}, run_config, config_path)
             log = open(dirname + "/MyStage.out").read()
             print(log)
             assert status == 0
-
-
-
 
 
 # this has to be here because we test running the pipeline

@@ -58,7 +58,6 @@ def load(launcher_config, site_configs):
 
     launcher_name = launcher_config["name"]
     dry_run = launcher_config.get("dry_run", False)
-    python_paths = launcher_config.get("python_paths", [])
 
     # Create an object for each site.
     for site_config in site_configs:
@@ -69,8 +68,6 @@ def load(launcher_config, site_configs):
         # that test if we are not actually running the command,
         # just printing it.
         site_config["dry_run"] = dry_run
-        # and about any extra paths to add
-        site_config["python_paths"] = python_paths
 
         try:
             cls = site_classes[site_name]
