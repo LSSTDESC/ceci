@@ -67,8 +67,18 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     # parsl execution/launcher configuration information
     launcher_config = pipe_config.get("launcher", {"name": "mini"})
     launcher_name = launcher_config["name"]
+
     # Launchers may need to know if this is a dry-run
     launcher_config["dry_run"] = dry_run
+
+    # Later we will add these paths to sys.path for running here,
+    # but we will also need to pass them to the launcher so that
+    # they can be added within any containers or other launchers
+    # that we use
+    paths = pipe_config.get("python_paths", [])
+    if isinstance(paths, str):
+        paths = paths.split()
+    launcher_config["python_paths"] = paths
 
     # Python modules in which to search for pipeline stages
     modules = pipe_config["modules"].split()
@@ -109,7 +119,6 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         "resume": pipe_config["resume"],
     }
 
-
     # Choice of actual pipeline type to run
     if dry_run:
         pipeline_class = pipeline.DryRunPipeline
@@ -121,13 +130,6 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         pipeline_class = pipeline.MiniPipeline
     else:
         raise ValueError("Unknown pipeline launcher {launcher_name}")
-
-
-
-
-    paths = pipe_config.get("python_paths", [])
-    if isinstance(paths, str):
-        paths = paths.split()
 
     # temporarily add the paths to sys.path,
     # but remove them at the end
