@@ -31,7 +31,7 @@ class CoriSite(Site):
         mpi1 = f"{self.mpi_command} {sec.nprocess} --cpus-per-task={sec.threads_per_process}"
         mpi2 = f"--mpi" if sec.nprocess > 1 else ""
         volume_flag = f"-V {sec.volume} " if sec.volume else ""
-        paths = self.config["python_paths"]
+        paths = self.config.get("python_paths", [])
 
         if sec.nodes:
             mpi1 += f" --nodes {sec.nodes}"

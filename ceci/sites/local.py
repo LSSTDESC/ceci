@@ -31,7 +31,7 @@ class LocalSite(Site):
         mpi1 = f"{self.mpi_command} {sec.nprocess}" if sec.nprocess > 1 else ""
         mpi2 = f"--mpi" if sec.nprocess > 1 else ""
         volume_flag = f"-v {sec.volume} " if sec.volume else ""
-        paths = self.config["python_paths"]
+        paths = self.config.get("python_paths", [])
 
         # TODO: allow other container types here, like singularity
         if sec.image:
