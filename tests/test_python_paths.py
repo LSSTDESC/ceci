@@ -2,6 +2,7 @@ import sys
 from ceci.main import run
 from ceci.utils import remove_last, extra_paths
 import pytest
+import os
 
 def test_remove_item():
     l = list('abcdea')
