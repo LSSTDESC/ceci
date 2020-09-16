@@ -31,6 +31,7 @@ class CoriSite(Site):
         mpi1 = f"{self.mpi_command} {sec.nprocess} --cpus-per-task={sec.threads_per_process}"
         mpi2 = f"--mpi" if sec.nprocess > 1 else ""
         volume_flag = f"-V {sec.volume} " if sec.volume else ""
+        paths = self.config.get("python_paths", [])
 
         if sec.nodes:
             mpi1 += f" --nodes {sec.nodes}"
@@ -46,17 +47,38 @@ class CoriSite(Site):
             )
 
         if sec.image:
+            # If we are setting python paths then we have to modify the executable
+            # here.  This is because we need the path to be available right from the
+            # start, in case the stage is defined in a module added by these paths.
+            # The --env flags in docker/shifter overwrites an env var, and there
+            # doesn't seem to be a way to just append to one, so we have to be a bit
+            # roundabout to make this work, and invoke bash -c instead.
+            paths_start = (
+                ("bash -c 'PYTHONPATH=$PYTHONPATH:" + (":".join(paths)))
+                if paths
+                else ""
+            )
+            paths_end = "'" if paths else ""
             return (
                 f"{mpi1} "
                 f"shifter "
                 f"--env OMP_NUM_THREADS={sec.threads_per_process} "
                 f"{volume_flag} "
                 f"--image {sec.image} "
+                f"{paths_start} "
                 f"{cmd} {mpi2} "
+                f"{paths_end} "
             )
         else:
+            paths_env = (
+                ("PYTHONPATH=" + (":".join(paths)) + ":$PYTHONPATH") if paths else ""
+            )
             return (
-                f"OMP_NUM_THREADS={sec.threads_per_process} " f"{mpi1} " f"{cmd} {mpi2}"
+                # In the non-container case this is much easier
+                f"OMP_NUM_THREADS={sec.threads_per_process} "
+                f"{paths_env} "
+                f"{mpi1} "
+                f"{cmd} {mpi2}"
             )
 
     def configure_for_mini(self):

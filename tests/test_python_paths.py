@@ -2,6 +2,7 @@ import sys
 from ceci.main import run
 from ceci.utils import remove_last, extra_paths
 import pytest
+import os
 
 def test_remove_item():
     l = list('abcdea')
@@ -21,15 +22,19 @@ class MyError(Exception):
 def test_extra_paths():
     p = 'xxx111yyy222'
     orig_path = sys.path[:]
+    orig_env = os.environ.get("PYTHONPATH", "")
 
     # check path is put in
     with extra_paths(p):
         assert sys.path[0] == p
+        assert p in os.environ['PYTHONPATH']
 
     # check everything back to normal
     # after with statement
     assert p not in sys.path
     assert sys.path == orig_path
+    assert p not in os.environ['PYTHONPATH']
+    assert os.environ['PYTHONPATH'] == orig_env
 
     # check that an exception does not interfere
     # with this
