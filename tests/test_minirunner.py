@@ -1,7 +1,7 @@
 # Things to test
 from ceci.minirunner import Runner, WAITING, COMPLETE, Job, Node, CannotRun, TimeOut
 import time
-from test_helpers import in_temp_dir
+from .test_helpers import in_temp_dir
 from pytest import raises
 
 
