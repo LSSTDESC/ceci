@@ -1,5 +1,5 @@
 # Things to test
-from ceci.minirunner import Runner, WAITING, COMPLETE, Job, Node, CannotRun, TimeOut
+from ceci.minirunner import Runner, WAITING, COMPLETE, Job, Node, CannotRun, TimeOut, FailedJob
 from ceci.minirunner import EVENT_LAUNCH, EVENT_COMPLETED, EVENT_FAIL, EVENT_ABORT
 import time
 from .test_helpers import in_temp_dir
