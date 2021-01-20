@@ -30,7 +30,7 @@ jobs:
 
     - name: Install
       run: |
-        pip install --upgrade pytest codecov
+        pip install --upgrade pytest codecov pytest-cov
         pip install .[test,cwl,parsl]
 
     - name: Tests
