@@ -591,8 +591,8 @@ class MiniPipeline(Pipeline):
             to wait until the next time to check process completion
             Most normal usage will not need this.  Default=None.
         """
-        self.callback = kwargs.pop("callback")
-        self.sleep = kwargs.pop("sleep")
+        self.callback = kwargs.pop("callback", None)
+        self.sleep = kwargs.pop("sleep", None)
         super().__init__(*args, **kwargs)
 
     def build_dag(self, stages, jobs):
