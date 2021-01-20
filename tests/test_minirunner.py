@@ -1,7 +1,7 @@
 # Things to test
 import ceci.minirunner as mini
 import time
-from test_helpers import in_temp_dir
+from .test_helpers import in_temp_dir
 from pytest import raises
 
 @in_temp_dir
