@@ -31,7 +31,7 @@ def test_construct():
         config = {}
 
     assert PipelineStage.get_stage("test") == TestStage
-    assert TestStage.get_module() == "test_stage"
+    assert TestStage.get_module().endswith("test_stage")
 
     s = TestStage({"config": "tests/config.yml"})
 
