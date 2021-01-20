@@ -575,7 +575,7 @@ class MiniPipeline(Pipeline):
     def __init__(self, *args, **kwargs):
         """Create a MiniRunner Pipeline
 
-        In addition to parent initialization parameters (see the 
+        In addition to parent initialization parameters (see the
         Pipeline base class), this subclass can take these optional
         keywords.
 
