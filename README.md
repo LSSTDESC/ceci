@@ -4,7 +4,7 @@
 <h2 align="center">Ceci Pipeline Software</h2>
 
 <p align="center">
-<a href="https://travis-ci.org/LSSTDESC/ceci"><img alt="Build Status" src="https://travis-ci.org/LSSTDESC/ceci.svg?branch=master"></a>
+<a href="https://github.com/LSSTDESC/ceci/actions?query=workflow%3A%22Continuous+Integration%22"><img alt="Continuous Integration Status" src="https://github.com/LSSTDESC/ceci/workflows/Continuous%20Integration/badge.svg"></a>
 <a href='https://ceci.readthedocs.io/en/latest/?badge=latest'><img src='https://readthedocs.org/projects/ceci/badge/?version=latest' alt='Documentation Status' /></a>
 <a href="https://codecov.io/gh/LSSTDESC/ceci"><img alt="Coverage Status" src="https://codecov.io/gh/LSSTDESC/ceci/branch/master/graph/badge.svg"></a>
 <a href="https://pypi.org/project/ceci/"><img alt="PyPI" src="https://img.shields.io/pypi/v/ceci"></a>
