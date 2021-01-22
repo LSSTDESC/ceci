@@ -572,6 +572,28 @@ class MiniPipeline(Pipeline):
     understanding of available nodes and cores.
 
     """
+    def __init__(self, *args, **kwargs):
+        """Create a MiniRunner Pipeline
+
+        In addition to parent initialization parameters (see the
+        Pipeline base class), this subclass can take these optional
+        keywords.
+
+        Parameters
+        ----------
+        callback: function(event_type: str, event_info: dict)
+            A function called when jobs launch, complete, or fail,
+            and when the pipeline aborts.  Can be used for tracing
+            execution.  Default=None.
+
+        sleep: function(t: float)
+            A function to replace time.sleep called in the pipeline
+            to wait until the next time to check process completion
+            Most normal usage will not need this.  Default=None.
+        """
+        self.callback = kwargs.pop("callback", None)
+        self.sleep = kwargs.pop("sleep", None)
+        super().__init__(*args, **kwargs)
 
     def build_dag(self, stages, jobs):
         """Build a directed acyclic graph of a set of stages.
@@ -640,7 +662,7 @@ class MiniPipeline(Pipeline):
         nodes = sec.site.info["nodes"]
 
         # Run under minirununer
-        runner = minirunner.Runner(nodes, graph, log_dir)
+        runner = minirunner.Runner(nodes, graph, log_dir, callback=self.callback, sleep=self.sleep)
         interval = self.launcher_config.get("interval", 3)
         try:
             runner.run(interval)

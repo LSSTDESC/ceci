@@ -1,9 +1,9 @@
 # Things to test
-from ceci.minirunner import Runner, WAITING, COMPLETE, Job, Node, CannotRun, TimeOut
+from ceci.minirunner import Runner, WAITING, COMPLETE, Job, Node, CannotRun, TimeOut, FailedJob
+from ceci.minirunner import EVENT_LAUNCH, EVENT_COMPLETED, EVENT_FAIL, EVENT_ABORT
 import time
 from .test_helpers import in_temp_dir
 from pytest import raises
-
 
 @in_temp_dir
 def test_minirununer_parallel():
@@ -41,6 +41,43 @@ def test_minirununer_parallel():
 
     assert status == COMPLETE
     assert r.completed_jobs in [[job1, job2], [job2, job1]]
+
+@in_temp_dir
+def test_callback_and_sleep():
+
+    events = []
+    def callback(event, info):
+        events.append((event, info))
+
+    sleeps = []
+    def sleep(t):
+        sleeps.append(t)
+        time.sleep(t)
+
+    job1 = Job("Job1", "echo start 1; sleep 1; echo end 1", cores=1, nodes=1)
+    job2 = Job("Job2", "echo start 2; sleep 1; echo end 2", cores=1, nodes=1)
+    # This job is designed to fail
+    job3 = Job("Job3", "python does_not_exist_for_test.py", cores=1, nodes=1)
+    job_dependencies = {
+        job1: [],
+        job2: [],
+        job3: [job1, job2],
+    }
+
+    # Two nodes with 1 core each
+    node1 = Node("node1", 1)
+    node2 = Node("node2", 2)
+    nodes = [node1, node2]
+    r = Runner(nodes, job_dependencies, ".", callback=callback, sleep=sleep)
+    with raises(FailedJob):
+        r.run(interval=1)
+
+    assert 1 in sleeps
+    for event in [EVENT_LAUNCH, EVENT_COMPLETED, EVENT_FAIL, EVENT_ABORT]:
+        # check that each event is fired at least once
+        assert [e for e,i in events if e == event]
+
+
 
 
 @in_temp_dir

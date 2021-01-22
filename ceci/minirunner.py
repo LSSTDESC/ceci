@@ -17,6 +17,11 @@ from timeit import default_timer
 COMPLETE = 0
 WAITING = 1
 
+EVENT_LAUNCH = "launch"
+EVENT_ABORT = "abort"
+EVENT_FAIL = "fail"
+EVENT_COMPLETED = "completed"
+
 
 class RunnerError(Exception):
     """Base error class."""
@@ -142,6 +147,8 @@ class Job:
 
     __repr__ = __str__
 
+def null_callback(event_name, event_data):
+    pass
 
 class Runner:
     """The main pipeline runner class.
@@ -168,10 +175,9 @@ class Runner:
 
     log_dir: str
         Dir where the logs are put
-
     """
 
-    def __init__(self, nodes, job_graph, log_dir):
+    def __init__(self, nodes, job_graph, log_dir, callback=None, sleep=None):
         """Create a Runner
 
         Parameters
@@ -183,8 +189,17 @@ class Runner:
             Indicates what jobs are to be run and which other jobs they depend on
 
         log_dir: str
-            Dir where the logs are put        
+            Dir where the logs are put
 
+        callback: function(event_type: str, event_info: dict)
+            A function called when jobs launch, complete, or fail,
+            and when the pipeline aborts.  Can be used for tracing
+            execution. Default=None.
+
+        sleep: function(t: float)
+            A function to replace time.sleep called in the pipeline
+            to wait until the next time to check process completion
+            Most normal usage will not need this. Default=None.
         """
         self.nodes = nodes
         self.job_graph = job_graph
@@ -192,6 +207,15 @@ class Runner:
         self.running = []
         self.log_dir = log_dir
         self.queued_jobs = list(job_graph.keys())
+
+        # By default we use an empty callback
+        # and the default sleep
+        if callback is None:
+            callback = null_callback
+        if sleep is None:
+            sleep = time.sleep
+        self.callback = callback
+        self.sleep = sleep
 
     def run(self, interval, timeout=1e300):
         """Launch the pipeline.
@@ -207,7 +231,7 @@ class Runner:
         try:
             while status == WAITING:
                 status = self._update()
-                time.sleep(interval)
+                self.sleep(interval)
                 t = default_timer() - t0
                 if t > timeout:
                     raise TimeOut(
@@ -227,8 +251,15 @@ class Runner:
         """End the pipeline and kill all running jobs."""
         for process, job, alloc in self.running:
             process.kill()
+
         for node in self.nodes:
             node.free()
+
+        # run the callback, listing all jobs that were running
+        # when the system failed.  The failed job will already
+        # have triggered EVENT_FAIL.
+        self.callback(EVENT_ABORT, {'running': self.running[:]})
+        self.running = []
 
     def _launch(self, job, alloc):
         # launch the specified job on the specified nodes
@@ -247,6 +278,7 @@ class Runner:
         # launch cmd in a subprocess, and keep track in running jobs
         p = subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT)
         self.running.append((p, job, alloc))
+        self.callback(EVENT_LAUNCH, {"job":job, "stdout":stdout_file, "process": p, "nodes":alloc})
 
     def _ready_jobs(self):
         # Find jobs ready to be run now
@@ -313,11 +345,18 @@ class Runner:
             # kill everything
             elif status:
                 print(f"Job {job.name} has failed with status {status}")
+                # Call back with info about the failed job and how it ran,
+                # then abort the pipeline to stop other things going on.
+                # TODO: offer a mode where other non-dependent jobs keep
+                # running
+                self.callback(EVENT_FAIL, {"job":job, "status":status, "process": process, "nodes":alloc})
                 self.abort()
                 raise FailedJob(job.cmd, job.name)
             # status==0 indicates sucess in job, so free resources
             else:
                 print(f"Job {job.name} has completed successfully!")
+                # Call back with info about the successful job and how it ran
+                self.callback(EVENT_COMPLETED, {"job":job, "status":0, "process": process, "nodes":alloc})
                 completed_jobs.append(job)
                 for node in alloc:
                     node.free()
