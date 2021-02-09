@@ -79,11 +79,18 @@ class LocalSite(Site):
     def configure_for_mini(self):
         import psutil
 
+        # The default is to allow a single process
+        # with as many cores as possible, but allow the
+        # user to specify both max_processes and max_threads
+        # to customize
         cores = psutil.cpu_count(logical=False)
         cores = self.config.get("max_threads", cores)
+        procs = self.config.get("max_processes", 1)
         name = socket.gethostname()
-        nodes = [Node(name, cores)]
 
+        # Create a node, which actually just represents one process
+        # here due to SLURM limitations
+        nodes = [Node(f"{name}_{i}", cores) for i in range(procs)]
         self.info["nodes"] = nodes
 
     def configure_for_cwl(self):
