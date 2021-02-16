@@ -308,7 +308,9 @@ I currently know about these stages:
         for out in cls.output_tags():
             parser.add_argument(f"--{out}")
         parser.add_argument("--config")
-        parser.add_argument("--mpi", action="store_true", help="Set up MPI parallelism")
+
+        if cls.parallel:
+            parser.add_argument("--mpi", action="store_true", help="Set up MPI parallelism")
         parser.add_argument(
             "--pdb", action="store_true", help="Run under the python debugger"
         )
