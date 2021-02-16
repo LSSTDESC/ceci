@@ -155,11 +155,10 @@ Missing these names on the command line:
         # where our stage was defined
         filename = sys.modules[cls.__module__].__file__
 
-        # Make sure the pipeline stage has a name
-        if not hasattr(cls, "name"):
-            raise ValueError(
-                f"Pipeline stage defined in {filename} must be given a name."
-            )
+        # Give the stage a name if it doesn't have one already
+        if not hasattr(cls, "name") or cls.name == "PipelineStage":
+            cls.name = cls.__name__
+
         if not hasattr(cls, "outputs"):
             raise ValueError(
                 f"Pipeline stage {cls.name} defined in {filename} must be given a list of outputs."
