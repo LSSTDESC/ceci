@@ -83,9 +83,10 @@ class LocalSite(Site):
         # with as many cores as possible, but allow the
         # user to specify both max_processes and max_threads
         # to customize
-        cores = psutil.cpu_count(logical=False)
-        cores = self.config.get("max_threads", cores)
         procs = self.config.get("max_processes", 1)
+        cores_available = psutil.cpu_count(logical=False)
+        threads_default = max(cores_available // procs, 1)
+        cores = self.config.get("max_threads", threads_default)
         name = socket.gethostname()
 
         # Create a node, which actually just represents one process
