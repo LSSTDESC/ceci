@@ -162,6 +162,24 @@ def test_okay_abc_dupe_name2():
     assert Foxtrot.name == "Foxtrot"
     assert PipelineStage.get_stage("Foxtrot") is Foxtrot
 
+def test_config_specified():
+    # check for incomplete classes
+    with pytest.raises(ReservedNameError):
+        class Golf(PipelineStage):
+            config = "golf"
+
+    # check for complete classes
+    with pytest.raises(ReservedNameError):
+        class Golf(PipelineStage):
+            config = "golf"
+            inputs = []
+            outputs = []
+            def run(self):
+                pass
+
+
+
+
 
 # could add more tests here for constructor, but the regression tests here and in TXPipe are
 # pretty thorough.
