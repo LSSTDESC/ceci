@@ -233,7 +233,7 @@ Missing these names on the command line:
                      "be intended as a base for other classes and not to be run."
                 )
             else:
-                raise ValueError(f"Unknown stage '{name}'")
+                raise StageNotFound(f"Unknown stage '{name}'")
         else:
             return stage[0]
 
