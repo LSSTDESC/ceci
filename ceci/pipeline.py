@@ -205,8 +205,8 @@ class Pipeline:
             for tag in stage.output_tags():
                 if tag in overall_inputs:
                     raise ValueError(
-                        "Pipeline stage {stage.name} "
-                        "generates output {tag}, but "
+                        f"Pipeline stage {stage.name} "
+                        f"generates output {tag}, but "
                         "it is already an overall input"
                     )
         stage_set = {stage for stage in stage_names}

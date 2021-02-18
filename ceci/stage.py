@@ -4,6 +4,8 @@ from textwrap import dedent
 import shutil
 import cProfile
 
+from .errors import *
+
 SERIAL = "serial"
 MPI_PARALLEL = "mpi"
 
@@ -139,6 +141,7 @@ Missing these names on the command line:
             self._rank = 0
 
     pipeline_stages = {}
+    incomplete_pipeline_stages = {}
 
     def __init_subclass__(cls, **kwargs):
         """
@@ -155,37 +158,50 @@ Missing these names on the command line:
         # where our stage was defined
         filename = sys.modules[cls.__module__].__file__
 
-        # Give the stage a name if it doesn't have one already
-        if not hasattr(cls, "name") or cls.name == "PipelineStage":
+        stage_is_complete = (
+            hasattr(cls, 'outputs')
+            and hasattr(cls, 'inputs')
+            and hasattr(cls, 'run')
+        )
+
+        # If there isn't an explicit name already then set it here.
+        # by default use the class name.
+        if not hasattr(cls, "name"):
             cls.name = cls.__name__
 
-        if not hasattr(cls, "outputs"):
-            raise ValueError(
-                f"Pipeline stage {cls.name} defined in {filename} must be given a list of outputs."
-            )
-        if not hasattr(cls, "inputs"):
-            raise ValueError(
-                f"Pipeline stage {cls.name} defined in {filename} must be given a list of inputs."
-            )
+        if stage_is_complete:
+            # Deal with duplicated class names
+            if cls.name in cls.pipeline_stages:
+                other = cls.pipeline_stages[cls.name][1]
+                raise DuplicateStageName("You created two pipeline stages with the"
+                                 f"name {cls.name}.\nOne was in {filename}\nand the "
+                                 f"other in {other}\nYou can either change the class "
+                                 "name or explicitly put a variable 'name' in the top"
+                                 "level of the class.")
 
-        # Check for two stages with the same name.
-        # Not sure if we actually do want to allow this?
-        if cls.name in cls.pipeline_stages:
-            raise ValueError(f"Pipeline stage {cls.name} already defined")
+            # Check for "config" in the inputs list - this is implicit
+            for name, _ in cls.inputs:
+                if name == "config":
+                    raise ReservedNameError(
+                         "An input called 'config' is implicit in each pipeline "
+                         "stage and should not be added explicitly.  Please update "
+                         f"your pipeline stage called {cls.name} to remove/rename "
+                         "the input called 'config'.")
 
-        # Check for "config" in the inputs list - this is now implicit
-        for name, _ in cls.inputs:
-            if name == "config":
-                raise ValueError(
-                    f"""An input called 'config' is now implicit in each pipeline stage
-and should not be added explicitly.  Please update your pipeline stage called {cls.name} to remove
-the input called 'config'.
-"""
-                )
-
+        # Check if user has over-written the config variable.
+        # Quite a common error I make myself.
+        if not isinstance(cls.config, property):
+            raise ReservedNameError("You have a class variable called 'config', which "
+                                    "is reserved in ceci for its own configuration. "
+                                    "You may have meant to specify config_options?")
         # Find the absolute path to the class defining the file
         path = pathlib.Path(filename).resolve()
-        cls.pipeline_stages[cls.name] = (cls, path)
+
+        # Register the class
+        if stage_is_complete:
+            cls.pipeline_stages[cls.name] = (cls, path)
+        else:
+            cls.incomplete_pipeline_stages[cls.__name__] = (cls, path)
 
     #############################################
     # Life cycle-related methods and properties.
@@ -205,7 +221,21 @@ the input called 'config'.
         cls: class
             The corresponding subclass
         """
-        return cls.pipeline_stages[name][0]
+        stage = cls.pipeline_stages.get(name)
+
+        # If not found, then check for incomplete stages
+        if stage is None:
+            if name in cls.incomplete_pipeline_stages:
+                raise IncompleteStage(
+                    f"The stage {name} is not completely written. "
+                     "Stages must specify 'inputs', 'outputs' as class variables "
+                     f"and a 'run' method.\n{name} might be unfinished, or it might "
+                     "be intended as a base for other classes and not to be run."
+                )
+            else:
+                raise ValueError(f"Unknown stage '{name}'")
+        else:
+            return stage[0]
 
     @classmethod
     def get_module(cls):
