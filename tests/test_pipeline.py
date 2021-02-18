@@ -55,8 +55,6 @@ def test_orderings():
     C = {"name": "CCC"}
     D = {"name": "DDD"}
 
-    PipelineStage.get_stage("CCC")
-
     # This one should work - basic pipeline
     # as long as we supply input 'a'.
     # order should be A then C
@@ -220,7 +218,4 @@ MyStage:
 
 # this has to be here because we test running the pipeline
 if __name__ == "__main__":
-    if 'xxx' in os.environ:
-        test_orderings()
-    else:
-        PipelineStage.main()
+    PipelineStage.main()

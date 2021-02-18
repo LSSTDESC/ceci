@@ -177,8 +177,9 @@ def test_config_specified():
             def run(self):
                 pass
 
-
-
+def test_unknown_stage():
+    with pytest.raises(StageNotFound):
+        PipelineStage.get_stage("ThisStageIsDeliberatelyLeftBlank")
 
 
 # could add more tests here for constructor, but the regression tests here and in TXPipe are
