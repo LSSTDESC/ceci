@@ -14,28 +14,35 @@ class AAA(PipelineStage):
     name = "AAA"
     inputs = [("b", TextFile)]
     outputs = [("a", TextFile)]
-    config = {}
+    config_options = {}
+    def run(self):
+        pass
 
 
 class BBB(PipelineStage):
     name = "BBB"
     inputs = [("a", TextFile)]
     outputs = [("b", TextFile)]
-    config = {}
+    config_options = {}
+    def run(self):
+        pass
 
 
 class CCC(PipelineStage):
     name = "CCC"
     inputs = [("b", TextFile)]
     outputs = [("c", TextFile)]
-    config = {}
-
+    config_options = {}
+    def run(self):
+        pass
 
 class DDD(PipelineStage):
     name = "DDD"
     inputs = [("b", TextFile), ("c", TextFile)]
     outputs = [("d", TextFile)]
-    config = {}
+    config_options = {}
+    def run(self):
+        pass
 
 
 def test_orderings():
@@ -85,7 +92,7 @@ class FailingStage(PipelineStage):
     name = "FailingStage"
     inputs = []
     outputs = [("dm", TextFile)]  # exists already as an input
-    config = {}
+    config_options = {}
 
     def run(self):
         raise ValueError("This should not run because its outputs exist.")

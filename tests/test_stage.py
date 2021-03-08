@@ -1,6 +1,6 @@
 from ceci.stage import PipelineStage
+from ceci.errors import *
 import pytest
-
 # TODO: test MPI facilities properly with:
 # https://github.com/rmjarvis/TreeCorr/blob/releases/4.1/tests/mock_mpi.py
 
@@ -18,20 +18,21 @@ class MockCommunicator:
 
 
 def test_construct():
-    with pytest.raises(ValueError):
-
-        class TestStage(PipelineStage):
-            pass
-
     # This one should work
     class TestStage(PipelineStage):
         name = "test"
         inputs = []
         outputs = []
-        config = {}
+        config_options = {}
+        def run(self):
+            pass
 
     assert PipelineStage.get_stage("test") == TestStage
-    assert TestStage.get_module().endswith("test_stage")
+
+    # this fails if you execute this file directly as the qualified
+    # name is different
+    if __name__ != "__main__":
+        assert TestStage.get_module().endswith("test_stage")
 
     s = TestStage({"config": "tests/config.yml"})
 
@@ -62,5 +63,127 @@ def test_construct():
     # I'd rather not attempt to unit test MPI stuff - that sounds very unreliable
 
 
+def test_incomplete():
+    class Alpha(PipelineStage):
+        pass
+
+    assert "Alpha" in PipelineStage.incomplete_pipeline_stages
+
+    with pytest.raises(IncompleteStage):
+        PipelineStage.get_stage("Alpha")
+
+
+def test_auto_name():
+    class Bravo(PipelineStage):
+        inputs = []
+        outputs = []
+        config_options = {}
+        def run(self):
+            pass
+
+    assert Bravo.name == "Bravo"
+    assert PipelineStage.get_stage("Bravo") is Bravo
+
+def test_duplicate():
+    class Charlie(PipelineStage):
+        inputs = []
+        outputs = []
+        def run(self):
+            pass
+
+    assert PipelineStage.get_stage("Charlie") is Charlie
+
+    with pytest.raises(DuplicateStageName):
+        class Charlie(PipelineStage):
+            inputs = []
+            outputs = []
+            def run(self):
+                pass
+
+    with pytest.raises(DuplicateStageName):
+        # Name it specified and duplicated
+        class AlsoCharlie(PipelineStage):
+            name = "Charlie"
+            inputs = []
+            outputs = []
+            def run(self):
+                pass
+
+    # Should work okay as name is overwritten
+    class Charlie(PipelineStage):
+        name = "NotCharlie"
+        inputs = []
+        outputs = []
+        def run(self):
+            pass
+
+    assert Charlie.name == "NotCharlie"
+    assert PipelineStage.get_stage("NotCharlie") is Charlie
+
+
+
+def test_explicit_config():
+    with pytest.raises(ReservedNameError):
+        class Delta(PipelineStage):
+            inputs = [("config", None)]
+            outputs = []
+            config_options = {}
+            def run(self):
+                pass
+
+
+def test_okay_abc_dupe_name():
+    class Echo(PipelineStage):
+        pass
+
+    # okay, as the parent is intended as abstract
+    class Echo(Echo):
+        inputs = []
+        outputs = []
+        def run(self):
+            pass
+
+    assert Echo.name == "Echo"
+    assert PipelineStage.get_stage("Echo") is Echo
+
+
+def test_okay_abc_dupe_name2():
+    class FoxtrotBase(PipelineStage):
+        name = "Foxtrot"
+        pass
+
+    # okay, as the parent is intended as abstract
+    class Foxtrot(FoxtrotBase):
+        inputs = []
+        outputs = []
+        def run(self):
+            pass
+
+    assert Foxtrot.name == "Foxtrot"
+    assert PipelineStage.get_stage("Foxtrot") is Foxtrot
+
+def test_config_specified():
+    # check for incomplete classes
+    with pytest.raises(ReservedNameError):
+        class Golf(PipelineStage):
+            config = "golf"
+
+    # check for complete classes
+    with pytest.raises(ReservedNameError):
+        class Golf(PipelineStage):
+            config = "golf"
+            inputs = []
+            outputs = []
+            def run(self):
+                pass
+
+def test_unknown_stage():
+    with pytest.raises(StageNotFound):
+        PipelineStage.get_stage("ThisStageIsDeliberatelyLeftBlank")
+
+
 # could add more tests here for constructor, but the regression tests here and in TXPipe are
 # pretty thorough.
+
+if __name__ == '__main__':
+    test_construct()
