@@ -498,6 +498,10 @@ I currently know about these stages:
 
         chunk_rows: int
             Size of each chunk to be read.
+
+        Parallel: bool
+            Whether to split data by rank or just give all procs all data.
+            Default=True
         """
         n_chunks = n_rows // chunk_rows
         if n_chunks * chunk_rows < n_rows:
@@ -760,7 +764,30 @@ I currently know about these stages:
         """
         Loop through chunks of the input data from a FITS file with the given tag
 
-        TODO: add ceci tests of these functions
+        TODO: add ceci tests of this functions
+        Parameters
+        ----------
+        tag: str
+            The tag from the inputs list to use
+
+        hdunum: int
+            The extension number to read
+
+        cols: list
+            The columns to read
+
+        chunk_rows: int
+            Number of columns to read and return at once
+
+        parallel: bool
+            Whether to split up data among processes (parallel=True) or give
+            all processes all data (parallel=False).  Default = True.
+
+        Returns
+        -------
+        it: iterator
+            Iterator yielding (int, int, array) tuples of (start, end, data)
+            data is a structured array.
         """
         fits = self.open_input(tag)
         ext = fits[hdunum]
@@ -775,7 +802,29 @@ I currently know about these stages:
 
         All the selected columns must have the same length.
 
-        TODO: add ceci tests of these functions
+        Parameters
+        ----------
+        tag: str
+            The tag from the inputs list to use
+
+        group: str
+            The group within the HDF5 file to use, looked up as
+            file[group]
+
+        cols: list
+            The columns to read
+
+        chunk_rows: int
+            Number of columns to read and return at once
+
+        parallel: bool
+            Whether to split up data among processes (parallel=True) or give
+            all processes all data (parallel=False).  Default = True.
+
+        Returns
+        -------
+        it: iterator
+            Iterator yielding (int, int, dict) tuples of (start, end, data)
         """
         import numpy as np
 
