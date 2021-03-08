@@ -5,8 +5,7 @@ from ..minirunner import Node
 
 
 class LocalSite(Site):
-    """Object representing execution in the local environment, e.g. a laptop.
-    """
+    """Object representing execution in the local environment, e.g. a laptop."""
 
     def command(self, cmd, sec):
         """Generate a complete command line to be run with the specified execution variables.

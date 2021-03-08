@@ -95,13 +95,13 @@ class Pipeline:
     def add_stage(self, stage_info):
         """Add a stage to the pipeline.
 
-        To begin with this stage is not connected to any others - 
+        To begin with this stage is not connected to any others -
         that is determined later.
 
         The configuration info for this stage must contain at least
         the name of the stage and the name of the site where it is
-        to be run.  It can also contain information for the 
-        StageExecutionConfig above describing parallelism 
+        to be run.  It can also contain information for the
+        StageExecutionConfig above describing parallelism
         and container usage.
 
         The stage_info can contain the following parameters:
@@ -406,8 +406,7 @@ class DryRunPipeline(Pipeline):
 
 
 class ParslPipeline(Pipeline):
-    """A subclass of Pipeline that uses Parsl to manage workflow.
-    """
+    """A subclass of Pipeline that uses Parsl to manage workflow."""
 
     def initiate_run(self, stages, overall_inputs, run_config, stages_config):
         return []  # list of futures
@@ -572,6 +571,7 @@ class MiniPipeline(Pipeline):
     understanding of available nodes and cores.
 
     """
+
     def __init__(self, *args, **kwargs):
         """Create a MiniRunner Pipeline
 
@@ -662,7 +662,9 @@ class MiniPipeline(Pipeline):
         nodes = sec.site.info["nodes"]
 
         # Run under minirununer
-        runner = minirunner.Runner(nodes, graph, log_dir, callback=self.callback, sleep=self.sleep)
+        runner = minirunner.Runner(
+            nodes, graph, log_dir, callback=self.callback, sleep=self.sleep
+        )
         interval = self.launcher_config.get("interval", 3)
         try:
             runner.run(interval)
@@ -684,7 +686,7 @@ Standard output and error streams in {log_dir}/{error.job_name}.out
 class CWLPipeline(Pipeline):
     """Export the pipeline as Common Workflow Language files and optionally run it
     with cwltool or another CWL-aware runner.
-    
+
     """
 
     def make_inputs_file(self, stages, overall_inputs, stages_config, inputs_file):

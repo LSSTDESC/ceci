@@ -1,9 +1,19 @@
 # Things to test
-from ceci.minirunner import Runner, WAITING, COMPLETE, Job, Node, CannotRun, TimeOut, FailedJob
+from ceci.minirunner import (
+    Runner,
+    WAITING,
+    COMPLETE,
+    Job,
+    Node,
+    CannotRun,
+    TimeOut,
+    FailedJob,
+)
 from ceci.minirunner import EVENT_LAUNCH, EVENT_COMPLETED, EVENT_FAIL, EVENT_ABORT
 import time
 from .test_helpers import in_temp_dir
 from pytest import raises
+
 
 @in_temp_dir
 def test_minirununer_parallel():
@@ -42,14 +52,17 @@ def test_minirununer_parallel():
     assert status == COMPLETE
     assert r.completed_jobs in [[job1, job2], [job2, job1]]
 
+
 @in_temp_dir
 def test_callback_and_sleep():
 
     events = []
+
     def callback(event, info):
         events.append((event, info))
 
     sleeps = []
+
     def sleep(t):
         sleeps.append(t)
         time.sleep(t)
@@ -75,9 +88,7 @@ def test_callback_and_sleep():
     assert 1 in sleeps
     for event in [EVENT_LAUNCH, EVENT_COMPLETED, EVENT_FAIL, EVENT_ABORT]:
         # check that each event is fired at least once
-        assert [e for e,i in events if e == event]
-
-
+        assert [e for e, i in events if e == event]
 
 
 @in_temp_dir

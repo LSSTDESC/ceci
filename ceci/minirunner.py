@@ -147,8 +147,10 @@ class Job:
 
     __repr__ = __str__
 
+
 def null_callback(event_name, event_data):
     pass
+
 
 class Runner:
     """The main pipeline runner class.
@@ -258,7 +260,7 @@ class Runner:
         # run the callback, listing all jobs that were running
         # when the system failed.  The failed job will already
         # have triggered EVENT_FAIL.
-        self.callback(EVENT_ABORT, {'running': self.running[:]})
+        self.callback(EVENT_ABORT, {"running": self.running[:]})
         self.running = []
 
     def _launch(self, job, alloc):
@@ -278,7 +280,10 @@ class Runner:
         # launch cmd in a subprocess, and keep track in running jobs
         p = subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT)
         self.running.append((p, job, alloc))
-        self.callback(EVENT_LAUNCH, {"job":job, "stdout":stdout_file, "process": p, "nodes":alloc})
+        self.callback(
+            EVENT_LAUNCH,
+            {"job": job, "stdout": stdout_file, "process": p, "nodes": alloc},
+        )
 
     def _ready_jobs(self):
         # Find jobs ready to be run now
@@ -349,14 +354,20 @@ class Runner:
                 # then abort the pipeline to stop other things going on.
                 # TODO: offer a mode where other non-dependent jobs keep
                 # running
-                self.callback(EVENT_FAIL, {"job":job, "status":status, "process": process, "nodes":alloc})
+                self.callback(
+                    EVENT_FAIL,
+                    {"job": job, "status": status, "process": process, "nodes": alloc},
+                )
                 self.abort()
                 raise FailedJob(job.cmd, job.name)
             # status==0 indicates sucess in job, so free resources
             else:
                 print(f"Job {job.name} has completed successfully!")
                 # Call back with info about the successful job and how it ran
-                self.callback(EVENT_COMPLETED, {"job":job, "status":0, "process": process, "nodes":alloc})
+                self.callback(
+                    EVENT_COMPLETED,
+                    {"job": job, "status": 0, "process": process, "nodes": alloc},
+                )
                 completed_jobs.append(job)
                 for node in alloc:
                     node.free()

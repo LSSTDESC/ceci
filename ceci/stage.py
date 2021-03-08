@@ -47,12 +47,12 @@ class PipelineStage:
             inputs = [('eggs', TextFile)]
             outputs = [('spam', TextFile)]
         the args could contain:
-            {'eggs': 'inputs/eggs.txt', 
+            {'eggs': 'inputs/eggs.txt',
              'spam': 'outputs/spam.txt' }
         If spam is not specified it will default to "./spam.txt"
 
         }
-        
+
         The config should map "config" to a path where a YAML config file
         is located, e.g. {'config':'/path/to/config.yml'}
 
@@ -159,9 +159,7 @@ Missing these names on the command line:
         filename = sys.modules[cls.__module__].__file__
 
         stage_is_complete = (
-            hasattr(cls, 'outputs')
-            and hasattr(cls, 'inputs')
-            and hasattr(cls, 'run')
+            hasattr(cls, "outputs") and hasattr(cls, "inputs") and hasattr(cls, "run")
         )
 
         # If there isn't an explicit name already then set it here.
@@ -173,27 +171,32 @@ Missing these names on the command line:
             # Deal with duplicated class names
             if cls.name in cls.pipeline_stages:
                 other = cls.pipeline_stages[cls.name][1]
-                raise DuplicateStageName("You created two pipeline stages with the"
-                                 f"name {cls.name}.\nOne was in {filename}\nand the "
-                                 f"other in {other}\nYou can either change the class "
-                                 "name or explicitly put a variable 'name' in the top"
-                                 "level of the class.")
+                raise DuplicateStageName(
+                    "You created two pipeline stages with the"
+                    f"name {cls.name}.\nOne was in {filename}\nand the "
+                    f"other in {other}\nYou can either change the class "
+                    "name or explicitly put a variable 'name' in the top"
+                    "level of the class."
+                )
 
             # Check for "config" in the inputs list - this is implicit
             for name, _ in cls.inputs:
                 if name == "config":
                     raise ReservedNameError(
-                         "An input called 'config' is implicit in each pipeline "
-                         "stage and should not be added explicitly.  Please update "
-                         f"your pipeline stage called {cls.name} to remove/rename "
-                         "the input called 'config'.")
+                        "An input called 'config' is implicit in each pipeline "
+                        "stage and should not be added explicitly.  Please update "
+                        f"your pipeline stage called {cls.name} to remove/rename "
+                        "the input called 'config'."
+                    )
 
         # Check if user has over-written the config variable.
         # Quite a common error I make myself.
         if not isinstance(cls.config, property):
-            raise ReservedNameError("You have a class variable called 'config', which "
-                                    "is reserved in ceci for its own configuration. "
-                                    "You may have meant to specify config_options?")
+            raise ReservedNameError(
+                "You have a class variable called 'config', which "
+                "is reserved in ceci for its own configuration. "
+                "You may have meant to specify config_options?"
+            )
         # Find the absolute path to the class defining the file
         path = pathlib.Path(filename).resolve()
 
@@ -228,9 +231,9 @@ Missing these names on the command line:
             if name in cls.incomplete_pipeline_stages:
                 raise IncompleteStage(
                     f"The stage {name} is not completely written. "
-                     "Stages must specify 'inputs', 'outputs' as class variables "
-                     f"and a 'run' method.\n{name} might be unfinished, or it might "
-                     "be intended as a base for other classes and not to be run."
+                    "Stages must specify 'inputs', 'outputs' as class variables "
+                    f"and a 'run' method.\n{name} might be unfinished, or it might "
+                    "be intended as a base for other classes and not to be run."
                 )
             else:
                 raise StageNotFound(f"Unknown stage '{name}'")
@@ -242,7 +245,7 @@ Missing these names on the command line:
         """
         Return the path to the python package containing the current sub-class
 
-        If we have a PipelineStage subclass defined in a module called "bar", in 
+        If we have a PipelineStage subclass defined in a module called "bar", in
         a package called "foo" e.g.:
         /path/to/foo/bar.py  <--   contains subclass "Baz"
 
@@ -340,7 +343,9 @@ I currently know about these stages:
         parser.add_argument("--config")
 
         if cls.parallel:
-            parser.add_argument("--mpi", action="store_true", help="Set up MPI parallelism")
+            parser.add_argument(
+                "--mpi", action="store_true", help="Set up MPI parallelism"
+            )
         parser.add_argument(
             "--pdb", action="store_true", help="Run under the python debugger"
         )
@@ -409,9 +414,7 @@ I currently know about these stages:
             print(f"Stage complete: {cls.name}")
 
     def finalize(self):
-        """Finalize the stage, moving all its outputs to their final locations.
-
-        """
+        """Finalize the stage, moving all its outputs to their final locations."""
         # Synchronize files so that everything is closed
         if self.is_mpi():
             self.comm.Barrier()
@@ -582,7 +585,7 @@ I currently know about these stages:
             Default=False.  Whether to return a wrapped file
 
         final_name: bool
-            Default=False. Whether to save to 
+            Default=False. Whether to save to
 
         **kwargs:
             Extra args are passed on to the file's class constructor.

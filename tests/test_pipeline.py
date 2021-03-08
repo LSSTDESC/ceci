@@ -15,6 +15,7 @@ class AAA(PipelineStage):
     inputs = [("b", TextFile)]
     outputs = [("a", TextFile)]
     config_options = {}
+
     def run(self):
         pass
 
@@ -24,6 +25,7 @@ class BBB(PipelineStage):
     inputs = [("a", TextFile)]
     outputs = [("b", TextFile)]
     config_options = {}
+
     def run(self):
         pass
 
@@ -33,14 +35,17 @@ class CCC(PipelineStage):
     inputs = [("b", TextFile)]
     outputs = [("c", TextFile)]
     config_options = {}
+
     def run(self):
         pass
+
 
 class DDD(PipelineStage):
     name = "DDD"
     inputs = [("b", TextFile), ("c", TextFile)]
     outputs = [("d", TextFile)]
     config_options = {}
+
     def run(self):
         pass
 
@@ -165,14 +170,15 @@ def test_python_paths():
         mod_path = mod_dir + "/pretend_module.py"
 
         # empty module, just to check it imports
-        open(mod_path, 'w').close()
+        open(mod_path, "w").close()
 
         assert os.path.exists(mod_path)
         print(os.listdir(mod_dir))
 
         # create a stage there that uses the submodule
         stage_path = dirname + "/my_stage.py"
-        open(stage_path,  'w').write("""
+        open(stage_path, "w").write(
+            """
 import ceci
 class MyStage(ceci.PipelineStage):
     name = "MyStage"
@@ -182,14 +188,17 @@ class MyStage(ceci.PipelineStage):
     def run(self):
         import pretend_module
         assert self.config["x"] == 17
-""")
+"""
+        )
 
         # pipeline admin
         config_path = dirname + "/config.yml"
-        open(config_path, 'w').write("""
+        open(config_path, "w").write(
+            """
 MyStage:
     x: 17
-            """)
+            """
+        )
 
         run_config = {
             "log_dir": dirname,
@@ -198,14 +207,14 @@ MyStage:
             "python_paths": [dirname, mod_dir],
         }
 
-
         launcher_config = {"interval": 0.5, "name": "mini"}
-        site_config = {"name":"local", "python_paths":[dirname, mod_dir]}
+        site_config = {"name": "local", "python_paths": [dirname, mod_dir]}
         load(launcher_config, [site_config])
 
         # note that we don't add the subdir here
         with extra_paths(dirname):
             import my_stage
+
             print(os.environ["PYTHONPATH"])
             print(sys.path)
             print(os.listdir(dirname))
