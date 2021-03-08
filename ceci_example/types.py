@@ -16,6 +16,15 @@ class DataFile:
 
     """
 
+    def __init__(self, path, mode, extra_provenance=None, validate=True, **kwargs):
+        self.path = path
+        self.mode = mode
+
+        if mode not in ["r", "w"]:
+            raise ValueError(f"File 'mode' argument must be 'r' or 'w' not '{mode}'")
+
+        self.file = self.open(path, mode, **kwargs)
+
     @classmethod
     def open(cls, path, mode):
         """

@@ -1,4 +1,6 @@
 from ceci.stage import PipelineStage
+from ceci_example.types import HDFFile
+import numpy as np
 from ceci.errors import *
 import pytest
 # TODO: test MPI facilities properly with:
@@ -21,7 +23,7 @@ def test_construct():
     # This one should work
     class TestStage(PipelineStage):
         name = "test"
-        inputs = []
+        inputs = [("inp1", HDFFile)]
         outputs = []
         config_options = {}
         def run(self):
@@ -34,7 +36,7 @@ def test_construct():
     if __name__ != "__main__":
         assert TestStage.get_module().endswith("test_stage")
 
-    s = TestStage({"config": "tests/config.yml"})
+    s = TestStage({"config": "tests/config.yml", "inp1": "tests/test.hdf5"})
 
     assert s.rank == 0
     assert s.size == 1
@@ -46,9 +48,15 @@ def test_construct():
     assert r[0] == (0, 100)
     assert r[2] == (200, 300)
 
+    r = list(s.iterate_hdf("inp1", "group1", ["x", "y", "z"], 10))
+    for ri in r:
+        s, e, ri = ri
+        assert len(ri["x"] == 10)
+    assert np.all(r[4][2]["z"] == [-80, -82, -84, -86, -88, -90, -92, -94, -96, -98])
+
     # Fake that we are processor 4/10
     comm = MockCommunicator(10, 4)
-    s = TestStage({"config": "tests/config.yml"}, comm=comm)
+    s = TestStage({"config": "tests/config.yml", "inp1": "tests/test.hdf5"}, comm=comm)
 
     assert s.rank == 4
     assert s.size == 10
@@ -59,6 +67,19 @@ def test_construct():
     r = list(s.data_ranges_by_rank(10000, 100))
     assert r[0] == (400, 500)
     assert r[3] == (3400, 3500)
+
+    r = list(s.iterate_hdf("inp1", "group1", ["x", "y", "z"], 10))
+    assert len(r) == 1
+    st, e, r = r[0]
+    assert st == 40
+    assert e == 50
+    assert np.all(r["x"] == range(40, 50))
+
+    r = list(s.iterate_hdf("inp1", "group1", ["x", "y", "z"], 10, parallel=False))
+    for ri in r:
+        s, e, ri = ri
+        assert len(ri["x"] == 10)
+    assert np.all(r[4][2]["z"] == [-80, -82, -84, -86, -88, -90, -92, -94, -96, -98])
 
     # I'd rather not attempt to unit test MPI stuff - that sounds very unreliable
 

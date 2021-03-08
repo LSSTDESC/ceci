@@ -479,13 +479,13 @@ I currently know about these stages:
         ----------
         tasks: iterable
             Tasks to split up
-        
+
         """
         for i, task in enumerate(tasks):
             if i % self.size == self.rank:
                 yield task
 
-    def data_ranges_by_rank(self, n_rows, chunk_rows):
+    def data_ranges_by_rank(self, n_rows, chunk_rows, parallel=True):
         """Split a number of rows by process.
 
         Given a total number of rows to read and a chunk size, yield
@@ -498,11 +498,19 @@ I currently know about these stages:
 
         chunk_rows: int
             Size of each chunk to be read.
+
+        Parallel: bool
+            Whether to split data by rank or just give all procs all data.
+            Default=True
         """
         n_chunks = n_rows // chunk_rows
         if n_chunks * chunk_rows < n_rows:
             n_chunks += 1
-        for i in self.split_tasks_by_rank(range(n_chunks)):
+        if parallel:
+            it = self.split_tasks_by_rank(range(n_chunks))
+        else:
+            it = range(n_chunks)
+        for i in it:
             start = i * chunk_rows
             end = min((i + 1) * chunk_rows, n_rows)
             yield start, end
@@ -752,26 +760,71 @@ I currently know about these stages:
 
         return my_config
 
-    def iterate_fits(self, tag, hdunum, cols, chunk_rows):
+    def iterate_fits(self, tag, hdunum, cols, chunk_rows, parallel=True):
         """
         Loop through chunks of the input data from a FITS file with the given tag
 
-        TODO: add ceci tests of these functions
+        TODO: add ceci tests of this functions
+        Parameters
+        ----------
+        tag: str
+            The tag from the inputs list to use
+
+        hdunum: int
+            The extension number to read
+
+        cols: list
+            The columns to read
+
+        chunk_rows: int
+            Number of columns to read and return at once
+
+        parallel: bool
+            Whether to split up data among processes (parallel=True) or give
+            all processes all data (parallel=False).  Default = True.
+
+        Returns
+        -------
+        it: iterator
+            Iterator yielding (int, int, array) tuples of (start, end, data)
+            data is a structured array.
         """
         fits = self.open_input(tag)
         ext = fits[hdunum]
         n = ext.get_nrows()
-        for start, end in self.data_ranges_by_rank(n, chunk_rows):
+        for start, end in self.data_ranges_by_rank(n, chunk_rows, parallel=True):
             data = ext.read_columns(cols, rows=range(start, end))
             yield start, end, data
 
-    def iterate_hdf(self, tag, group_name, cols, chunk_rows):
+    def iterate_hdf(self, tag, group_name, cols, chunk_rows, parallel=True):
         """
         Loop through chunks of the input data from an HDF5 file with the given tag.
 
         All the selected columns must have the same length.
 
-        TODO: add ceci tests of these functions
+        Parameters
+        ----------
+        tag: str
+            The tag from the inputs list to use
+
+        group: str
+            The group within the HDF5 file to use, looked up as
+            file[group]
+
+        cols: list
+            The columns to read
+
+        chunk_rows: int
+            Number of columns to read and return at once
+
+        parallel: bool
+            Whether to split up data among processes (parallel=True) or give
+            all processes all data (parallel=False).  Default = True.
+
+        Returns
+        -------
+        it: iterator
+            Iterator yielding (int, int, dict) tuples of (start, end, data)
         """
         import numpy as np
 
@@ -788,7 +841,7 @@ I currently know about these stages:
             )
 
         # Iterate through the data providing chunks
-        for start, end in self.data_ranges_by_rank(n, chunk_rows):
+        for start, end in self.data_ranges_by_rank(n, chunk_rows, parallel=parallel):
             data = {col: group[col][start:end] for col in cols}
             yield start, end, data
 
