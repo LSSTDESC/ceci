@@ -2,6 +2,7 @@ from contextlib import contextmanager
 import sys
 import os
 
+
 def add_python_path(path, start):
     # add a path to the env var PYTHONPATH
     old = os.environ.get("PYTHONPATH", "")
@@ -9,7 +10,8 @@ def add_python_path(path, start):
         new = path + ":" + old
     else:
         new = old + ":" + path
-    os.environ['PYTHONPATH'] = new
+    os.environ["PYTHONPATH"] = new
+
 
 def remove_python_path(path, start):
     # remove a path from PYTHONPATH
@@ -19,8 +21,6 @@ def remove_python_path(path, start):
     else:
         remove_last(p, path)
     os.environ["PYTHONPATH"] = ":".join(p)
-
-
 
 
 @contextmanager
@@ -61,6 +61,7 @@ def extra_paths(paths, start=True):
             # skip
             except ValueError:
                 pass
+
 
 def remove_last(lst, item):
     """

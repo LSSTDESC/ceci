@@ -1,7 +1,5 @@
 class Site:
-    """
-
-    """
+    """"""
 
     default_mpi_command = "mpirun -n"
 

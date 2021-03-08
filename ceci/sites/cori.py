@@ -157,7 +157,10 @@ class CoriBatchSite(CoriSite):
             worker_init=f"source {setup_script}",
         )
 
-        executor = IPyParallelExecutor(label="cori-batch", provider=provider,)
+        executor = IPyParallelExecutor(
+            label="cori-batch",
+            provider=provider,
+        )
 
         self.info["executor"] = executor
 

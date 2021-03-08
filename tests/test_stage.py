@@ -3,6 +3,7 @@ from ceci_example.types import HDFFile
 import numpy as np
 from ceci.errors import *
 import pytest
+
 # TODO: test MPI facilities properly with:
 # https://github.com/rmjarvis/TreeCorr/blob/releases/4.1/tests/mock_mpi.py
 
@@ -26,6 +27,7 @@ def test_construct():
         inputs = [("inp1", HDFFile)]
         outputs = []
         config_options = {}
+
         def run(self):
             pass
 
@@ -99,25 +101,30 @@ def test_auto_name():
         inputs = []
         outputs = []
         config_options = {}
+
         def run(self):
             pass
 
     assert Bravo.name == "Bravo"
     assert PipelineStage.get_stage("Bravo") is Bravo
 
+
 def test_duplicate():
     class Charlie(PipelineStage):
         inputs = []
         outputs = []
+
         def run(self):
             pass
 
     assert PipelineStage.get_stage("Charlie") is Charlie
 
     with pytest.raises(DuplicateStageName):
+
         class Charlie(PipelineStage):
             inputs = []
             outputs = []
+
             def run(self):
                 pass
 
@@ -127,6 +134,7 @@ def test_duplicate():
             name = "Charlie"
             inputs = []
             outputs = []
+
             def run(self):
                 pass
 
@@ -135,6 +143,7 @@ def test_duplicate():
         name = "NotCharlie"
         inputs = []
         outputs = []
+
         def run(self):
             pass
 
@@ -142,13 +151,14 @@ def test_duplicate():
     assert PipelineStage.get_stage("NotCharlie") is Charlie
 
 
-
 def test_explicit_config():
     with pytest.raises(ReservedNameError):
+
         class Delta(PipelineStage):
             inputs = [("config", None)]
             outputs = []
             config_options = {}
+
             def run(self):
                 pass
 
@@ -161,6 +171,7 @@ def test_okay_abc_dupe_name():
     class Echo(Echo):
         inputs = []
         outputs = []
+
         def run(self):
             pass
 
@@ -177,26 +188,32 @@ def test_okay_abc_dupe_name2():
     class Foxtrot(FoxtrotBase):
         inputs = []
         outputs = []
+
         def run(self):
             pass
 
     assert Foxtrot.name == "Foxtrot"
     assert PipelineStage.get_stage("Foxtrot") is Foxtrot
 
+
 def test_config_specified():
     # check for incomplete classes
     with pytest.raises(ReservedNameError):
+
         class Golf(PipelineStage):
             config = "golf"
 
     # check for complete classes
     with pytest.raises(ReservedNameError):
+
         class Golf(PipelineStage):
             config = "golf"
             inputs = []
             outputs = []
+
             def run(self):
                 pass
+
 
 def test_unknown_stage():
     with pytest.raises(StageNotFound):
@@ -206,5 +223,5 @@ def test_unknown_stage():
 # could add more tests here for constructor, but the regression tests here and in TXPipe are
 # pretty thorough.
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_construct()

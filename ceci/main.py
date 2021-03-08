@@ -120,7 +120,6 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         "resume": pipe_config["resume"],
     }
 
-
     # Choice of actual pipeline type to run
     if dry_run:
         pipeline_class = pipeline.DryRunPipeline
