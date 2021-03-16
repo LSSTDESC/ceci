@@ -82,3 +82,24 @@ def remove_last(lst, item):
     tmp = lst[::-1]
     tmp.remove(item)
     lst[:] = tmp[::-1]
+
+
+def embolden(text):
+    """
+    Make a string print in bold in a terminal using control codes.
+
+    Note that if this text is read in other applications (not in a shell)
+    then it probably won't work.
+
+
+    Parameters
+    ----------
+    text: str
+        Text to be emboldened
+
+    Returns
+    -------
+    str
+        Emboldened text
+    """
+    return "\033[1m" +  text + "\033[0m"

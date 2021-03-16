@@ -7,6 +7,7 @@ import shutil
 from .stage import PipelineStage
 from . import minirunner
 from .sites import get_default_site
+from .utils import embolden
 
 
 class StageExecutionConfig:
@@ -392,6 +393,8 @@ class DryRunPipeline(Pipeline):
         cmd = self.generate_full_command(
             stage, pipeline_files, outputs, stages_config, run_config
         )
+        if sys.stdout.isatty():
+            cmd = cmd.replace(stage.name, embolden(stage.name))
         run_info.append(cmd)
         return outputs
 
