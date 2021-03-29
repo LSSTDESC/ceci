@@ -145,8 +145,6 @@ def test_dry_run(mocker):
     stdout_mock = mocker.patch("ceci.pipeline.sys.stdout")
     stdout_mock.isatty.return_value = True
 
-    # production code which depends on sys.stdout.isatty() comes here
-
     config = yaml.safe_load(open("tests/test.yml"))
     launcher_config = {"interval": 0.5, "name": "mini"}
 
