@@ -394,7 +394,7 @@ class DryRunPipeline(Pipeline):
             stage, pipeline_files, outputs, stages_config, run_config
         )
 
-        # Replace the first instance of the stage name, with bold
+        # Replace the first instance of the stage name with bold
         # text, but only if we are printing to screen. This helps the
         # eye pick out the stage you want to run.
         if sys.stdout.isatty():
