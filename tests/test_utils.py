@@ -1,5 +1,6 @@
 from ceci.sites.cori import parse_int_set
 from ceci.main import override_config
+from ceci.utils import embolden
 
 
 def test_parse_ints():
@@ -24,3 +25,9 @@ def test_override_config():
     assert config["h"] is False
     assert config["i"] == 9
     assert config["j"] == 19.5
+
+def test_embolden():
+    x = 'hj6_9xx0'
+    y = embolden(x)
+    assert x in embolden(x)
+    assert y[4:-4] == x

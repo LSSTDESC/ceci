@@ -36,6 +36,7 @@ jobs:
     - name: Tests
       run: |
         ceci tests/test.yml
+        ceci --dry-run tests/test.yml
         pytest --cov=ceci
 
     - name: Upload coverage to Codecov
