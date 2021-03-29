@@ -102,4 +102,4 @@ def embolden(text):
     str
         Emboldened text
     """
-    return "\033[1m" +  text + "\033[0m"
+    return "\033[1m" + text + "\033[0m"
