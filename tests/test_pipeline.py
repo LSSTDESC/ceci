@@ -137,8 +137,13 @@ def test_fail():
     _return_value_test_(False)
 
 
-def test_dry_run():
+def test_dry_run(mocker):
     import ceci_example
+
+    # override stdout so that it thinks it's a terminal so
+    # that we can test the emboldening
+    stdout_mock = mocker.patch("ceci.pipeline.sys.stdout")
+    stdout_mock.isatty.return_value = True
 
     config = yaml.safe_load(open("tests/test.yml"))
     launcher_config = {"interval": 0.5, "name": "mini"}
