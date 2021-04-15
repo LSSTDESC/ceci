@@ -1,5 +1,6 @@
 import warnings
 
+
 class Site:
     """"""
 
@@ -23,7 +24,7 @@ class Site:
         for lib in libs:
             try:
                 with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore",category=DeprecationWarning)
+                    warnings.filterwarnings("ignore", category=DeprecationWarning)
                     __import__(lib)
             except ImportError:
                 missing.append(lib)
