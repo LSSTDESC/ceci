@@ -62,8 +62,8 @@ def test_post_script():
 
 
 if __name__ == "__main__":
-    # test_run_dry_run()
-    # test_run_parsl()
-    # test_run_mini()
+    test_run_dry_run()
+    test_run_parsl()
+    test_run_mini()
     test_run_cwl()
-    # test_pre_script()
+    test_pre_script()
