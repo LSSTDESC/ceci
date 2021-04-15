@@ -784,8 +784,7 @@ class CWLPipeline(Pipeline):
         cwl_tool.export(f"{cwl_dir}/{stage.name}.cwl")
 
         # Load that representation again and add it to the pipeline
-        # The inputs and outputs are initially empty, and we will them in 
-        # below
+        # The inputs and outputs are initially empty, and we fill them in below
         step = WorkflowStep(stage.name, [], [], f"{cwl_tool.id}.cwl")
 
         # For CWL these inputs are a mix of file and config inputs,
