@@ -37,7 +37,7 @@ setup(
     install_requires=['pyyaml', 'psutil'],
     extras_require={
       'parsl': ['flask', 'parsl>=1.0.0'],
-      'cwl': ['cwl-utils>=0.4', 'cwlgen'],
+      'cwl': ['cwlgen>=0.4', 'cwltool>=2.0.20200126090152']
       'test': ['pytest', 'codecov', 'pytest-cov'],
       }
 )
