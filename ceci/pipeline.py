@@ -437,7 +437,7 @@ class ParslPipeline(Pipeline):
         inputs.append(File(stages_config))
         # The outputs are just strings.  python dicts are now ordered,
         # so this works okay.
-        outputs = list(self.find_outputs(stage, run_config).values())
+        outputs = [File(f) for f in self.find_outputs(stage, run_config).values()]
 
         # have parsl queue the app
         future = app(inputs=inputs, outputs=outputs)
@@ -445,7 +445,7 @@ class ParslPipeline(Pipeline):
         return {tag: future.outputs[i] for i, tag in enumerate(stage.output_tags())}
 
     def run_jobs(self, run_info, run_config):
-        from parsl.app.errors import AppFailure
+        from parsl.app.errors import BashExitFailure
 
         log_dir = run_config["log_dir"]
         # Wait for the final results, from all files
@@ -454,7 +454,7 @@ class ParslPipeline(Pipeline):
                 # This waits for b/g pipeline completion.
                 future.result()
             # Parsl emits this on any non-zero status code.
-            except AppFailure:
+            except BashExitFailure:
                 stdout_file = f"{log_dir}/{stage_name}.err"
                 stderr_file = f"{log_dir}/{stage_name}.out"
                 sys.stderr.write(
@@ -745,9 +745,11 @@ class CWLPipeline(Pipeline):
             yaml.dump(inputs, f)
 
     def initiate_run(self, stages, overall_inputs, run_config, stages_config):
-        from cwlgen.workflow import Workflow
+        from cwl_utils.parser_v1_0 import Workflow
 
-        wf = Workflow()
+        # Make an empty workflow - inputs, outputs, and steps are all
+        # initially set to empty lists, to be populated later
+        wf = Workflow([], [], [])
 
         cwl_dir = self.launcher_config["dir"]
         os.makedirs(cwl_dir, exist_ok=True)
@@ -770,8 +772,8 @@ class CWLPipeline(Pipeline):
         }
 
     def enqueue_job(self, stage, pipeline_files, stages_config, run_info, run_config):
-        from cwlgen.workflowdeps import WorkflowStep, WorkflowStepInput
-        from cwlgen.workflowdeps import WorkflowOutputParameter, InputParameter
+        from cwl_utils.parser_v1_0 import WorkflowStep, WorkflowStepInput
+        from cwl_utils.parser_v1_0 import WorkflowOutputParameter, InputParameter
 
         cwl_dir = run_info["cwl_dir"]
         workflow = run_info["workflow"]
@@ -782,7 +784,9 @@ class CWLPipeline(Pipeline):
         cwl_tool.export(f"{cwl_dir}/{stage.name}.cwl")
 
         # Load that representation again and add it to the pipeline
-        step = WorkflowStep(stage.name, run=f"{cwl_tool.id}.cwl")
+        # The inputs and outputs are initially empty, and we will them in 
+        # below
+        step = WorkflowStep(stage.name, [], [], f"{cwl_tool.id}.cwl")
 
         # For CWL these inputs are a mix of file and config inputs,
         # so not he same as the pipeline_files we usually see
@@ -810,7 +814,7 @@ class CWLPipeline(Pipeline):
                 # These are the overall inputs to the enture pipeline.
                 # Convert them to CWL input parameters
                 cwl_inp = InputParameter(
-                    name, label=inp.label, param_type=inp.type, param_format=inp.format
+                    name, label=inp.label, type=inp.type, format=inp.format
                 )
                 cwl_inp.default = inp.default
 
@@ -822,7 +826,7 @@ class CWLPipeline(Pipeline):
                 workflow.inputs.append(cwl_inp)
 
             # Record that thisis an input to the step.
-            step.inputs.append(WorkflowStepInput(input_id=inp.id, source=name))
+            step.in_.append(WorkflowStepInput(id=inp.id, source=name))
 
         # Also record that we want all the pipeline outputs
         for tag, ftype in stage.outputs:
@@ -833,18 +837,17 @@ class CWLPipeline(Pipeline):
             cwl_out = WorkflowOutputParameter(
                 tag,
                 f"{step.id}/{tag}",
-                label=tag,
-                param_type="File",
-                param_format=ftype.__name__,
+                type="File",
+                format=ftype.__name__,
             )
             workflow.outputs.append(cwl_out)
 
         # Also capture stdout and stderr as outputs
         cwl_out = WorkflowOutputParameter(
             f"{step.id}@stdout",
-            output_source=f"{step.id}/{step.id}@stdout",
+            outputSource=f"{step.id}/{step.id}@stdout",
             label="stdout",
-            param_type="File",
+            type="File",
         )
         step.out.append(f"{step.id}@stdout")
         workflow.outputs.append(cwl_out)
@@ -852,8 +855,7 @@ class CWLPipeline(Pipeline):
         cwl_out = WorkflowOutputParameter(
             f"{step.id}@stderr",
             f"{step.id}/{step.id}@stderr",
-            label="stderr",
-            param_type="File",
+            type="File",
         )
         step.out.append(f"{step.id}@stderr")
         workflow.outputs.append(cwl_out)
@@ -871,7 +873,7 @@ class CWLPipeline(Pipeline):
         output_dir = run_config["output_dir"]
         log_dir = run_config["log_dir"]
         inputs_file = run_info["inputs_file"]
-        workflow.export(f"{cwl_dir}/pipeline.cwl")
+        workflow.save(f"{cwl_dir}/pipeline.cwl")
 
         # If 'launcher' is defined, use that
         launcher = self.launcher_config.get(

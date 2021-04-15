@@ -36,8 +36,8 @@ setup(
     setup_requires=["setuptools_scm"],
     install_requires=['pyyaml', 'psutil'],
     extras_require={
-      'parsl': ['flask', 'parsl==0.8.0'],
-      'cwl': ['cwlgen==0.4', 'cwltool==2.0.20200126090152'],
+      'parsl': ['flask', 'parsl>=1.0.0'],
+      'cwl': ['cwl-utils>=0.4'],
       'test': ['pytest', 'codecov', 'pytest-cov'],
       }
 )
