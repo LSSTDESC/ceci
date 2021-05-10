@@ -14,7 +14,8 @@ def test_monitor_report(capsys):
     lines = [line for line in captured.out.split("\n") if line.startswith("MemoryMonitor Time")]
     assert len(lines) >= 3
 
-    # check that 
+    # check that memory usage is large enough
     gb1 = float(lines[0].split()[5])
     gb2 = float(lines[-1].split()[5])
-    assert gb2 - gb1 >= x.nbytes / 1e9 / 1.01 # avoid edge case
+    # avoid a rounding error by removing an extra 1%
+    assert gb2 - gb1 >= x.nbytes / 1.01e9
