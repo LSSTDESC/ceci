@@ -43,7 +43,7 @@ class MemoryMonitor:
             The monitor, already running in its own thread
         """
         monitor = cls(*args, **kwargs)
-        thread = threading.Thread(target=monitor.run)
+        thread = threading.Thread(target=monitor._run)
         thread.start()
         return monitor
 
@@ -97,5 +97,5 @@ class MemoryMonitor:
         while threading.main_thread().is_alive():
             if not self.should_continue:
                 break
-            self.log(p)
+            self.log(self.process)
             time.sleep(self.interval)
