@@ -302,8 +302,7 @@ I currently know about these stages:
         return 0
 
     @classmethod
-    def _parse_command_line(cls):
-        cmd = " ".join(sys.argv[:])
+    def _parse_command_line(cls, cmd=None):
         import argparse
 
         parser = argparse.ArgumentParser(description=f"Run pipeline stage {cls.name}")
@@ -314,6 +313,7 @@ I currently know about these stages:
 
             if opt_type == bool:
                 parser.add_argument(f"--{conf}", action="store_const", const=True)
+                parser.add_argument(f"--no-{conf}", dest=conf, action="store_const", const=False)
             elif opt_type == list:
                 out_type = def_val[0] if type(def_val[0]) == type else type(def_val[0])
                 if out_type is str:
@@ -356,7 +356,11 @@ I currently know about these stages:
             type=str,
             help="Profile the stage using the python cProfile tool",
         )
-        args = parser.parse_args()
+
+        if cmd is None:
+            args = parser.parse_args()
+        else:
+            args = parser.parse_args(cmd)
         return args
 
     @classmethod
