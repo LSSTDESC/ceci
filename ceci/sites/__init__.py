@@ -1,5 +1,6 @@
 from .cori import CoriBatchSite, CoriInteractiveSite
 from .local import LocalSite, Site
+from .ccin2p3 import CCParallel
 import os
 
 
@@ -8,6 +9,7 @@ site_classes = {
     "local": LocalSite,
     "cori-interactive": CoriInteractiveSite,
     "cori-batch": CoriBatchSite,
+    "cc-parallel:": CCParallel,
 }
 
 
