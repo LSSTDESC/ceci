@@ -9,7 +9,7 @@ site_classes = {
     "local": LocalSite,
     "cori-interactive": CoriInteractiveSite,
     "cori-batch": CoriBatchSite,
-    "cc-parallel:": CCParallel,
+    "cc-parallel": CCParallel,
 }
 
 
@@ -74,7 +74,7 @@ def load(launcher_config, site_configs):
         try:
             cls = site_classes[site_name]
         except KeyError:
-            raise ValueError(f"Unknown site {name}")
+            raise ValueError(f"Unknown site {site_name}")
 
         site = cls(site_config)
         site.configure_for_launcher(launcher_name)
