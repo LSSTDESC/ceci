@@ -1,3 +1,6 @@
+import warnings
+
+
 class Site:
     """"""
 
@@ -20,7 +23,9 @@ class Site:
         libs = requirements[launcher]
         for lib in libs:
             try:
-                __import__(lib)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=DeprecationWarning)
+                    __import__(lib)
             except ImportError:
                 missing.append(lib)
         if missing:
