@@ -5,6 +5,7 @@ import shutil
 import cProfile
 
 from .errors import *
+from .monitor import MemoryMonitor
 
 SERIAL = "serial"
 MPI_PARALLEL = "mpi"
@@ -356,11 +357,18 @@ I currently know about these stages:
             type=str,
             help="Profile the stage using the python cProfile tool",
         )
+        parser.add_argument(
+            "--memmon",
+            type=int,
+            default=0,
+            help="Report memory use. Argument gives interval in seconds between reports",
+        )
 
         if cmd is None:
             args = parser.parse_args()
         else:
             args = parser.parse_args(cmd)
+
         return args
 
     @classmethod
@@ -387,6 +395,9 @@ I currently know about these stages:
             profile = cProfile.Profile()
             profile.enable()
 
+        if args.memmon:
+            monitor = MemoryMonitor(interval=args.memmon)
+
         try:
             stage.run()
         except Exception as error:
@@ -398,6 +409,12 @@ I currently know about these stages:
                 pdb.post_mortem()
             else:
                 raise
+        finally:
+            if args.memmon:
+                monitor.stop()
+
+        # The default finalization renames any output files to their
+        # final location, but subclasses can override to do other things too
         try:
             stage.finalize()
         except Exception as error:

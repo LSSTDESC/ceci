@@ -437,7 +437,7 @@ class ParslPipeline(Pipeline):
         inputs.append(File(stages_config))
         # The outputs are just strings.  python dicts are now ordered,
         # so this works okay.
-        outputs = list(self.find_outputs(stage, run_config).values())
+        outputs = [File(f) for f in self.find_outputs(stage, run_config).values()]
 
         # have parsl queue the app
         future = app(inputs=inputs, outputs=outputs)
@@ -445,7 +445,7 @@ class ParslPipeline(Pipeline):
         return {tag: future.outputs[i] for i, tag in enumerate(stage.output_tags())}
 
     def run_jobs(self, run_info, run_config):
-        from parsl.app.errors import AppFailure
+        from parsl.app.errors import BashExitFailure
 
         log_dir = run_config["log_dir"]
         # Wait for the final results, from all files
@@ -454,7 +454,7 @@ class ParslPipeline(Pipeline):
                 # This waits for b/g pipeline completion.
                 future.result()
             # Parsl emits this on any non-zero status code.
-            except AppFailure:
+            except BashExitFailure:
                 stdout_file = f"{log_dir}/{stage_name}.err"
                 stderr_file = f"{log_dir}/{stage_name}.out"
                 sys.stderr.write(
