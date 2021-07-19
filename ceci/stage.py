@@ -396,7 +396,7 @@ I currently know about these stages:
             profile.enable()
 
         if args.memmon:
-            monitor = MemoryMonitor(interval=args.memmon)
+            monitor = MemoryMonitor.start_in_thread(interval=args.memmon)
 
         try:
             stage.run()
