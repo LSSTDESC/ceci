@@ -9,6 +9,7 @@ from .monitor import MemoryMonitor
 
 SERIAL = "serial"
 MPI_PARALLEL = "mpi"
+DASK_PARALLEL = "dask"
 
 IN_PROGRESS_PREFIX = "inprogress_"
 
@@ -29,6 +30,7 @@ class PipelineStage:
     """
 
     parallel = True
+    dask_parallel = False
     config_options = {}
     doc = ""
 
@@ -140,6 +142,12 @@ Missing these names on the command line:
             self._comm = None
             self._size = 1
             self._rank = 0
+
+        # If we are running under MPI but this subclass has enabled dask
+        # then we note that here. It stops various MPI-specific things happening
+        # later
+        if (self._parallel == MPI_PARALLEL) and self.dask_parallel:
+            self._parallel = DASK_PARALLEL
 
     pipeline_stages = {}
     incomplete_pipeline_stages = {}
@@ -386,10 +394,17 @@ I currently know about these stages:
         """
         import pdb
 
+        # Create the stage instance.  Running under dask this only
+        # actually needs to happen for one process, but it's not a major
+        # overhead and lets us do a whole bunch of other setup above
         stage = cls(args)
 
+        # This happens before dask is initialized
         if stage.rank == 0:
             print(f"Executing stage: {cls.name}")
+
+        if stage.is_dask():
+            stage.start_dask()
 
         if args.cprofile:
             profile = cProfile.Profile()
@@ -431,7 +446,7 @@ I currently know about these stages:
             profile.dump_stats(args.cprofile)
             profile.print_stats("cumtime")
 
-        if stage.rank == 0:
+        if stage.rank == 0 or stage.is_dask():
             print(f"Stage complete: {cls.name}")
 
     def finalize(self):
@@ -441,8 +456,9 @@ I currently know about these stages:
             self.comm.Barrier()
 
         # Move files to their final path
-        # only the master process moves things
-        if self.rank == 0:
+        # Only the root process moves things, except under dask only the root
+        # process should get to this point
+        if (self.rank == 0) or self.is_dask():
             for tag in self.output_tags():
                 # find the old and new names
                 temp_name = self.get_output(tag)
@@ -463,7 +479,6 @@ I currently know about these stages:
     #############################################
     # Parallelism-related methods and properties.
     #############################################
-
     @property
     def rank(self):
         """The rank of this process under MPI (0 if not running under MPI)"""
@@ -493,6 +508,47 @@ I currently know about these stages:
         Returns True if the stage is being run under MPI.
         """
         return self._parallel == MPI_PARALLEL
+
+    def is_dask(self):
+        """
+        Returns True if the stage is being run in parallel with Dask.
+        """
+        return self._parallel == DASK_PARALLEL
+
+    def start_dask(self):
+        """
+        Prepare dask to run under MPI. After calling this method
+        only a single process, MPI rank 1 will continue to exeute code
+        """
+
+        # using the programmatic dask configuration system
+        # does not seem to work. Presumably the loggers have already
+        # been created by the time we modify the config. Doing it with
+        # env vars seems to work. If the user has already set this then
+        # we use that value. Otherwise we only want error logs
+        import os
+        key = 'DASK_LOGGING__DISTRIBUTED'
+        os.environ[key] = os.environ.get(key, 'error')
+
+        import dask
+        import dask_mpi
+        import dask.distributed
+        # Cannot specify non-COMM_WORLD communicator here. It wouldn't work anyway.
+        # If we want to be able to run things under dask in a library mode
+        # while keeping the same MPI comm then we would need to modify the
+        # dask_mpi library, which currently also calls sys.exit on all but
+        # one of the processes once it's complete, and awaits exit on the
+        # other one.
+        # After this point only a single process, MPI rank 1,
+        # will continue to exeute code. The others enter an event
+        # loop and run sys.exit at the end of it.
+        dask_mpi.initialize()
+
+        # Connect this local process to remote workers
+        self.dask_client = dask.distributed.Client()
+        print(f"Started dask. Diagnostics at {self.dask_client.dashboard_link}")
+
+
 
     def split_tasks_by_rank(self, tasks):
         """Iterate through a list of items, yielding ones this process is responsible for/
