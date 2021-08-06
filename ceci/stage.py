@@ -532,15 +532,18 @@ I currently know about these stages:
         # env vars seems to work. If the user has already set this then
         # we use that value. Otherwise we only want error logs
         import os
-        key = 'DASK_LOGGING__DISTRIBUTED'
-        os.environ[key] = os.environ.get(key, 'error')
+
+        key = "DASK_LOGGING__DISTRIBUTED"
+        os.environ[key] = os.environ.get(key, "error")
         try:
             import dask
             import dask_mpi
             import dask.distributed
         except ImportError:
-            print("ERROR: Using --mpi option on stages that use dask requires "
-                  "dask[distributed] and dask_mpi to be installed.")
+            print(
+                "ERROR: Using --mpi option on stages that use dask requires "
+                "dask[distributed] and dask_mpi to be installed."
+            )
             raise
 
         # Cannot specify non-COMM_WORLD communicator here. It wouldn't work anyway.
@@ -558,8 +561,6 @@ I currently know about these stages:
         # I don't yet know how to see this dashboard link at nersc
         self.dask_client = dask.distributed.Client()
         print(f"Started dask. Diagnostics at {self.dask_client.dashboard_link}")
-
-
 
     def split_tasks_by_rank(self, tasks):
         """Iterate through a list of items, yielding ones this process is responsible for/
