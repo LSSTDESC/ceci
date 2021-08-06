@@ -30,7 +30,7 @@ jobs:
 
     - name: Install
       run: |
-        pip install --upgrade pytest pytest-mock codecov pytest-cov h5py pyyaml
+        pip install --upgrade pytest pytest-mock codecov pytest-cov h5py pyyaml mockmpi
         pip install git+https://github.com/joezuntz/dask-mpi
         pip install .[test,cwl,parsl]
 
