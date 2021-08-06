@@ -559,21 +559,19 @@ I currently know about these stages:
                 "as worker processes."
             )
 
-        # Cannot specify non-COMM_WORLD communicator here. It wouldn't work anyway.
-        # If we want to be able to run things under dask in a library mode
-        # while keeping the same MPI comm then we would need to modify the
-        # dask_mpi library, which currently also calls sys.exit on all but
-        # one of the processes once it's complete, and awaits exit on the
-        # other one.
+        # This requires my fork until/unless they merge the PR, to allow
+        # us to pass in these two arguents. In vanilla dask-mpi sys.exit
+        # is called at the end of the event loop without returning to us.
         # After this point only a single process, MPI rank 1,
-        # will continue to exeute code. The others enter an event
-        # loop and run sys.exit at the end of it.
+        # should continue to exeute code. The others enter an event
+        # loop and return with is_client=False, which we return here
+        # to tell the caller that they should not run everything.
         is_client = dask_mpi.initialize(comm=self.comm, exit=False)
 
         if is_client:
             # Connect this local process to remote workers.
-            # I don't yet know how to see this dashboard link at nersc
             self.dask_client = dask.distributed.Client()
+            # I don't yet know how to see this dashboard link at nersc
             print(f"Started dask. Diagnostics at {self.dask_client.dashboard_link}")
 
         return is_client
