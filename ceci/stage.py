@@ -380,7 +380,7 @@ I currently know about these stages:
         return args
 
     @classmethod
-    def execute(cls, args):
+    def execute(cls, args, comm=None):
         """
         Create an instance of this stage and run it
         with the specified inputs and outputs.
@@ -397,14 +397,18 @@ I currently know about these stages:
         # Create the stage instance.  Running under dask this only
         # actually needs to happen for one process, but it's not a major
         # overhead and lets us do a whole bunch of other setup above
-        stage = cls(args)
+        stage = cls(args, comm=comm)
 
         # This happens before dask is initialized
         if stage.rank == 0:
             print(f"Executing stage: {cls.name}")
 
         if stage.is_dask():
-            stage.start_dask()
+            is_client = stage.start_dask()
+            # worker and scheduler stages do not execute the
+            # run method under dask
+            if not is_client:
+                return
 
         if args.cprofile:
             profile = cProfile.Profile()
@@ -427,6 +431,8 @@ I currently know about these stages:
         finally:
             if args.memmon:
                 monitor.stop()
+            if stage.is_dask():
+                stage.stop_dask()
 
         # The default finalization renames any output files to their
         # final location, but subclasses can override to do other things too
@@ -562,12 +568,22 @@ I currently know about these stages:
         # After this point only a single process, MPI rank 1,
         # will continue to exeute code. The others enter an event
         # loop and run sys.exit at the end of it.
-        dask_mpi.initialize()
+        is_client = dask_mpi.initialize(comm=self.comm, exit=False)
 
-        # Connect this local process to remote workers.
-        # I don't yet know how to see this dashboard link at nersc
-        self.dask_client = dask.distributed.Client()
-        print(f"Started dask. Diagnostics at {self.dask_client.dashboard_link}")
+        if is_client:
+            # Connect this local process to remote workers.
+            # I don't yet know how to see this dashboard link at nersc
+            self.dask_client = dask.distributed.Client()
+            print(f"Started dask. Diagnostics at {self.dask_client.dashboard_link}")
+
+        return is_client
+
+    def stop_dask(self):
+        """
+        End the dask event loop
+        """
+        from dask_mpi import send_close_signal
+        send_close_signal()
 
     def split_tasks_by_rank(self, tasks):
         """Iterate through a list of items, yielding ones this process is responsible for/
