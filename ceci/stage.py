@@ -546,6 +546,13 @@ I currently know about these stages:
             )
             raise
 
+        if self.size < 3:
+            raise ValueError(
+                "Dask requires at least three processes. One becomes a scheduler "
+                "process, one is a client that runs the code, and more are required "
+                "as worker processes."
+            )
+
         # Cannot specify non-COMM_WORLD communicator here. It wouldn't work anyway.
         # If we want to be able to run things under dask in a library mode
         # while keeping the same MPI comm then we would need to modify the
