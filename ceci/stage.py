@@ -560,7 +560,7 @@ I currently know about these stages:
             )
 
         # This requires my fork until/unless they merge the PR, to allow
-        # us to pass in these two arguents. In vanilla dask-mpi sys.exit
+        # us to pass in these two arguments. In vanilla dask-mpi sys.exit
         # is called at the end of the event loop without returning to us.
         # After this point only a single process, MPI rank 1,
         # should continue to exeute code. The others enter an event
