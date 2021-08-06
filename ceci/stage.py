@@ -446,6 +446,10 @@ I currently know about these stages:
             profile.dump_stats(args.cprofile)
             profile.print_stats("cumtime")
 
+        # Under dask the
+        # the root process has gone off to become the scheduler,
+        # and process 1 becomes the client which runs this code
+        # and gets to this point
         if stage.rank == 0 or stage.is_dask():
             print(f"Stage complete: {cls.name}")
 
@@ -456,8 +460,9 @@ I currently know about these stages:
             self.comm.Barrier()
 
         # Move files to their final path
-        # Only the root process moves things, except under dask only the root
-        # process should get to this point
+        # Only the root process moves things, except under dask it is
+        # process 1, which is the only process that reaches this point
+        # (as noted above)
         if (self.rank == 0) or self.is_dask():
             for tag in self.output_tags():
                 # find the old and new names
@@ -529,10 +534,15 @@ I currently know about these stages:
         import os
         key = 'DASK_LOGGING__DISTRIBUTED'
         os.environ[key] = os.environ.get(key, 'error')
+        try:
+            import dask
+            import dask_mpi
+            import dask.distributed
+        except ImportError:
+            print("ERROR: Using --mpi option on stages that use dask requires "
+                  "dask[distributed] and dask_mpi to be installed.")
+            raise
 
-        import dask
-        import dask_mpi
-        import dask.distributed
         # Cannot specify non-COMM_WORLD communicator here. It wouldn't work anyway.
         # If we want to be able to run things under dask in a library mode
         # while keeping the same MPI comm then we would need to modify the
@@ -544,7 +554,8 @@ I currently know about these stages:
         # loop and run sys.exit at the end of it.
         dask_mpi.initialize()
 
-        # Connect this local process to remote workers
+        # Connect this local process to remote workers.
+        # I don't yet know how to see this dashboard link at nersc
         self.dask_client = dask.distributed.Client()
         print(f"Started dask. Diagnostics at {self.dask_client.dashboard_link}")
 
