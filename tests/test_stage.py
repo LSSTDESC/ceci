@@ -79,11 +79,29 @@ def test_construct():
 
     r = list(s.iterate_hdf("inp1", "group1", ["x", "y", "z"], 10, parallel=False))
     for ri in r:
-        s, e, ri = ri
-        assert len(ri["x"] == 10)
+        st, e, ri = ri
+        assert len(ri["x"]) == 10
     assert np.all(r[4][2]["z"] == [-80, -82, -84, -86, -88, -90, -92, -94, -96, -98])
 
-    # I'd rather not attempt to unit test MPI stuff - that sounds very unreliable
+
+    s = TestStage({"config": "tests/config.yml", "inp1": "tests/test.hdf5"})
+    r = list(s.iterate_hdf("inp1", "group1", ["w", "x", "y", "z"], 10, longest=True))
+    for i, ri in enumerate(r):
+        st, e, ri = ri
+        if i < 10:
+            assert len(ri["x"]) == 10
+            assert np.allclose(ri["x"], np.arange(10*i, 10*(i+1)))
+            assert np.allclose(ri["w"], np.arange(10*i, 10*(i+1)))
+        else:
+            assert len(ri["x"]) == 0
+            assert len(ri["w"]) == 10
+            assert np.allclose(ri["w"], np.arange(10*i, 10*(i+1)))
+
+    # check error message is raise appropriately if longest is not specified
+    s = TestStage({"config": "tests/config.yml", "inp1": "tests/test.hdf5"})
+    with pytest.raises(ValueError):
+        r = list(s.iterate_hdf("inp1", "group1", ["w", "x", "y", "z"], 10, longest=False))
+
 
 
 def test_incomplete():

@@ -909,7 +909,9 @@ I currently know about these stages:
             data = ext.read_columns(cols, rows=range(start, end))
             yield start, end, data
 
-    def iterate_hdf(self, tag, group_name, cols, chunk_rows, parallel=True):
+    def iterate_hdf(
+        self, tag, group_name, cols, chunk_rows, parallel=True, longest=False
+    ):
         """
         Loop through chunks of the input data from an HDF5 file with the given tag.
 
@@ -934,6 +936,11 @@ I currently know about these stages:
             Whether to split up data among processes (parallel=True) or give
             all processes all data (parallel=False).  Default = True.
 
+        longest: bool
+            Whether to allow mixed length arrays and keep going until the longest
+            array is completed, returning empty arrays for shorter ones
+
+
         Returns
         -------
         it: iterator
@@ -946,12 +953,13 @@ I currently know about these stages:
 
         # Check all the columns are the same length
         N = [len(group[col]) for col in cols]
-        n = N[0]
-        if not np.equal(N, n).all():
-            raise ValueError(
-                f"Different columns among {cols} in file {tag}\
-            group {group_name} are different sizes - cannot use iterate_hdf"
-            )
+        n = max(N)
+        if not longest:
+            if not np.equal(N, n).all():
+                raise ValueError(
+                    f"Different columns among {cols} in file {tag} group {group_name}"
+                    "are different sizes - if this is acceptable set longest=True"
+                )
 
         # Iterate through the data providing chunks
         for start, end in self.data_ranges_by_rank(n, chunk_rows, parallel=parallel):
