@@ -196,7 +196,7 @@ class Pipeline:
 
     def print_stages(self, stream=sys.stdout):
         for stage in self.stages:
-            stream.write(f"{stage.name:020}: {str(stage)}")
+            stream.write(f"{stage.name:20}: {str(stage)}")
             stream.write("\n")
 
     @staticmethod

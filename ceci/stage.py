@@ -895,14 +895,14 @@ I currently know about these stages:
                 opt_type = opt_val
 
             elif isinstance(opt_val, list):
-                v = opt_val[x][0]
+                v = opt_val[0]
                 if isinstance(v, type):
                     opt_type = v
                 else:
-                    opt = opt_val[x]
+                    opt = opt_val
                     opt_type = type(v)
             else:
-                opt = opt_val[x]
+                opt = opt_val
                 opt_type = type(opt)
 
             # Second, look for the option in the configuration file and override
@@ -947,10 +947,10 @@ I currently know about these stages:
     def print_io(self, stream=sys.stdout):
         stream.write("Inputs--------\n")
         for tag, ftype in self.inputs:
-            stream.write(f"{tag:020} : {ftype:020} : {self._inputs[tag]}\n")
+            stream.write(f"{tag:20} : {str(ftype):20} : {self._inputs[tag]}\n")
         stream.write("Outputs--------\n")
         for tag, ftype in self.outputs:
-            stream.write(f"{tag:020} : {ftype:020} : {self._outputs[tag]}\n")
+            stream.write(f"{tag:20} : {str(ftype):20} : {self._outputs[tag]}\n")
 
     def should_skip(self, run_config):
         outputs = self.find_outputs(run_config["output_dir"]).values()
