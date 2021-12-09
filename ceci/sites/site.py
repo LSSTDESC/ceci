@@ -11,7 +11,7 @@ class Site:
         self.info = {}
         self.config = config
 
-    def check_import(self, launcher):
+    def check_import(self, launcher): #pylint: disable=no-self-use
         requirements = {
             "parsl": ["parsl"],
             "cwl": ["cwlgen", "cwltool"],

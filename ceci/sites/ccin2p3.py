@@ -1,12 +1,11 @@
 from .site import Site
 import os
-import socket
 from ..minirunner import Node
 
 
 class CCParallel(Site):
     """Object representing execution in the local environment, e.g. a laptop."""
-    
+
     def command(self, cmd, sec):
         """Generate a complete command line to be run with the specified execution variables.
 
@@ -55,24 +54,23 @@ class CCParallel(Site):
                 f"{cmd} {mpi2} "
                 f"{bash_end}"
             )
-        else:
-            # In the non-container case this is much easier
-            paths_env = (
-                "PYTHONPATH=" + (":".join(paths)) + ":$PYTHONPATH" if paths else ""
-            )
-            return (
-                f"OMP_NUM_THREADS={sec.threads_per_process} "
-                f"{paths_env} "
-                f"{mpi1} "
-                f"{cmd} {mpi2}"
-            )
 
-    def configure_for_parsl(self):
+        # In the non-container case this is much easier
+        paths_env = (
+            "PYTHONPATH=" + (":".join(paths)) + ":$PYTHONPATH" if paths else ""
+        )
+        return (
+            f"OMP_NUM_THREADS={sec.threads_per_process} "
+            f"{paths_env} "
+            f"{mpi1} "
+            f"{cmd} {mpi2}"
+        )
+
+    def configure_for_parsl(self):  #pylint: disable=no-self-use
         raise ValueError("Parsl not configured for CC IN2P3 in ceci yet")
 
 
     def configure_for_mini(self):
-        import psutil
 
         total_cores = int(os.environ['NSLOTS'])
         cores_per_node = 16  # seems to be the case

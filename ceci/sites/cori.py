@@ -69,17 +69,16 @@ class CoriSite(Site):
                 f"{cmd} {mpi2} "
                 f"{paths_end} "
             )
-        else:
-            paths_env = (
-                ("PYTHONPATH=" + (":".join(paths)) + ":$PYTHONPATH") if paths else ""
-            )
-            return (
-                # In the non-container case this is much easier
-                f"OMP_NUM_THREADS={sec.threads_per_process} "
-                f"{paths_env} "
-                f"{mpi1} "
-                f"{cmd} {mpi2}"
-            )
+        paths_env = (
+            ("PYTHONPATH=" + (":".join(paths)) + ":$PYTHONPATH") if paths else ""
+        )
+        return (
+            # In the non-container case this is much easier
+            f"OMP_NUM_THREADS={sec.threads_per_process} "
+            f"{paths_env} "
+            f"{mpi1} "
+            f"{cmd} {mpi2}"
+        )
 
     def configure_for_mini(self):
         # if on local machine, query available cores and mem, make one node
@@ -157,7 +156,7 @@ class CoriBatchSite(CoriSite):
             worker_init=f"source {setup_script}",
         )
 
-        executor = IPyParallelExecutor(
+        executor = IPyParallelExecutor( #pylint: disable=abstract-class-instantiated
             label="cori-batch",
             provider=provider,
         )
@@ -184,7 +183,7 @@ def parse_int_set(nputstr):
         try:
             # typically tokens are plain old integers
             selection.add(int(i))
-        except:
+        except: #pylint: disable=bare-except
             # if not, then it might be a range
             try:
                 token = [int(k.strip()) for k in i.split("-")]
@@ -196,7 +195,7 @@ def parse_int_set(nputstr):
                     last = token[len(token) - 1]
                     for x in range(first, last + 1):
                         selection.add(x)
-            except:
+            except: #pylint: disable=bare-except
                 # not an int and not a range...
                 invalid.add(i)
     # Report invalid tokens before returning valid selection

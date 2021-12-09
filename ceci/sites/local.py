@@ -1,5 +1,4 @@
 from .site import Site
-import os
 import socket
 from ..minirunner import Node
 
@@ -54,24 +53,23 @@ class LocalSite(Site):
                 f"{cmd} {mpi2} "
                 f"{paths_end}"
             )
-        else:
-            # In the non-container case this is much easier
-            paths_env = (
-                "PYTHONPATH=" + (":".join(paths)) + ":$PYTHONPATH" if paths else ""
-            )
-            return (
-                f"OMP_NUM_THREADS={sec.threads_per_process} "
-                f"{paths_env} "
-                f"{mpi1} "
-                f"{cmd} {mpi2}"
-            )
+        # In the non-container case this is much easier
+        paths_env = (
+            "PYTHONPATH=" + (":".join(paths)) + ":$PYTHONPATH" if paths else ""
+        )
+        return (
+            f"OMP_NUM_THREADS={sec.threads_per_process} "
+            f"{paths_env} "
+            f"{mpi1} "
+            f"{cmd} {mpi2}"
+        )
 
     def configure_for_parsl(self):
         from parsl.executors import ThreadPoolExecutor
 
         max_threads = self.config.get("max_threads", 4)
         executor = ThreadPoolExecutor(label="local", max_threads=max_threads)
-        executors = [executor]
+        #executors = [executor]
 
         self.info["executor"] = executor
 
