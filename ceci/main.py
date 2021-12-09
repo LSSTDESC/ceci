@@ -1,5 +1,4 @@
 import os
-import yaml
 import sys
 import argparse
 import subprocess

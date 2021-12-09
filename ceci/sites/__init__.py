@@ -73,8 +73,8 @@ def load(launcher_config, site_configs):
 
         try:
             cls = site_classes[site_name]
-        except KeyError:
-            raise ValueError(f"Unknown site {site_name}")
+        except KeyError as msg:
+            raise ValueError(f"Unknown site {site_name}") from msg
 
         site = cls(site_config)
         site.configure_for_launcher(launcher_name)

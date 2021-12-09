@@ -122,8 +122,8 @@ class PipelineStage:
         for x in self.input_tags():
             try:
                 val = args[x]
-            except KeyError:
-                raise ValueError("%s missing from %s" % (x, list(args.keys())))
+            except KeyError as msg:
+                raise ValueError(f"{x} missing from {list(args.keys())}") from msg
             if val is None:
                 missing_inputs.append(f"--{x}")
         if missing_inputs:
@@ -220,7 +220,7 @@ Missing these names on the command line:
         filename = sys.modules[cls.__module__].__file__
 
         stage_is_complete = (
-            hasattr(cls, 'inputs') and hasattr(cls, 'outputs') and not getattr(cls.run, '__isabstractmethod__', False)             
+            hasattr(cls, 'inputs') and hasattr(cls, 'outputs') and not getattr(cls.run, '__isabstractmethod__', False)
         )
 
         # If there isn't an explicit name already then set it here.
@@ -373,8 +373,7 @@ I currently know about these stages:
 
         parser = argparse.ArgumentParser(description=f"Run pipeline stage {cls.name}")
         parser.add_argument("stage_name")
-        for conf in cls.config_options:
-            def_val = cls.config_options[conf]
+        for conf, def_val in cls.config_options.items():
             opt_type = def_val if isinstance(def_val, type) else type(def_val)
 
             if opt_type == bool:
@@ -864,8 +863,9 @@ I currently know about these stages:
         # This is all the config information in the file, including
         # things for other stages
         if config_file is not None:
-            overall_config = yaml.safe_load(open(config_file))
-        else:                                            
+            with open(config_file) as _config_file:
+                overall_config = yaml.safe_load(_config_file)
+        else:
             overall_config = {}
 
         # The user can define global options that are inherited by
@@ -883,7 +883,7 @@ I currently know about these stages:
         my_config = {}
 
         # Loop over the options of the pipeline stage
-        for x in self.config_options:
+        for x, opt_val in self.config_options.items():
             opt = None
             opt_type = None
 
@@ -891,31 +891,25 @@ I currently know about these stages:
             # if a type (like int) is provided as the default it indicates that
             # this option doesn't have a default (i.e. is mandatory) and should
             # be explicitly provided with the specified type
-            if isinstance(self.config_options[x], type):
-                opt_type = self.config_options[x]
+            if isinstance(opt_val, type):
+                opt_type = opt_val
 
-            elif isinstance(self.config_options[x], list):
-                v = self.config_options[x][0]
+            elif isinstance(opt_val, list):
+                v = opt_val[x][0]
                 if isinstance(v, type):
                     opt_type = v
                 else:
-                    opt = self.config_options[x]
+                    opt = opt_val[x]
                     opt_type = type(v)
             else:
-                opt = self.config_options[x]
+                opt = opt_val[x]
                 opt_type = type(opt)
 
             # Second, look for the option in the configuration file and override
             # default if provided TODO: Check types
             if x in input_config:
                 opt = input_config[x]
-#                if isinstance(opt, list):
-#                    if not isinstance(opt[0], opt_type):
-#                        raise TypeError("%s is of type %s, should be type %s" %
-#                                        (opt[0], type(opt[0]), opt_type))                
-#                elif not isinstance(opt, opt_type):
-#                    raise TypeError("%s is of type %s, should be type %s" %
-#                                    (opt, type(opt), opt_type))
+                _ = opt_type #  This is just to get pylint to shut up
 
             # Finally check for command line option that would override the value
             # in the configuration file. Note that the argument parser should
@@ -953,11 +947,11 @@ I currently know about these stages:
     def print_io(self, stream=sys.stdout):
         stream.write("Inputs--------\n")
         for tag, ftype in self.inputs:
-            stream.write("%020s: %020s: %s\n" % (tag, ftype, self._inputs[tag]))
+            stream.write(f"{tag:020} : {ftype:020} : {self._inputs[tag]}\n")
         stream.write("Outputs--------\n")
         for tag, ftype in self.outputs:
-            stream.write("%020s: %020s: %s\n" % (tag, ftype, self._outputs[tag]))            
-    
+            stream.write(f"{tag:020} : {ftype:020} : {self._outputs[tag]}\n")
+
     def should_skip(self, run_config):
         outputs = self.find_outputs(run_config["output_dir"]).values()
         already_run_stage = all(os.path.exists(output) for output in outputs)
@@ -1126,8 +1120,7 @@ I currently know about these stages:
 
         type_dict = {int: "int", float: "float", str: "string", bool: "boolean"}
         # Adds the parameters of the tool
-        for opt in cls.config_options:
-            def_val = cls.config_options[opt]
+        for opt, def_val in cls.config_options.items():
 
             # Handles special case of lists:
             if isinstance(def_val, list):
@@ -1138,7 +1131,7 @@ I currently know about these stages:
                 }
                 default = def_val if not isinstance(v, type) else None
                 input_binding = cwlgen.CommandLineBinding(
-                    prefix="--{}=".format(opt), item_separator=",", separate=False
+                    prefix=f"--{opt}=", item_separator=",", separate=False
                 )
             else:
                 param_type = (
@@ -1148,10 +1141,10 @@ I currently know about these stages:
                 )
                 default = def_val if not isinstance(def_val, type) else None
                 if param_type == "boolean":
-                    input_binding = cwlgen.CommandLineBinding(prefix="--{}".format(opt))
+                    input_binding = cwlgen.CommandLineBinding(prefix=f"--{opt}")
                 else:
                     input_binding = cwlgen.CommandLineBinding(
-                        prefix="--{}=".format(opt), separate=False
+                        prefix=f"--{opt}=", separate=False
                     )
 
             input_param = cwlgen.CommandInputParameter(
@@ -1172,7 +1165,7 @@ I currently know about these stages:
 
         # Add the inputs of the tool
         for i, inp in enumerate(cls.input_tags()):
-            input_binding = cwlgen.CommandLineBinding(prefix="--{}".format(inp))
+            input_binding = cwlgen.CommandLineBinding(prefix=f"--{inp}")
             input_param = cwlgen.CommandInputParameter(
                 inp,
                 label=inp,

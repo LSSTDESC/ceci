@@ -267,14 +267,14 @@ class Runner:
         stdout_file = f"{self.log_dir}/{job.name}.out"
         print(f"Output writing to {stdout_file}\n")
 
-        stdout = open(stdout_file, "w")
-        # launch cmd in a subprocess, and keep track in running jobs
-        p = subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT)
-        self.running.append((p, job, alloc))
-        self.callback(
-            EVENT_LAUNCH,
-            {"job": job, "stdout": stdout_file, "process": p, "nodes": alloc},
-        )
+        with open(stdout_file, "w") as stdout:
+            # launch cmd in a subprocess, and keep track in running jobs
+            with subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT) as p:
+                self.running.append((p, job, alloc))
+                self.callback(
+                    EVENT_LAUNCH,
+                    {"job": job, "stdout": stdout_file, "process": p, "nodes": alloc},
+                )
 
     def _ready_jobs(self):
         # Find jobs ready to be run now

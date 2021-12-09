@@ -34,9 +34,9 @@ class DataHandle:
 
     def write(self, overwrite=False):
         if not self.in_memory:
-            raise RuntimeError("Tried to write data that doesn't exist yet, target was %s" % (self.path))
+            raise RuntimeError(f"Tried to write data that doesn't exist yet, target was {self.path}")
         if self.exists and not overwrite:
-            raise RuntimeError("File %s already exists" % (self.path))
+            raise RuntimeError(f"File {self.path} already exists")
         self.write_data()
 
     def write_data(self):

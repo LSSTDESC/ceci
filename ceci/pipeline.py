@@ -135,6 +135,7 @@ class Pipeline:
         self.pipeline_files = None
         self.pipeline_outputs = None
         self.stages_config = None
+        self.stage_config_data = None
 
         # Store the individual stage informaton
         for info in stages:
@@ -161,8 +162,7 @@ class Pipeline:
         try:
             pipeline_class = launcher_dict[launcher_name]
         except KeyError as msg:
-            raise KeyError("Unknown pipeline launcher %s, options are %s" %\
-                               (launcher_name, list(launcher_dict.keys()))) from msg
+            raise KeyError(f"Unknown pipeline launcher {launcher_name}, options are {list(launcher_dict.keys())}") from msg
 
         p = pipeline_class(stages, launcher_config)
         p.load_configs(inputs, run_config, stages_config)
@@ -172,7 +172,8 @@ class Pipeline:
     def build_config(pipeline_config_filename, extra_config=None, dry_run=False):
         # YAML input file.
         # Load the text and then expand any environment variables
-        raw_config_text = open(pipeline_config_filename).read()
+        with open(pipeline_config_filename) as config_file:
+            raw_config_text = config_file.read()
         config_text = os.path.expandvars(raw_config_text)
         # Then parse with YAML
         pipe_config = yaml.safe_load(config_text)
@@ -190,14 +191,14 @@ class Pipeline:
     def __getattr__(self, name):
         try:
             return self.stage_execution_config[name].stage_obj
-        except:
-            raise AttributeError("Pipeline does not have stage %s" % name)
+        except Exception as msg:
+            raise AttributeError(f"Pipeline does not have stage {name}") from msg
 
     def print_stages(self, stream=sys.stdout):
         for stage in self.stages:
-            stream.write("%020s: %s" % (stage.name, str(stage)))
+            stream.write(f"{stage.name:020}: {str(stage)}")
             stream.write("\n")
-            
+
     @staticmethod
     def read(pipeline_config_filename, extra_config=None, dry_run=False):
         pipe_config = Pipeline.build_config(pipeline_config_filename, extra_config, dry_run)
@@ -321,7 +322,7 @@ class Pipeline:
                         f"generates output {tag}, but "
                         "it is already an overall input"
                     )
-        stage_set = {stage_name for stage_name in stage_names}
+        stage_set = set(stage_names)
         if len(stage_set) < len(stage_classes):
             raise ValueError("Some stages are included twice in your pipeline")
 
@@ -356,11 +357,11 @@ class Pipeline:
             stage_config = stage_config_data.get(stage_class.name, {})
             stage_config.update(all_inputs)
             stage_config['config'] = stages_config
-            stage = sec.build_stage_object(stage_config)             
+            stage = sec.build_stage_object(stage_config)
 
             # for file that stage produces,
             for tag in stage.output_tags():
-                # find all the next_stages that depend on that file               
+                # find all the next_stages that depend on that file
                 found_inputs.add(tag)
                 all_inputs[tag] = stage.find_outputs('.')
                 for next_stage in dependencies[tag]:
@@ -406,10 +407,11 @@ Some required inputs to the pipeline could not be found,
         self.run_config = run_config.copy()
 
         self.stages_config = stages_config
-        self.stage_config_data = yaml.safe_load(open(self.stages_config))
+        with open(self.stages_config) as stage_config_file:
+            self.stage_config_data = yaml.safe_load(stage_config_file)
         global_config = self.stage_config_data.pop('global', {})
         for v in self.stage_config_data.values():
-            v.update(global_config)        
+            v.update(global_config)
 
         # Get the stages in the order we need.
         self.stages = self.ordered_stages(overall_inputs, self.stages_config)
@@ -571,7 +573,8 @@ Standard output:
 """
                 )
                 if os.path.exists(stdout_file):
-                    sys.stderr.write(open(stdout_file).read())
+                    with open(stdout_file) as _stdout:
+                        sys.stderr.write(_stdout.read())
                 else:
                     sys.stderr.write("STDOUT MISSING!\n\n")
 
@@ -586,7 +589,8 @@ Standard error:
                 )
 
                 if os.path.exists(stderr_file):
-                    sys.stderr.write(open(stderr_file).read())
+                    with open(stderr_file) as _stderr:
+                        sys.stderr.write(_stderr.read())
                 else:
                     sys.stderr.write("STDERR MISSING!\n\n")
                 return 1
@@ -721,7 +725,7 @@ class MiniPipeline(Pipeline):
 
         """
         depend = {}
-        
+
         # for each stage in our pipeline ...
         for stage in self.stages[:]:
             if stage.name not in jobs:
@@ -742,7 +746,6 @@ class MiniPipeline(Pipeline):
         return jobs, stages
 
     def enqueue_job(self, stage, pipeline_files):
-        jobs, stages = self.run_info
         sec = self.stage_execution_config[stage.name]
         outputs = stage.find_outputs(self.run_config['output_dir'])
         cmd = sec.generate_full_command(pipeline_files, outputs, self.stages_config)
@@ -819,7 +822,8 @@ class CWLPipeline(Pipeline):
 
         # CWL also wants the config information passed through in an inputs
         # file, so it is all collected together.
-        stage_config_data = yaml.safe_load(open(stages_config))
+        with open(stages_config) as _stages_config_file:
+            stage_config_data = yaml.safe_load(_stages_config_file)
         global_config = stage_config_data.get("global", {})
 
         # For each stage, we check if any of its config information
