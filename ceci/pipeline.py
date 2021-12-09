@@ -80,6 +80,20 @@ class StageExecutionConfig:
         self.stage_class = None
         self.stage_obj = None
 
+    @classmethod
+    def create(cls, stage, **kwargs):
+        info = kwargs.copy()
+        info['name'] = stage.name
+        sec = cls(info)
+        sec.set_stage_obj(stage)
+        return sec
+        
+    def set_stage_obj(self, stage_obj):
+        self.stage_class = PipelineStage.get_stage(self.name)
+        if not isinstance(stage_obj, self.stage_class):
+            raise TypeError(f"{str(stage_obj)} is not a {str(self.stage_class)}")
+        self.stage_obj = stage_obj
+        
     def build_stage_class(self):
         self.stage_class = PipelineStage.get_stage(self.name)
         return self.stage_class
@@ -255,7 +269,10 @@ class Pipeline:
 
 
         """
-        sec = StageExecutionConfig(stage_info)
+        if isinstance(stage_info, PipelineStage):
+            sec = StageExecutionConfig.create(stage_info)
+        else:
+            sec = StageExecutionConfig(stage_info)
         self.stage_execution_config[sec.name] = sec
         self.stage_names.append(sec.name)
 
