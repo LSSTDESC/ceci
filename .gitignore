@@ -14,3 +14,4 @@ tests/cwl
 .eggs
 out/
 test/
+dask-worker-space/
