@@ -3,7 +3,7 @@ import yaml
 import sys
 import argparse
 import subprocess
-from . import pipeline
+from .pipeline import Pipeline
 from .sites import load, set_default_site, get_default_site
 from .utils import extra_paths
 
@@ -28,48 +28,39 @@ parser.add_argument(
 )
 
 
-def run(pipeline_config_filename, extra_config=None, dry_run=False):
-    """
-    Runs the pipeline.
+def run_prescript(pre_script=None, dry_run=False, script_args=[]):
+    if pre_script and not dry_run:
+        subprocess.check_call(pre_script.split() + script_args, shell=True)
 
-    The pipeline takes a main configuration file, which specifies
-    which stages are to be run, and how, where to look for them, what overall
-    inputs there are to the pipeline, and where to find a file configuring
-    the individual stages. See test.yml for an example.
+def run_pipeline(pipe_config):
 
-    The extra_config argument lets you override parameters in the config file,
-    as long as they are stored in dictionaries.
-    For example, if the config file contains:
-    launcher:
-        name: x
+    default_site = get_default_site()
+    try:
+        p = Pipeline.create(pipe_config)
+        status = p.run()
+    finally:
+        # The create command above changes the default site.
+        # So that this function doesn't confuse later things,
+        # reset that site now.
+        set_default_site(default_site)
 
-    Then you could include "launcher.name=y" to change this to "y".
+    return status
 
-    Parameters
-    ----------
-    pipeline_config_filename: str
-        The path to the configuration file
-    extra_config: list[str]
-        Config parameters to override
-    dry_run: bool
-        Whether to do a dry-run of the pipeline, not running anything.
-    """
-    # YAML input file.
-    # Load the text and then expand any environment variables
-    raw_config_text = open(pipeline_config_filename).read()
-    config_text = os.path.expandvars(raw_config_text)
-    # Then parse with YAML
-    pipe_config = yaml.safe_load(config_text)
 
-    if extra_config:
-        override_config(pipe_config, extra_config)
+def run_postscript(post_script=None, dry_run=False, script_args=[]):
+    if post_script and not dry_run:
+        return_code = subprocess.call(post_script.split() + script_args, shell=True)
+        if return_code:
+            sys.stderr.write(
+                f"\nWARNING: The post-script command {post_script} "
+                "returned error status {return_code}\n\n"
+            )
+        return return_code
+        # Otherwise everything must have gone fine.
+    return 0
 
-    # parsl execution/launcher configuration information
-    launcher_config = pipe_config.get("launcher", {"name": "mini"})
-    launcher_name = launcher_config["name"]
 
-    # Launchers may need to know if this is a dry-run
-    launcher_config["dry_run"] = dry_run
+def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False):
 
     # Later we will add these paths to sys.path for running here,
     # but we will also need to pass them to the sites below so that
@@ -79,58 +70,20 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
     if isinstance(paths, str):
         paths = paths.split()
 
-    # Python modules in which to search for pipeline stages
-    modules = pipe_config["modules"].split()
-
-    # Required configuration information
-    # List of stage names, must be imported somewhere
-    stages = pipe_config["stages"]
-
-    # configure the default site based on the config.
-    # TODO: allow multiple sites in config files
-    # current default site, to be restored later
-    default_site = get_default_site()
-
+    launcher_config = pipe_config.setdefault("launcher", {"name": "mini"})
     site_config = pipe_config.get("site", {"name": "local"})
     # Pass the paths along to the site
     site_config["python_paths"] = paths
     load(launcher_config, [site_config])
 
-    # Inputs and outputs
-    inputs = pipe_config["inputs"]
-    stages_config = pipe_config["config"]
+    # Python modules in which to search for pipeline stages
+    modules = pipe_config.get("modules", '').split()
 
-    # Pre- and post-scripts are run locally
-    # before and after the pipeline is complete
-    # They are called with the same arguments as
-    # this script.  If the pre_script returns non-zero
-    # then the pipeline is not run.
-    # These scripts ar not run in the dry-run case.
-    # In both cases we pass the script the pipeline_config
-    # filename and any extra args.
     pre_script = pipe_config.get("pre_script")
     post_script = pipe_config.get("post_script")
     script_args = [pipeline_config_filename]
     if extra_config:
         script_args += extra_config
-
-    run_config = {
-        "output_dir": pipe_config["output_dir"],
-        "log_dir": pipe_config["log_dir"],
-        "resume": pipe_config["resume"],
-    }
-
-    # Choice of actual pipeline type to run
-    if dry_run:
-        pipeline_class = pipeline.DryRunPipeline
-    elif launcher_name == "cwl":
-        pipeline_class = pipeline.CWLPipeline
-    elif launcher_name == "parsl":
-        pipeline_class = pipeline.ParslPipeline
-    elif launcher_name == "mini":
-        pipeline_class = pipeline.MiniPipeline
-    else:
-        raise ValueError("Unknown pipeline launcher {launcher_name}")
 
     # temporarily add the paths to sys.path,
     # but remove them at the end
@@ -139,63 +92,21 @@ def run(pipeline_config_filename, extra_config=None, dry_run=False):
         for module in modules:
             __import__(module)
 
-        # Run the pre-script.  Since it's an error for this to fail (because
-        # it is useful as a validation check) then we raise an error if it
-        # fails using check_call.
-        if pre_script and not dry_run:
-            subprocess.check_call(pre_script.split() + script_args, shell=True)
+        run_prescript(pre_script=pre_script, dry_run=dry_run, script_args=script_args)
 
-        # Create and run the pipeline
-        try:
-            p = pipeline_class(stages, launcher_config)
-            status = p.run(inputs, run_config, stages_config)
-        finally:
-            # The load command above changes the default site.
-            # So that this function doesn't confuse later things,
-            # reset that site now.
-            set_default_site(default_site)
-
+        status = run_pipeline(pipe_config)
         if status:
             return status
 
-        # Run the post-script.  There seems less point raising an actual error
-        # here, as the pipeline is complete, so we just issue a warning and
-        # return a status code to the caller (e.g. to the command line).
-        # Thoughts on this welcome.
-        if post_script and not dry_run:
-            return_code = subprocess.call(post_script.split() + script_args, shell=True)
-            if return_code:
-                sys.stderr.write(
-                    f"\nWARNING: The post-script command {post_script} "
-                    "returned error status {return_code}\n\n"
-                )
-            return return_code
-        # Otherwise everything must have gone fine.
-        else:
-            return status
-
-
-def override_config(config, extra):
-    print("Over-riding config parameters from command line:")
-
-    for arg in extra:
-        key, value = arg.split("=", 1)
-        item = key.split(".")
-        p = config
-        print(f"    {key}: {value}")
-
-        for x in item[:-1]:
-            if x in p:
-                p = p[x]
-            else:
-                p[x] = {}
-                p = p[x]
-        p[item[-1]] = yaml.safe_load(value)
+        status = run_postscript(post_script=post_script, dry_run=dry_run, script_args=script_args)
+        return status
 
 
 def main():
     args = parser.parse_args()
-    status = run(args.pipeline_config, args.extra_config, dry_run=args.dry_run)
+    pipe_config = Pipeline.build_config(args.pipeline_config_filename, args.extra_config, args.dry_run)
+    status = run(pipe_config, args.pipeline_config_filename, args.extra_config, args.dry_run)
+
     if status == 0:
         print("Pipeline successful.  Joy is sparked.")
     else:

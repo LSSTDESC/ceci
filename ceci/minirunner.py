@@ -7,10 +7,7 @@ It does minimal checking.
 It launches only local jobs, so is designed for debugging or for use on NERSC interactive mode.
 """
 import subprocess
-import os
 import time
-import socket
-import sys
 from timeit import default_timer
 
 # Constant indicators
@@ -26,19 +23,13 @@ EVENT_COMPLETED = "completed"
 class RunnerError(Exception):
     """Base error class."""
 
-    pass
-
 
 class CannotRun(RunnerError):
     """Error for when no jobs can be run and the pipeline is blocked."""
 
-    pass
-
 
 class TimeOut(RunnerError):
     """Error for when no jobs can be run and the pipeline is blocked."""
-
-    pass
 
 
 class FailedJob(RunnerError):
@@ -148,7 +139,7 @@ class Job:
     __repr__ = __str__
 
 
-def null_callback(event_name, event_data):
+def null_callback(event_name, event_data): #pylint: disable=unused-argument
     pass
 
 
@@ -251,7 +242,7 @@ class Runner:
 
     def abort(self):
         """End the pipeline and kill all running jobs."""
-        for process, job, alloc in self.running:
+        for process, _, _ in self.running:
             process.kill()
 
         for node in self.nodes:
@@ -303,7 +294,7 @@ class Runner:
                     f"Job {job} cannot be run - it needs {job.nodes}"
                     f" nodes but only {n_node} is/are available"
                 )
-            elif job.cores > n_core:
+            if job.cores > n_core:
                 raise CannotRun(
                     f"Job {job} cannot be run - it needs {job.cores}"
                     f" cores but only {n_core} is/are available"
@@ -380,8 +371,9 @@ class Runner:
     def _check_availability(self, job):
         # check if there are nodes available to run this job
         # Return them if so, or None if not.
-        cores_on_node = []
-        remaining = job.cores
+
+        #cores_on_node = []
+        #remaining = job.cores
         alloc = {}
 
         free_nodes = [node for node in self.nodes if not node.is_assigned]

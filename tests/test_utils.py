@@ -1,5 +1,5 @@
 from ceci.sites.cori import parse_int_set
-from ceci.main import override_config
+from ceci.pipeline import override_config
 from ceci.utils import embolden
 
 

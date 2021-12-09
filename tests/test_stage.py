@@ -241,41 +241,41 @@ def test_bool_flags():
     cmd = ["Hotel", "--config", "tests/config.yml"]
 
     # Basic case with a single flag
-    h = Hotel(Hotel._parse_command_line(cmd + ["--xyz"]))
+    h = Hotel(Hotel.parse_command_line(cmd + ["--xyz"]))
     assert h.config['xyz'] is True
 
-    h = Hotel(Hotel._parse_command_line(cmd + ["--no-xyz"]))
+    h = Hotel(Hotel.parse_command_line(cmd + ["--no-xyz"]))
     assert h.config['xyz'] is False
 
     # check latter takes precedence if both specified
-    h = Hotel(Hotel._parse_command_line(cmd + ["--xyz", "--no-xyz"]))
+    h = Hotel(Hotel.parse_command_line(cmd + ["--xyz", "--no-xyz"]))
     assert h.config['xyz'] is False
 
-    h = Hotel(Hotel._parse_command_line(cmd + ["--no-xyz", "--xyz"]))
+    h = Hotel(Hotel.parse_command_line(cmd + ["--no-xyz", "--xyz"]))
     assert h.config['xyz'] is True
 
     # flag is not optional here so must be set
     with pytest.raises(ValueError):
-        h = Hotel(Hotel._parse_command_line(cmd))
+        h = Hotel(Hotel.parse_command_line(cmd))
 
     class Hotel2(PipelineStage):
         inputs = []
         outputs = []
         config_options = {'xyz': False}
 
-    h = Hotel2(Hotel2._parse_command_line(cmd + ["--xyz"]))
+    h = Hotel2(Hotel2.parse_command_line(cmd + ["--xyz"]))
     assert h.config['xyz'] is True
 
-    h = Hotel2(Hotel2._parse_command_line(cmd + ["--no-xyz"]))
+    h = Hotel2(Hotel2.parse_command_line(cmd + ["--no-xyz"]))
     assert h.config['xyz'] is False
 
-    h = Hotel2(Hotel2._parse_command_line(cmd + ["--xyz", "--no-xyz"]))
+    h = Hotel2(Hotel2.parse_command_line(cmd + ["--xyz", "--no-xyz"]))
     assert h.config['xyz'] is False
 
-    h = Hotel2(Hotel2._parse_command_line(cmd + ["--no-xyz", "--xyz"]))
+    h = Hotel2(Hotel2.parse_command_line(cmd + ["--no-xyz", "--xyz"]))
     assert h.config['xyz'] is True
 
-    h = Hotel2(Hotel2._parse_command_line(cmd))
+    h = Hotel2(Hotel2.parse_command_line(cmd))
     assert h.config['xyz'] is False
 
     class Hotel3(PipelineStage):
@@ -283,19 +283,19 @@ def test_bool_flags():
         outputs = []
         config_options = {'xyz': True}
 
-    h = Hotel3(Hotel3._parse_command_line(cmd + ["--xyz"]))
+    h = Hotel3(Hotel3.parse_command_line(cmd + ["--xyz"]))
     assert h.config['xyz'] is True
 
-    h = Hotel3(Hotel3._parse_command_line(cmd + ["--no-xyz"]))
+    h = Hotel3(Hotel3.parse_command_line(cmd + ["--no-xyz"]))
     assert h.config['xyz'] is False
 
-    h = Hotel3(Hotel3._parse_command_line(cmd + ["--xyz", "--no-xyz"]))
+    h = Hotel3(Hotel3.parse_command_line(cmd + ["--xyz", "--no-xyz"]))
     assert h.config['xyz'] is False
 
-    h = Hotel3(Hotel3._parse_command_line(cmd + ["--no-xyz", "--xyz"]))
+    h = Hotel3(Hotel3.parse_command_line(cmd + ["--no-xyz", "--xyz"]))
     assert h.config['xyz'] is True
 
-    h = Hotel3(Hotel3._parse_command_line(cmd))
+    h = Hotel3(Hotel3.parse_command_line(cmd))
     assert h.config['xyz'] is True
 
 
