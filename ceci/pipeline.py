@@ -187,6 +187,17 @@ class Pipeline:
         launcher_config["dry_run"] = dry_run
         return pipe_config
 
+    def __getattr__(self, name):
+        try:
+            return self.stage_execution_config[name].stage_obj
+        except:
+            raise AttributeError("Pipeline does not have stage %s" % name)
+
+    def print_stages(self, stream=sys.stdout):
+        for stage in self.stages:
+            stream.write("%020s: %s" % (stage.name, str(stage)))
+            stream.write("\n")
+            
     @staticmethod
     def read(pipeline_config_filename, extra_config=None, dry_run=False):
         pipe_config = Pipeline.build_config(pipeline_config_filename, extra_config, dry_run)
