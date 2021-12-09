@@ -949,6 +949,15 @@ I currently know about these stages:
     def find_outputs(self, outdir):
         return {tag: f"{outdir}/{ftype.make_name(tag)}" for tag, ftype in self.outputs}
 
+
+    def print_io(self, stream=sys.stdout):
+        stream.write("Inputs--------\n")
+        for tag, ftype in self.inputs:
+            stream.write("%020s: %020s: %s\n" % (tag, ftype, self._inputs[tag]))
+        stream.write("Outputs--------\n")
+        for tag, ftype in self.outputs:
+            stream.write("%020s: %020s: %s\n" % (tag, ftype, self._outputs[tag]))            
+    
     def should_skip(self, run_config):
         outputs = self.find_outputs(run_config["output_dir"]).values()
         already_run_stage = all(os.path.exists(output) for output in outputs)
