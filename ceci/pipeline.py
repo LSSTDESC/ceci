@@ -183,6 +183,12 @@ class Pipeline:
         return p
 
     @staticmethod
+    def interactive():
+        launcher_config = dict(name="mini")
+        return MiniPipeline([], launcher_config)
+
+    
+    @staticmethod
     def build_config(pipeline_config_filename, extra_config=None, dry_run=False):
         # YAML input file.
         # Load the text and then expand any environment variables
@@ -275,7 +281,10 @@ class Pipeline:
             sec = StageExecutionConfig(stage_info)
         self.stage_execution_config[sec.name] = sec
         self.stage_names.append(sec.name)
-
+        if sec.stage_obj:
+            return sec.stage_obj.find_outputs('.')
+        return {}
+        
     def remove_stage(self, name):
         """Delete a stage from the pipeline
 
@@ -374,8 +383,11 @@ class Pipeline:
             stage_config = stage_config_data.get(stage_class.name, {})
             stage_config.update(all_inputs)
             stage_config['config'] = stages_config
-            stage = sec.build_stage_object(stage_config)
-
+            if sec.stage_obj is None:
+                stage = sec.build_stage_object(stage_config)
+            else:
+                stage = sec.stage_obj
+                
             # for file that stage produces,
             for tag in stage.output_tags():
                 # find all the next_stages that depend on that file
@@ -417,6 +429,8 @@ Some required inputs to the pipeline could not be found,
 
         return ordered_stages
 
+    def load_inputs(self, overall_inputs):
+        return self.load_configs(overall_inputs, {'output_dir':'.', 'log_dir':'.'}, None)
 
     def load_configs(self, overall_inputs, run_config, stages_config):
         # Make a copy, since we'll be modifying this.
@@ -424,8 +438,11 @@ Some required inputs to the pipeline could not be found,
         self.run_config = run_config.copy()
 
         self.stages_config = stages_config
-        with open(self.stages_config) as stage_config_file:
-            self.stage_config_data = yaml.safe_load(stage_config_file)
+        if self.stages_config is not None:
+            with open(self.stages_config) as stage_config_file:
+                self.stage_config_data = yaml.safe_load(stage_config_file)
+        else:
+            self.stage_config_data = {}
         global_config = self.stage_config_data.pop('global', {})
         for v in self.stage_config_data.values():
             v.update(global_config)
