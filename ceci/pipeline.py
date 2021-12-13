@@ -113,6 +113,35 @@ class StageExecutionConfig:
         return self.site.command(core, self)
 
 
+class FileManager:
+    """
+    """
+    def __init__(self):
+        self._tag_to_type = {}
+        self._tag_to_path = {}
+        self._path_to_tag = {}
+        
+    def insert(self, tag, path=None, ftype=None):
+        if path is not None:
+            self._tag_to_path[tag] = path
+            self._path_to_tag[path] = tag
+        if ftype is not None:
+            self._tag_to_type[tag] = ftype
+
+    def get_type(self, tag):
+        return self._tag_to_type[tag]
+
+    def get_path(self, tag):
+        return self._tag_to_path[tag]
+
+    def get_tag(self, path):
+        return self._path_to_tag
+
+    def insert_paths(self, path_dict):
+        for key, val in path_dict.items():
+            self.insert(key, path=val)
+
+
 class Pipeline:
     """
     The Pipeline base class models the shared information and behaviour
@@ -146,7 +175,7 @@ class Pipeline:
         self.run_info = None
         self.run_config = None
         self.stages = None
-        self.pipeline_files = None
+        self.pipeline_files = FileManager()
         self.pipeline_outputs = None
         self.stages_config = None
         self.stage_config_data = None
@@ -420,7 +449,7 @@ Some required inputs to the pipeline could not be found,
 
     def load_configs(self, overall_inputs, run_config, stages_config):
         # Make a copy, since we'll be modifying this.
-        self.pipeline_files = overall_inputs.copy()
+        self.pipeline_files.insert_paths(overall_inputs)
         self.run_config = run_config.copy()
 
         self.stages_config = stages_config
@@ -452,13 +481,13 @@ Some required inputs to the pipeline could not be found,
             if self.should_skip_stage(stage):
                 stage.already_finished()
                 output_paths = stage.find_outputs(run_config['output_dir'])
-                self.pipeline_files.update(output_paths)
+                self.pipeline_files.insert_paths(output_paths)
 
             # Otherwise, run the pipeline and register any outputs from the
             # pipe element.
             else:
                 stage_outputs = self.enqueue_job(stage, self.pipeline_files)
-                self.pipeline_files.update(stage_outputs)
+                self.pipeline_files.insert_paths(stage_outputs)
 
         return self.run_info, self.run_config
 
