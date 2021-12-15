@@ -111,6 +111,12 @@ class PipelineStage:
     def run(self):
         raise NotImplementedError('run')
 
+    def get_aliased_tag(self, tag):
+        aliases = self.config.get('aliases', None)
+        if aliases is None:
+            return tag
+        return aliases.get(tag, tag)
+    
     def load_configs(self, args):
         """
         Load the configuraiton
@@ -141,7 +147,7 @@ Missing these names on the command line:
     Input names: {missing_inputs}"""
             )
 
-        self._inputs = {x: args[x] for x in self.input_tags()}
+        self._inputs = {self.get_aliased_tag(x): args[x] for x in self.input_tags()}
         # We alwys assume the config arg exists, whether it is in input_tags or not
         if 'config' not in args:
             raise ValueError("The argument --config was missing on the command line.")
@@ -155,9 +161,9 @@ Missing these names on the command line:
         for i, x in enumerate(self.output_tags()):
             if args.get(x) is None:
                 ftype = self.outputs[i][1]
-                self._outputs[x] = ftype.make_name(x)
+                self._outputs[self.get_aliased_tag(x)] = ftype.make_name(x)
             else:
-                self._outputs[x] = args[x]
+                self._outputs[self.get_aliased_tag(x)] = args[x]
 
         # Finally, we extract configuration information from a combination of
         # command line arguments and optional 'config' file
@@ -945,20 +951,29 @@ I currently know about these stages:
 
         #return my_config
 
-    def find_inputs(self, pipeline_files):
-        return {tag: pipeline_files[tag] for tag, _ in self.inputs}
+    def find_inputs(self, pipeline_files): # FIXME, pipeline_files
+        d = {}
+        for tag, _ in self.inputs:
+            aliased_tag = self.get_aliased_tag(tag)
+            d[aliased_tag] = pipeline_files[aliased_tag]
+        return d
 
-    def find_outputs(self, outdir):
-        return {tag: f"{outdir}/{ftype.make_name(tag)}" for tag, ftype in self.outputs}
-
+    def find_outputs(self, outdir): # FIXME, pipeline_files
+        d = {}
+        for tag, ftype in self.outputs:
+            aliased_tag = self.get_aliased_tag(tag)
+            d[aliased_tag] = f"{outdir}/{ftype.make_name(aliased_tag)}"
+        return d
 
     def print_io(self, stream=sys.stdout):
         stream.write("Inputs--------\n")
         for tag, ftype in self.inputs:
-            stream.write(f"{tag:20} : {str(ftype):20} : {self._inputs[tag]}\n")
+            aliased_tag = self.get_aliased_tag(tag)
+            stream.write(f"{tag:20} : {aliased_tag:20} : {str(ftype):20} : {self._inputs[tag]}\n")
         stream.write("Outputs--------\n")
         for tag, ftype in self.outputs:
-            stream.write(f"{tag:20} : {str(ftype):20} : {self._outputs[tag]}\n")
+            aliased_tag = self.get_aliased_tag(tag)                        
+            stream.write(f"{tag:20} : {aliased_tag:20} : {str(ftype):20} : {self._outputs[tag]}\n")
 
     def should_skip(self, run_config):
         outputs = self.find_outputs(run_config["output_dir"]).values()
@@ -1066,7 +1081,7 @@ I currently know about these stages:
     ################################
 
     @classmethod
-    def generate_command(cls, inputs, config, outputs):
+    def generate_command(cls, inputs, config, outputs):   # FIXME PipelineFile
         """
         Generate a command line that will run the stage
         """

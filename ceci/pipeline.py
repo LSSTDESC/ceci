@@ -120,7 +120,20 @@ class FileManager:
         self._tag_to_type = {}
         self._tag_to_path = {}
         self._path_to_tag = {}
-        
+
+    def __getitem__(self, key):
+        return self._tag_to_path[key]
+
+    def __setitem__(self, key, value):
+        self._tag_to_path[key] = value
+        self._path_to_tag[value] = key
+
+    def __contains__(self, key):
+        return key in self._tag_to_path
+
+    def todict(self):
+        return self._tag_to_path
+    
     def insert(self, tag, path=None, ftype=None):
         if path is not None:
             self._tag_to_path[tag] = path
@@ -313,6 +326,10 @@ class Pipeline:
         if sec.stage_obj:
             return sec.stage_obj.find_outputs('.')
         return {}
+
+    def build_stage(self, stage_class, args):        
+        stage = stage_class(**args, **self.pipeline_files.todict())
+        return self.add_stage(stage)
         
     def remove_stage(self, name):
         """Delete a stage from the pipeline
