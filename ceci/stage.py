@@ -95,6 +95,15 @@ class PipelineStage:
         if comm is not None:
             self.setup_mpi(comm)
 
+    def get_aliases(self):
+        return self.config.get('aliases', None)
+
+    def get_aliased_tag(self, tag):
+        aliases = self.config.get('aliases', None)
+        if aliases is None:
+            return tag
+        return aliases.get(tag, tag)
+
     @classmethod
     def build(cls, **kwargs):
         kwcopy = kwargs.copy()
@@ -951,29 +960,29 @@ I currently know about these stages:
 
         #return my_config
 
-    def find_inputs(self, pipeline_files): # FIXME, pipeline_files
-        d = {}
+    def find_inputs(self, pipeline_files):
+        ret_dict = {}
         for tag, _ in self.inputs:
             aliased_tag = self.get_aliased_tag(tag)
-            d[aliased_tag] = pipeline_files[aliased_tag]
-        return d
+            ret_dict[aliased_tag] = pipeline_files[aliased_tag]
+        return ret_dict
 
-    def find_outputs(self, outdir): # FIXME, pipeline_files
-        d = {}
+    def find_outputs(self, outdir):
+        ret_dict = {}
         for tag, ftype in self.outputs:
             aliased_tag = self.get_aliased_tag(tag)
-            d[aliased_tag] = f"{outdir}/{ftype.make_name(aliased_tag)}"
-        return d
+            ret_dict[aliased_tag] = f"{outdir}/{ftype.make_name(aliased_tag)}"
+        return ret_dict
 
     def print_io(self, stream=sys.stdout):
         stream.write("Inputs--------\n")
         for tag, ftype in self.inputs:
-            aliased_tag = self.get_aliased_tag(tag)
-            stream.write(f"{tag:20} : {aliased_tag:20} : {str(ftype):20} : {self._inputs[tag]}\n")
+            aliased_tag - self.get_aliased_tag(tag)
+            stream.write(f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._inputs[tag]}\n")
         stream.write("Outputs--------\n")
         for tag, ftype in self.outputs:
-            aliased_tag = self.get_aliased_tag(tag)                        
-            stream.write(f"{tag:20} : {aliased_tag:20} : {str(ftype):20} : {self._outputs[tag]}\n")
+            aliased_tag - self.get_aliased_tag(tag)
+            stream.write(f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._outputs[tag]}\n")
 
     def should_skip(self, run_config):
         outputs = self.find_outputs(run_config["output_dir"]).values()
@@ -1081,7 +1090,7 @@ I currently know about these stages:
     ################################
 
     @classmethod
-    def generate_command(cls, inputs, config, outputs):   # FIXME PipelineFile
+    def generate_command(cls, inputs, config, outputs, aliases=None):
         """
         Generate a command line that will run the stage
         """
@@ -1091,19 +1100,27 @@ I currently know about these stages:
         flags = [cls.name]
 
         for tag, _ in cls.inputs:
+            if aliases is not None:
+                aliased_tag = aliases.get(tag, tag)
+            else:
+                aliased_tag = tag
             try:
-                fpath = inputs[tag]
+                fpath = inputs[aliased_tag]
             except KeyError as msg:
-                raise ValueError(f"Missing input location {tag}") from msg
+                raise ValueError(f"Missing input location {aliased_tag} {str(inputs)}") from msg
             flags.append(f"--{tag}={fpath}")
 
         flags.append(f"--config={config}")
 
         for tag, _ in cls.outputs:
+            if aliases is not None:
+                aliased_tag = aliases.get(tag, tag)
+            else:
+                aliased_tag = tag
             try:
-                fpath = outputs[tag]
+                fpath = outputs[aliased_tag]
             except KeyError as msg:
-                raise ValueError(f"Missing output location {tag}") from msg
+                raise ValueError(f"Missing output location {aliased_tag} {str(outputs)}") from msg
             flags.append(f"--{tag}={fpath}")
 
         flags = "   ".join(flags)

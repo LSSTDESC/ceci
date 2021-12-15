@@ -108,44 +108,40 @@ class StageExecutionConfig:
         self.stage_obj = None
 
     def generate_full_command(self, inputs, outputs, config):
-        self.stage_class = PipelineStage.get_stage(self.name)
-        core = self.stage_class.generate_command(inputs, config, outputs)
+        if self.stage_obj is not None:
+            aliases = self.stage_obj.get_aliases()
+        else:
+            aliases = None
+        if self.stage_class is None:
+            self.build_stage_class()
+        core = self.stage_class.generate_command(inputs, config, outputs, aliases)
         return self.site.command(core, self)
 
 
-class FileManager:
+class FileManager(dict):
     """
     """
     def __init__(self):
         self._tag_to_type = {}
-        self._tag_to_path = {}
         self._path_to_tag = {}
+        dict.__init__(self)
 
-    def __getitem__(self, key):
-        return self._tag_to_path[key]
-
-    def __setitem__(self, key, value):
-        self._tag_to_path[key] = value
-        self._path_to_tag[value] = key
-
-    def __contains__(self, key):
-        return key in self._tag_to_path
-
-    def todict(self):
-        return self._tag_to_path
-    
+    def __setitem__(self, tag, path):
+        dict.__setitem__(self, tag, path)
+        self._path_to_tag[path] = tag
+        
     def insert(self, tag, path=None, ftype=None):
         if path is not None:
-            self._tag_to_path[tag] = path
+            self[tag] = path
             self._path_to_tag[path] = tag
         if ftype is not None:
             self._tag_to_type[tag] = ftype
-
+            
     def get_type(self, tag):
         return self._tag_to_type[tag]
 
     def get_path(self, tag):
-        return self._tag_to_path[tag]
+        return self[tag]
 
     def get_tag(self, path):
         return self._path_to_tag
@@ -601,6 +597,7 @@ class ParslPipeline(Pipeline):
         return []  # list of futures
 
     def enqueue_job(self, stage, pipeline_files):
+
         from parsl.data_provider.files import File
 
         #log_dir = self.run_config["log_dir"]
