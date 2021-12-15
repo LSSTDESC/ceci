@@ -1,5 +1,5 @@
 from ceci.main import run
-from parsl import clear
+#from parsl import clear
 import tempfile
 import os
 import pytest
@@ -26,7 +26,7 @@ def run1(*config_changes, dry_run=False, expect_fail=False, expect_outputs=True)
                 assert os.path.exists(os.path.join(log_dir, "WLGCSummaryStatistic.out"))
 
     finally:
-        clear()
+        pass #clear()
 
 
 def test_run_mini():

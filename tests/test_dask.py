@@ -27,8 +27,8 @@ def core_dask(comm):
 
 def test_dask():
     core_dask(None)
-    mockmpi.mock_mpiexec(3, core_dask)
-    mockmpi.mock_mpiexec(5, core_dask)
+    #mockmpi.mock_mpiexec(3, core_dask)
+    #mockmpi.mock_mpiexec(5, core_dask)
 
 
 if __name__ == '__main__':

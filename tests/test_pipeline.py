@@ -3,7 +3,7 @@ from ceci_example.types import TextFile
 from ceci.sites import load, reset_default_site
 from ceci.utils import extra_paths
 import pytest
-from parsl import clear
+#from parsl import clear
 import yaml
 import os
 import tempfile
@@ -127,7 +127,7 @@ def _return_value_test_(resume):
     pipeline.load_configs({}, run_config, "tests/config.yml")
     status = pipeline.run()
     assert status == expected_status
-    clear()  # clear parsl settings
+    #clear()  # clear parsl settings
     reset_default_site()  # reset so default is minirunner again
 
 
