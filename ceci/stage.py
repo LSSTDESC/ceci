@@ -8,6 +8,7 @@ import cProfile
 from abc import abstractmethod
 from . import errors
 from .monitor import MemoryMonitor
+from .config import StageConfig
 
 SERIAL = "serial"
 MPI_PARALLEL = "mpi"
@@ -81,7 +82,7 @@ class PipelineStage:
             Specification of input and output paths and any missing config options
         """
         self._name = self.name
-        self._configs = None
+        self._configs = StageConfig(**self.config_options)
         self._inputs = None
         self._outputs = None
         self._parallel = SERIAL
@@ -103,6 +104,11 @@ class PipelineStage:
             return tag
         return aliases.get(tag, tag)
 
+    @classmethod
+    def build(cls, **kwargs):
+        kwcopy = kwargs.copy()
+        return cls(kwcopy)        
+            
     @classmethod
     def clone(cls, orig, cloneName, **kwargs):
         args = orig.config.copy()
@@ -164,7 +170,7 @@ Missing these names on the command line:
 
         # Finally, we extract configuration information from a combination of
         # command line arguments and optional 'config' file
-        self._configs = self.read_config(args)
+        self.read_config(args)
 
     def setup_mpi(self, comm=None):
         """
@@ -887,64 +893,66 @@ I currently know about these stages:
         stage_config = overall_config.get(self.name, {})
         input_config.update(stage_config)
 
+        self._configs.set_config(input_config, args)
+        
         # Here we build up the actual configuration we use on this
         # run from all these sources
         my_config = {}
 
         # Loop over the options of the pipeline stage
-        for x, opt_val in self.config_options.items():
-            opt = None
-            opt_type = None
+        #for x, opt_val in self.config_options.items():
+        #    opt = None
+        #    opt_type = None
 
             # First look for a default value,
             # if a type (like int) is provided as the default it indicates that
             # this option doesn't have a default (i.e. is mandatory) and should
             # be explicitly provided with the specified type
-            if isinstance(opt_val, type):
-                opt_type = opt_val
+            #if isinstance(opt_val, type):
+            #    opt_type = opt_val
 
-            elif isinstance(opt_val, list):
-                v = opt_val[0]
-                if isinstance(v, type):
-                    opt_type = v
-                else:
-                    opt = opt_val
-                    opt_type = type(v)
-            else:
-                opt = opt_val
-                opt_type = type(opt)
+            #elif isinstance(opt_val, list):
+            #    v = opt_val[0]
+            #    if isinstance(v, type):
+            #        opt_type = v
+            #    else:
+            #        opt = opt_val
+            #        opt_type = type(v)
+            #else:
+            #    opt = opt_val
+            #    opt_type = type(opt)
 
             # Second, look for the option in the configuration file and override
             # default if provided TODO: Check types
-            if x in input_config:
-                opt = input_config[x]
-                _ = opt_type #  This is just to get pylint to shut up
+            #if x in input_config:
+            #    opt = input_config[x]
+            #    _ = opt_type #  This is just to get pylint to shut up
 
             # Finally check for command line option that would override the value
             # in the configuration file. Note that the argument parser should
             # already have taken care of type
-            if args.get(x) is not None:
-                opt = args[x]
+            #if args.get(x) is not None:
+            #    opt = args[x]
 
             # Finally, check that we got at least some value for this option
-            if opt is None:
-                raise ValueError(
-                    f"Missing configuration option {x} for stage {self.name}"
-                )
+            #if opt is None:
+            #    raise ValueError(
+            #        f"Missing configuration option {x} for stage {self.name}"
+            #    )
 
-            my_config[x] = opt
+            #my_config[x] = opt
 
         # Unspecified parameters can also be copied over.
         # This will be needed for parameters that are more complicated, such
         # as dictionaries or other more structured parameter information.
-        for x, val in input_config.items():
+        #for x, val in input_config.items():
             # Omit things we've already dealt with above
-            if x in self.config_options:
-                continue
+        #    if x in self.config_options:
+        #        continue
             # copy over everything else
-            my_config[x] = val
+        #    my_config[x] = val
 
-        return my_config
+        #return my_config
 
     def find_inputs(self, pipeline_files):
         ret_dict = {}
