@@ -592,8 +592,8 @@ class ParslPipeline(Pipeline):
     def initiate_run(self, overall_inputs):
         return []  # list of futures
 
-    def enqueue_job(self, stage, pipeline_files
-):
+    def enqueue_job(self, stage, pipeline_files):
+
         from parsl.data_provider.files import File
 
         #log_dir = self.run_config["log_dir"]
