@@ -1,4 +1,5 @@
-import os
+""" A small module with functionality to handle configuration in a way that works
+for both interactive and ballistic applications """
 
 from collections.abc import Mapping
 
@@ -32,7 +33,7 @@ def cast_value(dtype, value): #pylint: disable=too-many-return-statements
         5.  It will try to pass value to the constructor of dtype, i.e., return dtype(value)
         6.  If all of these fail, it will raise a TypeError
     """
-    # dtype is None means all values are legal 
+    # dtype is None means all values are legal
     if dtype is None:
         return value
     # value is None is always allowed
@@ -48,49 +49,82 @@ def cast_value(dtype, value): #pylint: disable=too-many-return-statements
     except (TypeError, ValueError):
         pass
 
-    msg = f"Value of type {type(value)}, when {str(dtype)} was expected."    
+    msg = f"Value of type {type(value)}, when {str(dtype)} was expected."
     raise TypeError(msg)
 
 
 
 class StageParameter:
+    """ A small class to manage a single parameter with basic type checking
     """
-    """
+
     def __init__(self, **kwargs):
+        """ Build from keywords
+
+        Keywords
+        --------
+        dtype : `type` or `None`
+            The data type for this parameter
+        default : `dtype` or `None`
+            The default value
+        format : `str`
+            A formatting string for printout and representation
+        help : `str`
+            A help or docstring
+        """
         kwcopy = kwargs.copy()
         self._help = kwcopy.pop('help', 'A Parameter')
         self._format = kwcopy.pop('format', '%s')
         self._dtype = kwcopy.pop('dtype', None)
-        self._default = kwcopy.pop('default', None)        
-        if kwcopy:
+        self._default = kwcopy.pop('default', None)
+        if kwcopy:  # pragma: no cover
             raise ValueError(f"Unknown arguments to StageParameter {str(list(kwcopy.keys()))}")
         self._value = cast_value(self._dtype, self._default)
-                
+
     @property
     def value(self):
+        """ Return the value """
         return self._value
+
+    @property
+    def dtype(self):
+        """ Return the data type """
+        return self._dtype
+
+    @property
+    def default(self):
+        """ Return the default value """
+        return self._default
 
     def set(self, value):
+        """ Set the value, raising a TypeError if the value is the wrong type """
         self._value = cast_value(self._dtype, value)
         return self._value
-        
-    def set_default(self, value):
+
+    def set_to_default(self):
+        """ Set the value to the default """
         self._value = cast_value(self._dtype, self._default)
         return self._value
-        
-    def __set__(self, obj, value):
-        self._value = cast_value(self._dtype, value)
-        return self._value
-        
-    def __get__(self, obj, obj_class):
-        return self._value
-        
 
-class StageConfig:
+
+class StageConfig(dict):
+    """ A small class to manage a dictionary of configuration parameters with basic type checking
     """
-    """
+
     def __init__(self, **kwargs):
-        self._param_dict = {}
+        """ Build from keywords
+
+        Note
+        ----
+        The keywords are used as keys for the configuration parameters
+
+        The values are used to define the allowed data type and default values
+
+        For each key-value pair:
+        If the value is a type then it will define the data type and the default will be `None`
+        If the value is a value then it will set the default value define the data type as type(value)
+        """
+        dict.__init__(self)
         for key, val in kwargs.items():
             if val is None:
                 dtype = None
@@ -100,30 +134,14 @@ class StageConfig:
                 default = None
             else:
                 dtype = type(val)
-                default = val                
+                default = val
             param = StageParameter(dtype=dtype, default=default)
-            self._param_dict[key] = param
-
-    def keys(self):
-        return self._param_dict.keys()
-
-    def values(self):
-        return self._param_dict.values()
-
-    def items(self):
-        return self._param_dict.items()
-
-    def __len__(self):
-        return len(self._param_dict)
-
-    def get(self, key, def_value=None):
-        if key in self._param_dict:
-            return self.__getattr__(key)
-        return def_value        
+            self[key] = param
 
     def __str__(self):
+        """ Override __str__ casting to deal with `StageParameter` object in the map """
         s = "{"
-        for key, attr in self._param_dict.items():
+        for key, attr in self.items():
             if isinstance(attr, StageParameter):
                 val = attr.value
             else:
@@ -131,60 +149,79 @@ class StageConfig:
             s += f"{key}:{val},"
         s += "}"
         return s
-        
+
     def __repr__(self):
+        """ A custom representation """
         s = "StageConfig"
         s += self.__str__()
         return s
-        
-    def __getitem__(self, key):
-        return self.__getattr__(key)
-    
-    def __setitem__(self, key, value):
-        return self.__setattr__(key, value)
 
-    def __delitem__(self, key):
-        return self.__delattr__(key)
-    
-    def __getattr__(self, key):
-        attr = self._param_dict[key]
+    def __getitem__(self, key):
+        """ Override the __getitem__ to work with `StageParameter` """
+        attr = dict.__getitem__(self, key)
         if isinstance(attr, StageParameter):
             return attr.value
         return attr
 
-    def __setattr__(self, key, value):
-        if key == '_param_dict':
-            self.__dict__[key] = value
-            return
-        if key in self._param_dict:
-            attr = self._param_dict[key]
+    def __setitem__(self, key, value):
+        """ Override the __setitem__ to work with `StageParameter` """
+        if key in self:
+            attr = dict.__getitem__(self, key)
             if isinstance(attr, StageParameter):
                 return attr.set(value)
-        self._param_dict[key] = value            
+        dict.__setitem__(self, key, value)
         return value
-                
-    def __delattr__(self, key, value):
-        if key in self._param_dict:
-            attr = self._param_dict[key]
-            if isinstance(attr, StageParameter):
-                return attr.set_default()
-        return self._param_dict.pop(key)
+
+    def __getattr__(self, key):
+        """ Allow attribute-like parameter access """
+        return self.__getitem__(key)
+
+    def __setattr__(self, key, value):
+        """ Allow attribute-like parameter setting """
+        return self.__setitem__(key, value)
 
     def set_config(self, input_config, args):
-        for key in self._param_dict.keys():
+        """ Utility function to load configuration
+
+        Parameters
+        ----------
+        input_config : `dict, (str, value)`
+            `dict` with key-value pairs for all the parameters
+        args : `dict, (str, value)`
+            `dict` with key-value pairs for all the parameters that can serve as overrides
+        """
+        for key in self.keys():
             val = None
             if key in input_config:
                 val = input_config[key]
             if args.get(key) is not None:
                 val = args[key]
             if val is None:
-                raise ValueError(f"Missing configuration option {key}")
+                attr = self.get(key)
+                if attr.default is None:
+                    raise ValueError(f"Missing configuration option {key}")
+                val = attr.default
             self.__setattr__(key, val)
 
         for key, val in input_config.items():
-            if key in self._param_dict:
+            if key in self:
                 continue
-            self._param_dict[key] = val
-        
+            self[key] = val
 
-            
+        for key, val in args.items():
+            if key in self:
+                continue
+            self[key] = val
+
+
+    def reset(self):
+        """ Reset values to their defaults """
+        for _, val in self.items():
+            if isinstance(val, StageParameter):
+                val.set_to_default()
+
+    def get_type(self, key):
+        attr = dict.__getitem__(self, key)
+        if isinstance(attr, StageParameter):
+            return attr.dtype
+        return type(attr)

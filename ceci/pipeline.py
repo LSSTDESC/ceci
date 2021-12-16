@@ -63,6 +63,7 @@ class StageExecutionConfig:
 
         # Core attributes - mandatory
         self.name = info["name"]
+        self.class_name = info.get('classname', self.name)
         self.site = info.get("site", get_default_site())
 
         # Parallelism attributes - optional
@@ -83,44 +84,41 @@ class StageExecutionConfig:
     @classmethod
     def create(cls, stage, **kwargs):
         info = kwargs.copy()
-        info['name'] = stage.name
+        info['name'] = stage.instance_name
+        info['classname'] = stage.name
         sec = cls(info)
         sec.set_stage_obj(stage)
         return sec
-        
+
     def set_stage_obj(self, stage_obj):
-        self.stage_class = PipelineStage.get_stage(self.name)
-        if not isinstance(stage_obj, self.stage_class):
+        self.stage_class = PipelineStage.get_stage(self.class_name)
+        if not isinstance(stage_obj, self.stage_class):  #pragma: no cover
             raise TypeError(f"{str(stage_obj)} is not a {str(self.stage_class)}")
         self.stage_obj = stage_obj
-        
+
     def build_stage_class(self):
-        self.stage_class = PipelineStage.get_stage(self.name)
+        self.stage_class = PipelineStage.get_stage(self.class_name)
         return self.stage_class
 
     def build_stage_object(self, args):
-        if self.stage_class is None:
-            self.stage_class = PipelineStage.get_stage(self.name)
+        if self.stage_class is None:  #pragma: no cover
+            self.stage_class = PipelineStage.get_stage(self.class_name)
         self.stage_obj = self.stage_class(args)
         return self.stage_obj
-
-    def clear_stage_object(self):
-        self.stage_obj = None
 
     def generate_full_command(self, inputs, outputs, config):
         if self.stage_obj is not None:
             aliases = self.stage_obj.get_aliases()
         else:
-            aliases = None
+            aliases = None  #pragma: no cover
         if self.stage_class is None:
-            self.build_stage_class()
+            self.build_stage_class()  #pragma: no cover
         core = self.stage_class.generate_command(inputs, config, outputs, aliases)
         return self.site.command(core, self)
 
 
 class FileManager(dict):
-    """
-    """
+
     def __init__(self):
         self._tag_to_type = {}
         self._path_to_tag = {}
@@ -129,14 +127,14 @@ class FileManager(dict):
     def __setitem__(self, tag, path):
         dict.__setitem__(self, tag, path)
         self._path_to_tag[path] = tag
-        
+
     def insert(self, tag, path=None, ftype=None):
         if path is not None:
             self[tag] = path
             self._path_to_tag[path] = tag
-        if ftype is not None:
+        if tag not in self._tag_to_type:
             self._tag_to_type[tag] = ftype
-            
+
     def get_type(self, tag):
         return self._tag_to_type[tag]
 
@@ -144,11 +142,19 @@ class FileManager(dict):
         return self[tag]
 
     def get_tag(self, path):
-        return self._path_to_tag
+        return self._path_to_tag[path]
 
     def insert_paths(self, path_dict):
         for key, val in path_dict.items():
             self.insert(key, path=val)
+
+    def insert_outputs(self, stage, outdir):
+        stage_outputs = stage.find_outputs(outdir)
+        for tag, ftype in stage.outputs:
+            aliased_tag = stage.get_aliased_tag(tag)
+            path = stage_outputs[aliased_tag]
+            self.insert(aliased_tag, path=path, ftype=ftype)
+        return stage_outputs
 
 
 class Pipeline:
@@ -213,7 +219,7 @@ class Pipeline:
             pipeline_class = DryRunPipeline
         try:
             pipeline_class = launcher_dict[launcher_name]
-        except KeyError as msg:
+        except KeyError as msg:  #pragma: no cover
             raise KeyError(f"Unknown pipeline launcher {launcher_name}, options are {list(launcher_dict.keys())}") from msg
 
         p = pipeline_class(stages, launcher_config)
@@ -225,7 +231,7 @@ class Pipeline:
         launcher_config = dict(name="mini")
         return MiniPipeline([], launcher_config)
 
-    
+
     @staticmethod
     def build_config(pipeline_config_filename, extra_config=None, dry_run=False):
         # YAML input file.
@@ -244,24 +250,25 @@ class Pipeline:
 
         # Launchers may need to know if this is a dry-run
         launcher_config["dry_run"] = dry_run
+        pipe_config["dry_run"] = dry_run
         return pipe_config
 
     def __getattr__(self, name):
         try:
             return self.stage_execution_config[name].stage_obj
-        except Exception as msg:
+        except Exception as msg:  #pragma: no cover
             raise AttributeError(f"Pipeline does not have stage {name}") from msg
 
     def print_stages(self, stream=sys.stdout):
         for stage in self.stages:
-            stream.write(f"{stage.name:20}: {str(stage)}")
+            stream.write(f"{stage.instance_name:20}: {str(stage)}")
             stream.write("\n")
 
     @staticmethod
     def read(pipeline_config_filename, extra_config=None, dry_run=False):
         pipe_config = Pipeline.build_config(pipeline_config_filename, extra_config, dry_run)
         paths = pipe_config.get("python_paths", [])
-        if isinstance(paths, str):
+        if isinstance(paths, str):  #pragma: no cover
             paths = paths.split()
 
         modules = pipe_config["modules"].split()
@@ -319,14 +326,36 @@ class Pipeline:
             sec = StageExecutionConfig(stage_info)
         self.stage_execution_config[sec.name] = sec
         self.stage_names.append(sec.name)
-        if sec.stage_obj:
-            return sec.stage_obj.find_outputs('.')
-        return {}
+        if sec.stage_obj is None:
+            return {}
+        return self.pipeline_files.insert_outputs(sec.stage_obj, '.')
 
-    def build_stage(self, stage_class, args):        
-        stage = stage_class(**args, **self.pipeline_files.todict())
+    def build_stage(self, stage_class, **kwargs):
+        """Build a stage and add it to the pipeline
+
+        Parameters
+        ----------
+        stage_class: type
+            A subtype of `PipelineStage`, the class of the stage being build
+
+        Returns
+        -------
+        stage_outputs: `dict`
+            The names of the output files
+
+
+        Notes
+        -----
+        The keyword arguemets will be based to the `stage_class` constructor
+
+        The output files produced by this stage will be added to the
+        `Pipeline.pipeline_files` data member, so that they are available to later stages
+        """
+        kwcopy = kwargs.copy()
+        kwcopy.update(**self.pipeline_files)
+        stage = stage_class(kwcopy)
         return self.add_stage(stage)
-        
+
     def remove_stage(self, name):
         """Delete a stage from the pipeline
 
@@ -386,7 +415,7 @@ class Pipeline:
             for tag in stage.output_tags():
                 if tag in overall_inputs:
                     raise ValueError(
-                        f"Pipeline stage {stage.name} "
+                        f"Pipeline stage {stage.instance_name} "
                         f"generates output {tag}, but "
                         "it is already an overall input"
                     )
@@ -429,7 +458,7 @@ class Pipeline:
                 stage = sec.build_stage_object(stage_config)
             else:
                 stage = sec.stage_obj
-                
+
             # for file that stage produces,
             for tag in stage.output_tags():
                 # find all the next_stages that depend on that file
@@ -457,7 +486,7 @@ class Pipeline:
                     tag for tag in stage.input_tags() if tag not in found_inputs
                 ]
                 missing_inputs = ", ".join(missing_inputs)
-                msg1.append(f"Stage {stage.name} is missing input(s): {missing_inputs}")
+                msg1.append(f"Stage {stage.instance_name} is missing input(s): {missing_inputs}")
 
             msg1 = "\n".join(msg1)
             raise ValueError(
@@ -471,9 +500,6 @@ Some required inputs to the pipeline could not be found,
 
         return ordered_stages
 
-    def load_inputs(self, overall_inputs):
-        return self.load_configs(overall_inputs, {'output_dir':'.', 'log_dir':'.'}, None)
-
     def load_configs(self, overall_inputs, run_config, stages_config):
         # Make a copy, since we'll be modifying this.
         self.pipeline_files.insert_paths(overall_inputs)
@@ -483,7 +509,7 @@ Some required inputs to the pipeline could not be found,
         if self.stages_config is not None:
             with open(self.stages_config) as stage_config_file:
                 self.stage_config_data = yaml.safe_load(stage_config_file)
-        else:
+        else:  #pragma: no cover
             self.stage_config_data = {}
         global_config = self.stage_config_data.pop('global', {})
         for v in self.stage_config_data.values():
@@ -510,8 +536,7 @@ Some required inputs to the pipeline could not be found,
 
             if self.should_skip_stage(stage):
                 stage.already_finished()
-                output_paths = stage.find_outputs(run_config['output_dir'])
-                self.pipeline_files.insert_paths(output_paths)
+                self.pipeline_files.insert_outputs(stage, run_config['output_dir'])
 
             # Otherwise, run the pipeline and register any outputs from the
             # pipe element.
@@ -535,15 +560,15 @@ Some required inputs to the pipeline could not be found,
         return outputs
 
     @abstractmethod
-    def initiate_run(self, overall_inputs):
+    def initiate_run(self, overall_inputs):  #pragma: no cover
         raise NotImplementedError()
 
     @abstractmethod
-    def enqueue_job(self, stage, pipeline_files):
+    def enqueue_job(self, stage, pipeline_files):  #pragma: no cover
         raise NotImplementedError()
 
     @abstractmethod
-    def run_jobs(self):
+    def run_jobs(self):  #pragma: no cover
         raise NotImplementedError()
 
     def should_skip_stage(self, stage):
@@ -567,7 +592,7 @@ class DryRunPipeline(Pipeline):
 
     def enqueue_job(self, stage, pipeline_files):
         outputs = stage.find_outputs(self.run_config['output_dir'])
-        sec = self.stage_execution_config[stage.name]
+        sec = self.stage_execution_config[stage.instance_name]
 
         cmd = sec.generate_full_command(pipeline_files, outputs, self.stages_config)
 
@@ -575,7 +600,7 @@ class DryRunPipeline(Pipeline):
         # text, but only if we are printing to screen. This helps the
         # eye pick out the stage you want to run.
         if sys.stdout.isatty():
-            cmd = cmd.replace(stage.name, embolden(stage.name), 1)
+            cmd = cmd.replace(stage.instance_name, embolden(stage.instance_name), 1)
 
         self.run_info.append(cmd)
         return outputs
@@ -619,7 +644,7 @@ class ParslPipeline(Pipeline):
 
         # have parsl queue the app
         future = app(inputs=inputs, outputs=outputs)
-        self.run_info.append((stage.name, future))
+        self.run_info.append((stage.instance_name, future))
         return {tag: future.outputs[i] for i, tag in enumerate(stage.output_tags())}
 
     def run_jobs(self):
@@ -652,11 +677,11 @@ Standard output:
                 if os.path.exists(stdout_file):
                     with open(stdout_file) as _stdout:
                         sys.stderr.write(_stdout.read())
-                else:
+                else:  #pragma: no cover
                     sys.stderr.write("STDOUT MISSING!\n\n")
 
                 sys.stderr.write(
-                    f"""
+                    """
 *************************************************
 
 Standard error:
@@ -668,7 +693,7 @@ Standard error:
                 if os.path.exists(stderr_file):
                     with open(stderr_file) as _stderr:
                         sys.stderr.write(_stderr.read())
-                else:
+                else:  #pragma: no cover
                     sys.stderr.write("STDERR MISSING!\n\n")
                 return 1
         return 0
@@ -720,7 +745,7 @@ Standard error:
         config = f"{{inputs[{config_index}]}}"
 
         # This includes all the "mpirun" stuff.
-        sec = self.stage_execution_config[stage.name]
+        sec = self.stage_execution_config[stage.instance_name]
         executor = sec.site.info["executor"]
 
         # Construct the command line call
@@ -733,10 +758,10 @@ Standard error:
         # we build and exec a string.
         template = f"""
 @parsl.app.app.bash_app(executors=[executor])
-def {stage.name}(inputs, outputs, stdout='{log_dir}/{stage.name}.out', stderr='{log_dir}/{stage.name}.err'):
+def {stage.instance_name}(inputs, outputs, stdout='{log_dir}/{stage.instance_name}.out', stderr='{log_dir}/{stage.instance_name}.err'):
     cmd = '{cmd1}'.format(inputs=inputs, outputs=outputs)
     print("Launching command:")
-    print(cmd, " 2> {log_dir}/{stage.name}.err 1> {log_dir}/{stage.name}.out")
+    print(cmd, " 2> {log_dir}/{stage.instance_name}.err 1> {log_dir}/{stage.instance_name}.out")
     return cmd
 """
         print(template)
@@ -746,7 +771,7 @@ def {stage.name}(inputs, outputs, stdout='{log_dir}/{stage.name}.out', stderr='{
         exec(template, {"parsl": parsl}, d) #pylint: disable=exec-used
 
         # Return the function itself.
-        return d[stage.name]
+        return d[stage.instance_name]
 
 
 class MiniPipeline(Pipeline):
@@ -805,10 +830,10 @@ class MiniPipeline(Pipeline):
 
         # for each stage in our pipeline ...
         for stage in self.stages[:]:
-            if stage.name not in jobs:
+            if stage.instance_name not in jobs:
                 continue
-            depend[jobs[stage.name]] = []
-            job = jobs[stage.name]
+            depend[jobs[stage.instance_name]] = []
+            job = jobs[stage.instance_name]
             # check for each of the inputs for that stage ...
             for tag in stage.input_tags():
                 for potential_parent in self.stages[:]:
@@ -823,16 +848,16 @@ class MiniPipeline(Pipeline):
         return jobs, stages
 
     def enqueue_job(self, stage, pipeline_files):
-        sec = self.stage_execution_config[stage.name]
+        sec = self.stage_execution_config[stage.instance_name]
         outputs = stage.find_outputs(self.run_config['output_dir'])
         cmd = sec.generate_full_command(pipeline_files, outputs, self.stages_config)
         job = minirunner.Job(
-            stage.name,
+            stage.instance_name,
             cmd,
             cores=sec.threads_per_process * sec.nprocess,
             nodes=sec.nodes,
         )
-        self.run_info[0][stage.name] = job
+        self.run_info[0][stage.instance_name] = job
         self.run_info[1].append(stage)
         return outputs
 
@@ -907,13 +932,13 @@ class CWLPipeline(Pipeline):
         # is set in the config file
         for stage in stages:
             # There might be nothing if no options are needed.
-            this_stage_config = stage_config_data.get(stage.name, {})
+            this_stage_config = stage_config_data.get(stage.instance_name, {})
             # Record only keys that have been set.  If any are missing
             # it is an error that will be noticed later.
             for key in stage.config_options:
                 val = this_stage_config.get(key, global_config.get(key))
                 if val is not None:
-                    inputs[f"{key}@{stage.name}"] = val
+                    inputs[f"{key}@{stage.instance_name}"] = val
 
         inputs["config"] = {
             "class": "File",
@@ -961,10 +986,10 @@ class CWLPipeline(Pipeline):
 
         # Create a CWL representation of this step
         cwl_tool = stage.generate_cwl(log_dir)
-        cwl_tool.export(f"{cwl_dir}/{stage.name}.cwl")
+        cwl_tool.export(f"{cwl_dir}/{stage.instance_name}.cwl")
 
         # Load that representation again and add it to the pipeline
-        step = WorkflowStep(stage.name, run=f"{cwl_tool.id}.cwl")
+        step = WorkflowStep(stage.instance_name, run=f"{cwl_tool.id}.cwl")
 
         # For CWL these inputs are a mix of file and config inputs,
         # so not he same as the pipeline_files we usually see

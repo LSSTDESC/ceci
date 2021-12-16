@@ -27,12 +27,37 @@ parser.add_argument(
 )
 
 
-def run_prescript(pre_script=None, dry_run=False, script_args=[]):
+def run_prescript(pre_script=None, dry_run=False, script_args=None):
+    """ Run a script before running the pipeline
+
+    Parameters
+    ----------
+    pre_script : `str`
+        The script to run
+    dry_run : `bool`
+        If true do not run the script
+    script_args : `list`, (`str`)
+        Arguments to the script
+    """
+    if script_args is None:  #pragma: no cover
+        script_args = []
     if pre_script and not dry_run:
         subprocess.check_call(pre_script.split() + script_args, shell=True)
 
-def run_pipeline(pipe_config):
 
+def run_pipeline(pipe_config):
+    """ Run a pipeline as defined by a particular configuration
+
+    Parameters
+    ----------
+    pipe_config : `dict`
+        The configuration dictionary
+
+    Returns
+    -------
+    status : `int`
+        Usual unix convention of 0 -> success, non-zero is an error code
+    """
     default_site = get_default_site()
     try:
         p = Pipeline.create(pipe_config)
@@ -46,10 +71,28 @@ def run_pipeline(pipe_config):
     return status
 
 
-def run_postscript(post_script=None, dry_run=False, script_args=[]):
+def run_postscript(post_script=None, dry_run=False, script_args=None):
+    """ Run a script after the pipeline finishes
+
+    Parameters
+    ----------
+    post_script : `str`
+        The script to run
+    dry_run : `bool`
+        If true do not run the script
+    script_args : `list`, (`str`)
+        Arguments to the script
+
+    Returns
+    -------
+    return_code : `int`
+        Usual unix convention of 0 -> success, non-zero is an error code
+    """
+    if script_args is None:  #pragma: no cover
+        script_args = []
     if post_script and not dry_run:
         return_code = subprocess.call(post_script.split() + script_args, shell=True)
-        if return_code:
+        if return_code:  #pragma: no cover
             sys.stderr.write(
                 f"\nWARNING: The post-script command {post_script} "
                 "returned error status {return_code}\n\n"
@@ -60,13 +103,31 @@ def run_postscript(post_script=None, dry_run=False, script_args=[]):
 
 
 def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False):
+    """ Run a pipeline and associated scripts
+
+    Parameters
+    ----------
+    pipe_config : `dict`
+        The configuration dictionary
+    pipe_config_filename : `str`
+        The yaml file with the pipeline configuration
+    extra_config : `dict`
+        Extra parameters to override configuration
+    dry_run : `bool`
+        Flag to not actually run jobs
+
+    Returns
+    -------
+    status : `int`
+        Usual unix convention of 0 -> success, non-zero is an error code
+    """
 
     # Later we will add these paths to sys.path for running here,
     # but we will also need to pass them to the sites below so that
     # they can be added within any containers or other launchers
     # that we use
     paths = pipe_config.get("python_paths", [])
-    if isinstance(paths, str):
+    if isinstance(paths, str):  #pragma: no cover
         paths = paths.split()
 
     launcher_config = pipe_config.setdefault("launcher", {"name": "mini"})
@@ -101,7 +162,7 @@ def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False)
         return status
 
 
-def main():
+def main():  #pragma: no cover
     args = parser.parse_args()
     pipe_config = Pipeline.build_config(args.pipeline_config_filename, args.extra_config, args.dry_run)
     status = run(pipe_config, args.pipeline_config_filename, args.extra_config, args.dry_run)
@@ -113,5 +174,5 @@ def main():
     return status
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  #pragma: no cover
     sys.exit(main())

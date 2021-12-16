@@ -79,7 +79,7 @@ class Node:
 
     __repr__ = __str__
 
-    def __hash__(self):
+    def __hash__(self):  #pragma: no cover
         return hash(self.id)
 
     def assign(self):
@@ -294,7 +294,7 @@ class Runner:
                     f"Job {job} cannot be run - it needs {job.nodes}"
                     f" nodes but only {n_node} is/are available"
                 )
-            if job.cores > n_core:
+            if job.cores > n_core:  #pragma: no cover
                 raise CannotRun(
                     f"Job {job} cannot be run - it needs {job.cores}"
                     f" cores but only {n_core} is/are available"
@@ -335,7 +335,7 @@ class Runner:
             # check status
             status = process.poll()
             # None indicates job is still running
-            if status is None:
+            if status is None:  #pragma: no cover
                 continuing_jobs.append((process, job, alloc))
             # status !=0 indicates error in job.
             # kill everything

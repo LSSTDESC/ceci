@@ -2,7 +2,6 @@ import warnings
 
 
 class Site:
-    """"""
 
     default_mpi_command = "mpirun -n"
 
@@ -17,7 +16,7 @@ class Site:
             "cwl": ["cwlgen", "cwltool"],
             "mini": ["psutil"],
         }
-        if launcher not in requirements:
+        if launcher not in requirements:  #pragma: no cover
             raise ValueError(f"Unknown launcher '{launcher}'")
         missing = []
         libs = requirements[launcher]
@@ -26,9 +25,9 @@ class Site:
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", category=DeprecationWarning)
                     __import__(lib)
-            except ImportError:
+            except ImportError:  #pragma: no cover
                 missing.append(lib)
-        if missing:
+        if missing:  #pragma: no cover
             missing = ", ".join(missing)
             raise ImportError(
                 f"You must install these libraries "
@@ -38,7 +37,7 @@ class Site:
     def configure_for_launcher(self, launcher):
         self.check_import(launcher)
         configure = getattr(self, f"configure_for_{launcher}", None)
-        if configure is None:
+        if configure is None:  #pragma: no cover
             raise ValueError(
                 f"Site {self} does not know how to configure for launcher {launcher}"
             )

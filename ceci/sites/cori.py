@@ -29,7 +29,7 @@ class CoriSite(Site):
 
         # on cori we always use srun, even if the command is a single process
         mpi1 = f"{self.mpi_command} {sec.nprocess} --cpus-per-task={sec.threads_per_process}"
-        mpi2 = f"--mpi" if sec.nprocess > 1 else ""
+        mpi2 = "--mpi" if sec.nprocess > 1 else ""
         volume_flag = f"-V {sec.volume} " if sec.volume else ""
         paths = self.config.get("python_paths", [])
 
@@ -61,7 +61,7 @@ class CoriSite(Site):
             paths_end = "'" if paths else ""
             return (
                 f"{mpi1} "
-                f"shifter "
+                "shifter "
                 f"--env OMP_NUM_THREADS={sec.threads_per_process} "
                 f"{volume_flag} "
                 f"--image {sec.image} "

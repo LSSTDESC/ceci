@@ -20,7 +20,7 @@ IN_PROGRESS_PREFIX = "inprogress_"
 class PipelineStage:
     """A PipelineStage implements a single calculation step within a wider pipeline.
 
-    Each different type of analysis stge is represented by a subclass of this
+    Each different type of analysis stage is represented by a subclass of this
     base class.  The base class handles the connection between different pipeline
     stages, and the execution of the stages within a workflow system (parsl),
     potentially in parallel (MPI).
@@ -81,7 +81,6 @@ class PipelineStage:
         args: dict or namespace
             Specification of input and output paths and any missing config options
         """
-        self._name = self.name
         self._configs = StageConfig(**self.config_options)
         self._inputs = None
         self._outputs = None
@@ -96,36 +95,32 @@ class PipelineStage:
             self.setup_mpi(comm)
 
     def get_aliases(self):
+        """ Returns the dictionary of aliases used to remap inputs and outputs
+        in the case that we want to have multiple instance of this class in the pipeline """
         return self.config.get('aliases', None)
 
     def get_aliased_tag(self, tag):
-        aliases = self.config.get('aliases', None)
+        """ Returns the possibly remapped value for an input or output tag
+
+        Parameter
+        ---------
+        tag : `str`
+            The input or output tag we are checking
+
+        Returns
+        -------
+        aliased_tag : `str`
+            The aliases version of the tag
+        """
+        aliases = self.get_aliases()
         if aliases is None:
             return tag
         return aliases.get(tag, tag)
-
-    @classmethod
-    def build(cls, **kwargs):
-        kwcopy = kwargs.copy()
-        return cls(kwcopy)        
-            
-    @classmethod
-    def clone(cls, orig, cloneName, **kwargs):
-        args = orig.config.copy()
-        args.update(**kwargs)
-        args['name'] = cloneName
-        return cls(args)
 
     @abstractmethod
-    def run(self):
+    def run(self):  #pragma: no cover
         raise NotImplementedError('run')
 
-    def get_aliased_tag(self, tag):
-        aliases = self.config.get('aliases', None)
-        if aliases is None:
-            return tag
-        return aliases.get(tag, tag)
-    
     def load_configs(self, args):
         """
         Load the configuraiton
@@ -138,16 +133,24 @@ class PipelineStage:
         if not isinstance(args, dict):
             args = vars(args)
 
+
+        # First, we extract configuration information from a combination of
+        # command line arguments and optional 'config' file
+        self._inputs = dict(config=args["config"])
+        self.read_config(args)
+
         # We first check for missing input files, that's a show stopper
         missing_inputs = []
         for x in self.input_tags():
-            try:
-                val = args[x]
-            except KeyError as msg:
-                raise ValueError(f"{x} missing from {list(args.keys())}") from msg
+            val = args.get(x)
+            aliased_tag = self.get_aliased_tag(x)
             if val is None:
+                val = args.get(aliased_tag)
+            if val is None:  #pragma: no cover
                 missing_inputs.append(f"--{x}")
-        if missing_inputs:
+            else:
+                self._inputs[aliased_tag] = val
+        if missing_inputs:  #pragma: no cover
             missing_inputs = "  ".join(missing_inputs)
             raise ValueError(
                 f"""
@@ -156,12 +159,9 @@ Missing these names on the command line:
     Input names: {missing_inputs}"""
             )
 
-        self._inputs = {self.get_aliased_tag(x): args[x] for x in self.input_tags()}
         # We alwys assume the config arg exists, whether it is in input_tags or not
-        if 'config' not in args:
+        if 'config' not in args:  #pragma: no cover
             raise ValueError("The argument --config was missing on the command line.")
-
-        self._inputs["config"] = args["config"]
 
         # We prefer to receive explicit filenames for the outputs but will
         # tolerate missing output filenames and will default to tag name in
@@ -174,9 +174,6 @@ Missing these names on the command line:
             else:
                 self._outputs[self.get_aliased_tag(x)] = args[x]
 
-        # Finally, we extract configuration information from a combination of
-        # command line arguments and optional 'config' file
-        self.read_config(args)
 
     def setup_mpi(self, comm=None):
         """
@@ -189,7 +186,7 @@ Missing these names on the command line:
         """
         use_mpi = self.config.get('use_mpi', False)
 
-        if use_mpi:
+        if use_mpi:  #pragma: no cover
             try:
                 # This isn't a ceci dependency, so give a sensible error message if not installed.
                 import mpi4py.MPI
@@ -205,7 +202,7 @@ Missing these names on the command line:
             self._comm = comm
             self._size = self._comm.Get_size()
             self._rank = self._comm.Get_rank()
-        elif use_mpi:
+        elif use_mpi:  #pragma: no cover
             self._parallel = MPI_PARALLEL
             self._comm = mpi4py.MPI.COMM_WORLD
             self._size = self._comm.Get_size()
@@ -246,7 +243,7 @@ Missing these names on the command line:
 
         # If there isn't an explicit name already then set it here.
         # by default use the class name.
-        if not hasattr(cls, "name"):
+        if not hasattr(cls, "name"):  #pragma: no cover
             cls.name = cls.__name__
         if cls.name is None:
             cls.name = cls.__name__
@@ -290,10 +287,6 @@ Missing these names on the command line:
             cls.pipeline_stages[cls.name] = (cls, path)
         else:
             cls.incomplete_pipeline_stages[cls.__name__] = (cls, path)
-
-    def config_and_run(self, **kwargs):
-        self.load_configs(kwargs)
-        self.run()
 
     #############################################
     # Life cycle-related methods and properties.
@@ -348,7 +341,7 @@ Missing these names on the command line:
         return cls.pipeline_stages[cls.name][0].__module__
 
     @classmethod
-    def usage(cls):
+    def usage(cls):  #pragma: no cover
         """
         Print a usage message.
         """
@@ -377,10 +370,10 @@ I currently know about these stages:
         """
         try:
             stage_name = sys.argv[1]
-        except IndexError:
+        except IndexError:  #pragma: no cover
             cls.usage()
             return 1
-        if stage_name in ["--help", "-h"] and len(sys.argv) == 2:
+        if stage_name in ["--help", "-h"] and len(sys.argv) == 2:  #pragma: no cover
             cls.usage()
             return 1
         stage = cls.get_stage(stage_name)
@@ -402,11 +395,11 @@ I currently know about these stages:
                 parser.add_argument(f"--no-{conf}", dest=conf, action="store_const", const=False)
             elif opt_type == list:
                 out_type = def_val[0] if isinstance(def_val[0], type) else type(def_val[0])
-                if out_type is str:
+                if out_type is str:  #pragma: no cover
                     parser.add_argument(
                         f"--{conf}", type=lambda string: string.split(",")
                     )
-                elif out_type is int:
+                elif out_type is int:  #pragma: no cover
                     parser.add_argument(
                         f"--{conf}",
                         type=lambda string: [int(i) for i in string.split(",")],
@@ -416,11 +409,11 @@ I currently know about these stages:
                         f"--{conf}",
                         type=lambda string: [float(i) for i in string.split(",")],
                     )
-                else:
+                else:  #pragma: no cover
                     raise NotImplementedError(
                         "Only handles str, int and float list arguments"
                     )
-            else:
+            else:  #pragma: no cover
                 parser.add_argument(f"--{conf}", type=opt_type)
         for inp in cls.input_tags():
             parser.add_argument(f"--{inp}")
@@ -488,16 +481,16 @@ I currently know about these stages:
             if not is_client:
                 return
 
-        if args.cprofile:
+        if args.cprofile:  #pragma: no cover
             profile = cProfile.Profile()
             profile.enable()
 
-        if args.memmon:
+        if args.memmon:  #pragma: no cover
             monitor = MemoryMonitor.start_in_thread(interval=args.memmon)
 
         try:
             stage.run()
-        except Exception as error:
+        except Exception as error:  #pragma: no cover
             if args.pdb:
                 print(
                     "There was an exception - starting python debugger because you ran with --pdb"
@@ -507,7 +500,7 @@ I currently know about these stages:
             else:
                 raise
         finally:
-            if args.memmon:
+            if args.memmon:  #pragma: no cover
                 monitor.stop()
             if stage.is_dask():
                 stage.stop_dask()
@@ -516,7 +509,7 @@ I currently know about these stages:
         # final location, but subclasses can override to do other things too
         try:
             stage.finalize()
-        except Exception as error:
+        except Exception as error:  #pragma: no cover
             if args.pdb:
                 print(
                     "There was an exception in the finalization - starting python debugger because you ran with --pdb"
@@ -525,7 +518,7 @@ I currently know about these stages:
                 pdb.post_mortem()
             else:
                 raise
-        if args.cprofile:
+        if args.cprofile:  #pragma: no cover
             profile.disable()
             profile.dump_stats(args.cprofile)
             profile.print_stats("cumtime")
@@ -540,7 +533,7 @@ I currently know about these stages:
     def finalize(self):
         """Finalize the stage, moving all its outputs to their final locations."""
         # Synchronize files so that everything is closed
-        if self.is_mpi():
+        if self.is_mpi():  #pragma: no cover
             self.comm.Barrier()
 
         # Move files to their final path
@@ -557,10 +550,10 @@ I currently know about these stages:
                 # because that will be handled later.
                 if pathlib.Path(temp_name).exists():
                     # replace directories, rather than nesting more results
-                    if pathlib.Path(final_name).is_dir():
+                    if pathlib.Path(final_name).is_dir():  #pragma: no cover
                         shutil.rmtree(final_name)
                     shutil.move(temp_name, final_name)
-                else:
+                else:  #pragma: no cover
                     sys.stderr.write(
                         f"NOTE/WARNING: Expected output file {final_name} was not generated.\n"
                     )
@@ -621,14 +614,14 @@ I currently know about these stages:
             import dask
             import dask_mpi
             import dask.distributed
-        except ImportError:
+        except ImportError:  #pragma: no cover
             print(
                 "ERROR: Using --mpi option on stages that use dask requires "
                 "dask[distributed] and dask_mpi to be installed."
             )
             raise
 
-        if self.size < 3:
+        if self.size < 3:  #pragma: no cover
             raise ValueError(
                 "Dask requires at least three processes. One becomes a scheduler "
                 "process, one is a client that runs the code, and more are required "
@@ -694,7 +687,7 @@ I currently know about these stages:
             Default=True
         """
         n_chunks = n_rows // chunk_rows
-        if n_chunks * chunk_rows < n_rows:
+        if n_chunks * chunk_rows < n_rows:  #pragma: no cover
             n_chunks += 1
         if parallel:
             it = self.split_tasks_by_rank(range(n_chunks))
@@ -743,11 +736,11 @@ I currently know about these stages:
         input_class = self.get_input_type(tag)
         obj = input_class(path, "r", **kwargs)
 
-        if wrapper:
+        if wrapper:  #pragma: no cover
             return obj
         return obj.file
 
-    def open_output(self, tag, wrapper=False, final_name=False, **kwargs):
+    def open_output(self, tag, wrapper=False, final_name=False, **kwargs):  #pragma: no cover
         """
         Find and open an output file with the given tag, in write mode.
 
@@ -836,14 +829,14 @@ I currently know about these stages:
         for t, dt in self.inputs:
             if t == tag:
                 return dt
-        raise ValueError(f"Tag {tag} is not a known input")
+        raise ValueError(f"Tag {tag} is not a known input")  #pragma: no cover
 
     def get_output_type(self, tag):
         """Return the file type class of an output file with the given tag."""
         for t, dt in self.outputs:
             if t == tag:
                 return dt
-        raise ValueError(f"Tag {tag} is not a known output")
+        raise ValueError(f"Tag {tag} is not a known output")  #pragma: no cover
 
     ##################################################
     # Configuration-related methods and properties.
@@ -851,7 +844,7 @@ I currently know about these stages:
 
     @property
     def instance_name(self):
-        return self._name
+        return self._configs.get('name', self.name)
 
     @property
     def config(self):
@@ -896,69 +889,10 @@ I currently know about these stages:
         # This is just the config info in the file for this stage.
         # It may be incomplete - there may be things specified on the
         # command line instead, or just using their default values
-        stage_config = overall_config.get(self.name, {})
+        stage_config = overall_config.get(self.instance_name, {})
         input_config.update(stage_config)
 
         self._configs.set_config(input_config, args)
-        
-        # Here we build up the actual configuration we use on this
-        # run from all these sources
-        my_config = {}
-
-        # Loop over the options of the pipeline stage
-        #for x, opt_val in self.config_options.items():
-        #    opt = None
-        #    opt_type = None
-
-            # First look for a default value,
-            # if a type (like int) is provided as the default it indicates that
-            # this option doesn't have a default (i.e. is mandatory) and should
-            # be explicitly provided with the specified type
-            #if isinstance(opt_val, type):
-            #    opt_type = opt_val
-
-            #elif isinstance(opt_val, list):
-            #    v = opt_val[0]
-            #    if isinstance(v, type):
-            #        opt_type = v
-            #    else:
-            #        opt = opt_val
-            #        opt_type = type(v)
-            #else:
-            #    opt = opt_val
-            #    opt_type = type(opt)
-
-            # Second, look for the option in the configuration file and override
-            # default if provided TODO: Check types
-            #if x in input_config:
-            #    opt = input_config[x]
-            #    _ = opt_type #  This is just to get pylint to shut up
-
-            # Finally check for command line option that would override the value
-            # in the configuration file. Note that the argument parser should
-            # already have taken care of type
-            #if args.get(x) is not None:
-            #    opt = args[x]
-
-            # Finally, check that we got at least some value for this option
-            #if opt is None:
-            #    raise ValueError(
-            #        f"Missing configuration option {x} for stage {self.name}"
-            #    )
-
-            #my_config[x] = opt
-
-        # Unspecified parameters can also be copied over.
-        # This will be needed for parameters that are more complicated, such
-        # as dictionaries or other more structured parameter information.
-        #for x, val in input_config.items():
-            # Omit things we've already dealt with above
-        #    if x in self.config_options:
-        #        continue
-            # copy over everything else
-        #    my_config[x] = val
-
-        #return my_config
 
     def find_inputs(self, pipeline_files):
         ret_dict = {}
@@ -977,12 +911,12 @@ I currently know about these stages:
     def print_io(self, stream=sys.stdout):
         stream.write("Inputs--------\n")
         for tag, ftype in self.inputs:
-            aliased_tag - self.get_aliased_tag(tag)
+            aliased_tag = self.get_aliased_tag(tag)
             stream.write(f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._inputs[tag]}\n")
         stream.write("Outputs--------\n")
         for tag, ftype in self.outputs:
-            aliased_tag - self.get_aliased_tag(tag)
-            stream.write(f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._outputs[tag]}\n")
+            aliased_tag = self.get_aliased_tag(tag)
+            stream.write(f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._outputs[aliased_tag]}\n")
 
     def should_skip(self, run_config):
         outputs = self.find_outputs(run_config["output_dir"]).values()
@@ -990,9 +924,9 @@ I currently know about these stages:
         return already_run_stage and run_config["resume"]
 
     def already_finished(self):
-        print(f"Skipping stage {self._name} because its outputs exist already")
+        print(f"Skipping stage {self.instance_name} because its outputs exist already")
 
-    def iterate_fits(self, tag, hdunum, cols, chunk_rows, parallel=True):
+    def iterate_fits(self, tag, hdunum, cols, chunk_rows, parallel=True):  #pragma: no cover
         """
         Loop through chunks of the input data from a FITS file with the given tag
 
@@ -1106,7 +1040,7 @@ I currently know about these stages:
                 aliased_tag = tag
             try:
                 fpath = inputs[aliased_tag]
-            except KeyError as msg:
+            except KeyError as msg:  #pragma: no cover
                 raise ValueError(f"Missing input location {aliased_tag} {str(inputs)}") from msg
             flags.append(f"--{tag}={fpath}")
 
@@ -1119,7 +1053,7 @@ I currently know about these stages:
                 aliased_tag = tag
             try:
                 fpath = outputs[aliased_tag]
-            except KeyError as msg:
+            except KeyError as msg:  #pragma: no cover
                 raise ValueError(f"Missing output location {aliased_tag} {str(outputs)}") from msg
             flags.append(f"--{tag}={fpath}")
 

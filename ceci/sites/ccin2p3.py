@@ -27,7 +27,7 @@ class CCParallel(Site):
         """
 
         mpi1 = f"{self.mpi_command} {sec.nprocess} "
-        mpi2 = f"--mpi" if sec.nprocess > 1 else ""
+        mpi2 = "--mpi" if sec.nprocess > 1 else ""
         volume_flag = f"--bind {sec.volume} " if sec.volume else ""
         paths = self.config.get("python_paths", [])
 
