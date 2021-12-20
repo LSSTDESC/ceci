@@ -1,10 +1,12 @@
+"""Utility functions need to run ceci"""
+
 from contextlib import contextmanager
 import sys
 import os
 
 
 def add_python_path(path, start):
-    # add a path to the env var PYTHONPATH
+    """add a path to the env var PYTHONPATH"""
     old = os.environ.get("PYTHONPATH", "")
     if start:
         new = path + ":" + old
@@ -14,7 +16,7 @@ def add_python_path(path, start):
 
 
 def remove_python_path(path, start):
-    # remove a path from PYTHONPATH
+    """remove a path from PYTHONPATH"""
     p = os.environ.get("PYTHONPATH", "").split(":")
     if start:
         p.remove(path)
@@ -25,6 +27,8 @@ def remove_python_path(path, start):
 
 @contextmanager
 def extra_paths(paths, start=True):
+    """Add extra paths to PYTHONPATH while in a context"""
+
     # allow passing a single path or
     # a list of them
     if isinstance(paths, str):

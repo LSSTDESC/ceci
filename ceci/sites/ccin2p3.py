@@ -1,3 +1,5 @@
+"""Utility class to interface to workflow managers when using CC IN2P3"""
+
 from .site import Site
 import os
 from ..minirunner import Node
@@ -67,11 +69,12 @@ class CCParallel(Site):
         )
 
     def configure_for_parsl(self):  #pylint: disable=no-self-use
+        """Utility function to set parsl configuration parameters"""
         raise ValueError("Parsl not configured for CC IN2P3 in ceci yet")
 
 
     def configure_for_mini(self):
-
+        """Utility function to setup self for local execution"""
         total_cores = int(os.environ['NSLOTS'])
         cores_per_node = 16  # seems to be the case
         nodes = total_cores // cores_per_node
@@ -86,4 +89,4 @@ class CCParallel(Site):
         self.info["nodes"] = nodes
 
     def configure_for_cwl(self):
-        pass
+        """Utility function to set CWL configuration parameters"""

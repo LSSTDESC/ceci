@@ -1,3 +1,5 @@
+"""Module with core functionality for a single pipeline stage """
+
 import pathlib
 import os
 import sys
@@ -119,6 +121,7 @@ class PipelineStage:
 
     @abstractmethod
     def run(self):  #pragma: no cover
+        """Run the stage and return the execution status"""
         raise NotImplementedError('run')
 
     def load_configs(self, args):
@@ -383,6 +386,18 @@ I currently know about these stages:
 
     @classmethod
     def parse_command_line(cls, cmd=None):
+        """Set up and argument parser and parse the command line
+
+        Parameters
+        ----------
+        cmd : str or None
+            The command line to part (if None this will use the system arguments)
+
+        Returns
+        -------
+        args : Namespace
+            The resulting Mapping of arguement to values
+        """
         import argparse
 
         parser = argparse.ArgumentParser(description=f"Run pipeline stage {cls.name}")
@@ -844,6 +859,7 @@ I currently know about these stages:
 
     @property
     def instance_name(self):
+        """Return the name associated to this particular instance of this stage"""
         return self._configs.get('name', self.name)
 
     @property
@@ -895,6 +911,10 @@ I currently know about these stages:
         self._configs.set_config(input_config, args)
 
     def find_inputs(self, pipeline_files):
+        """Find and retrun all the inputs associated to this stage in the FileManager
+
+        These are returned as a dictionary of tag : path pairs
+        """
         ret_dict = {}
         for tag, _ in self.inputs:
             aliased_tag = self.get_aliased_tag(tag)
@@ -902,6 +922,10 @@ I currently know about these stages:
         return ret_dict
 
     def find_outputs(self, outdir):
+        """Find and retrun all the outputs associated to this stage
+
+        These are returned as a dictionary of tag : path pairs
+        """
         ret_dict = {}
         for tag, ftype in self.outputs:
             aliased_tag = self.get_aliased_tag(tag)
@@ -909,6 +933,7 @@ I currently know about these stages:
         return ret_dict
 
     def print_io(self, stream=sys.stdout):
+        """Print out the tags, paths and types for all the inputs and outputs of this stage"""
         stream.write("Inputs--------\n")
         for tag, ftype in self.inputs:
             aliased_tag = self.get_aliased_tag(tag)
@@ -919,11 +944,13 @@ I currently know about these stages:
             stream.write(f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._outputs[aliased_tag]}\n")
 
     def should_skip(self, run_config):
+        """Return true if we should skip a stage b/c it's outputs already exist and we are in resume mode"""
         outputs = self.find_outputs(run_config["output_dir"]).values()
         already_run_stage = all(os.path.exists(output) for output in outputs)
         return already_run_stage and run_config["resume"]
 
     def already_finished(self):
+        """Print a warning that a stage is being skipped"""
         print(f"Skipping stage {self.instance_name} because its outputs exist already")
 
     def iterate_fits(self, tag, hdunum, cols, chunk_rows, parallel=True):  #pragma: no cover

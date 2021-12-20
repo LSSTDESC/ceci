@@ -139,7 +139,7 @@ class Job:
     __repr__ = __str__
 
 
-def null_callback(event_name, event_data): #pylint: disable=unused-argument
+def null_callback(event_name, event_data): #pylint: disable=unused-argument,missing-function-docstring
     pass
 
 

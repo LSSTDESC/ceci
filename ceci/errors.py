@@ -1,14 +1,17 @@
+"""ceci specific error types"""
+
+
 class DuplicateStageName(TypeError):
-    pass
+    """Raised when a stage name is reused in a pipeline"""
 
 
 class IncompleteStage(TypeError):
-    pass
+    """Raised when a stage is missing required methods or attributes"""
 
 
 class StageNotFound(ValueError):
-    pass
+    """Raise when a stage is not found in a pipeline"""
 
 
 class ReservedNameError(TypeError):
-    pass
+    """Raised when a parameter is given a reserved name"""

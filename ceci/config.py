@@ -221,6 +221,7 @@ class StageConfig(dict):
                 val.set_to_default()
 
     def get_type(self, key):
+        """Get the type associated to a particular configuration parameter"""
         attr = dict.__getitem__(self, key)
         if isinstance(attr, StageParameter):
             return attr.dtype

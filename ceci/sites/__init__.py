@@ -1,3 +1,5 @@
+"""Classes and functions to manage site-specific configuration"""
+
 from .cori import CoriBatchSite, CoriInteractiveSite
 from .local import LocalSite, Site
 from .ccin2p3 import CCParallel
@@ -18,18 +20,21 @@ site_classes = {
 
 
 def set_default_site(site):
+    """Set the default site"""
     global _default_site
     _default_site = site
     return _default_site
 
 
 def reset_default_site():
+    """Set the default site to the `LocalSite`"""
     site = LocalSite({"max_threads": 2})
     site.configure_for_mini()
     set_default_site(site)
 
 
 def get_default_site():
+    """Return the current default site"""
     return _default_site
 
 

@@ -1,3 +1,5 @@
+"""Utility class to interface to workflow managers when using CORI at NERSC"""
+
 import os
 from ..minirunner import Node
 
@@ -5,6 +7,8 @@ from .site import Site
 
 
 class CoriSite(Site):
+    """Object representing execution on the CORI"""
+
     default_mpi_command = "srun -u -n"
 
     def command(self, cmd, sec):
@@ -81,6 +85,7 @@ class CoriSite(Site):
         )
 
     def configure_for_mini(self):
+        """Utility function to setup self for local execution"""
         # if on local machine, query available cores and mem, make one node
         slurm = os.environ.get("SLURM_JOB_ID")
 
@@ -120,11 +125,14 @@ class CoriSite(Site):
         self.info["nodes"] = nodes
 
     def configure_for_cwl(self):
-        pass
+        """Utility function to set CWL configuration parameters"""
 
 
 class CoriBatchSite(CoriSite):
+    """Object representing execution on the CORI batch system"""
+
     def configure_for_parsl(self):
+        """Utility function to set parsl configuration parameters"""
         from parsl.executors import IPyParallelExecutor
         from parsl.providers import SlurmProvider
 
@@ -165,7 +173,10 @@ class CoriBatchSite(CoriSite):
 
 
 class CoriInteractiveSite(CoriSite):
+    """Object representing execution on the CORI interactive system"""
+
     def configure_for_parsl(self):
+        """Utility function to set parsl configuration parameters"""
         from parsl.executors import ThreadPoolExecutor
 
         max_threads = int(os.environ.get("SLURM_JOB_NUM_NODES", 1))
@@ -174,7 +185,10 @@ class CoriInteractiveSite(CoriSite):
 
 
 def parse_int_set(nputstr):
-    # https://stackoverflow.com/questions/712460/interpreting-number-ranges-in-python/712483
+    """Utilty funciton to parse integer sets and ranges
+
+    https://stackoverflow.com/questions/712460/interpreting-number-ranges-in-python/712483
+    """
     selection = set()
     invalid = set()
     # tokens are comma seperated values

@@ -1,3 +1,5 @@
+"""Ceci n'est pas une pipeline"""
+
 from .stage import PipelineStage
 from .pipeline import Pipeline, MiniPipeline, ParslPipeline, DryRunPipeline
 from pkg_resources import DistributionNotFound

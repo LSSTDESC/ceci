@@ -1,3 +1,5 @@
+"""Functions to run ceci from the command line"""
+
 import os
 import sys
 import argparse
@@ -28,7 +30,7 @@ parser.add_argument(
 
 
 def run_prescript(pre_script=None, dry_run=False, script_args=None):
-    """ Run a script before running the pipeline
+    """Run a script before running the pipeline
 
     Parameters
     ----------
@@ -46,7 +48,7 @@ def run_prescript(pre_script=None, dry_run=False, script_args=None):
 
 
 def run_pipeline(pipe_config):
-    """ Run a pipeline as defined by a particular configuration
+    """Run a pipeline as defined by a particular configuration
 
     Parameters
     ----------
@@ -72,7 +74,7 @@ def run_pipeline(pipe_config):
 
 
 def run_postscript(post_script=None, dry_run=False, script_args=None):
-    """ Run a script after the pipeline finishes
+    """Run a script after the pipeline finishes
 
     Parameters
     ----------
@@ -103,7 +105,7 @@ def run_postscript(post_script=None, dry_run=False, script_args=None):
 
 
 def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False):
-    """ Run a pipeline and associated scripts
+    """Run a pipeline and associated scripts
 
     Parameters
     ----------
@@ -163,6 +165,7 @@ def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False)
 
 
 def main():  #pragma: no cover
+    """Main function called when ceci is invoked on the command line"""
     args = parser.parse_args()
     pipe_config = Pipeline.build_config(args.pipeline_config_filename, args.extra_config, args.dry_run)
     status = run(pipe_config, args.pipeline_config_filename, args.extra_config, args.dry_run)

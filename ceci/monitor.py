@@ -1,3 +1,5 @@
+"""Tools for monitoring processing status and memory usage by ceci pipelines"""
+
 import time
 import psutil
 import threading
