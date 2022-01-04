@@ -313,7 +313,7 @@ class Pipeline:
 
         self.overall_inputs = kwargs.get('overall_inputs', {}).copy()
         self.modules = kwargs.get('modules', '')
-
+        
         # These are populated as we add stages below
         self.stage_execution_config = {}
         self.stage_names = []
@@ -325,7 +325,8 @@ class Pipeline:
         self.pipeline_outputs = None
         self.stages_config = None
         self.stage_config_data = None
-
+        self.global_config = {}
+        
         # Store the individual stage informaton
         for info in stages:
             self.add_stage(info)
@@ -757,9 +758,9 @@ Some required inputs to the pipeline could not be found,
                 self.stage_config_data = yaml.safe_load(stage_config_file)
         else:  #pragma: no cover
             self.stage_config_data = {}
-        global_config = self.stage_config_data.pop('global', {})
+        self.global_config = self.stage_config_data.pop('global', {})
         for v in self.stage_config_data.values():
-            v.update(global_config)
+            v.update(self.global_config)
 
         # Get the stages in the order we need.
         self.stages = self.ordered_stages(self.overall_inputs, self.stages_config)
@@ -852,10 +853,9 @@ Some required inputs to the pipeline could not be found,
             if val.threads_per_process != 1:
                 pipe_stage_info['threads_per_process'] = val.threads_per_process
             pipe_info_list.append(pipe_stage_info)
-            #FIXME, for now we don't actually pull out the globals on the inputs, or the aliases
-            stage_dict[key] = val.stage_obj.get_config_dict({})
+            stage_dict[key] = val.stage_obj.get_config_dict(self.global_config)
 
-        #FIXME, this is hardcoded
+        stage_dict['global'] = self.global_config
         pipe_dict['modules'] = self.modules
         pipe_dict['inputs'] = self.overall_inputs
         pipe_dict['stages'] = pipe_info_list
@@ -1223,7 +1223,7 @@ class CWLPipeline(Pipeline):
         # file, so it is all collected together.
         with open(stages_config) as _stages_config_file:
             stage_config_data = yaml.safe_load(_stages_config_file)
-        global_config = stage_config_data.get("global", {})
+        self.global_config = self.stage_config_data.pop("global", {})
 
         # For each stage, we check if any of its config information
         # is set in the config file
@@ -1233,7 +1233,7 @@ class CWLPipeline(Pipeline):
             # Record only keys that have been set.  If any are missing
             # it is an error that will be noticed later.
             for key in stage.config_options:
-                val = this_stage_config.get(key, global_config.get(key))
+                val = this_stage_config.get(key, self.global_config.get(key))
                 if val is not None:
                     inputs[f"{key}@{stage.instance_name}"] = val
 
