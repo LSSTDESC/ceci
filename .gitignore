@@ -7,8 +7,10 @@ build/
 ceci.egg-info*
 dist
 log.txt
+test_save*
 tests/log*
 tests/cwl
+nb/Untitled.ipynb
 .ipynb_checkpoints/
 .coverage
 .eggs

@@ -53,6 +53,17 @@ def cast_value(dtype, value): #pylint: disable=too-many-return-statements
     raise TypeError(msg)
 
 
+def cast_to_streamable(value):
+    """Cast a value to something that yaml can easily stream"""
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, Mapping):
+        #return {key:val for key, val in value.items()}
+        return dict(value)
+    if isinstance(value, StageParameter):
+        return value.value
+    return value
+
 
 class StageParameter:
     """ A small class to manage a single parameter with basic type checking

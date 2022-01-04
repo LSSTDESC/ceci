@@ -10,7 +10,7 @@ import cProfile
 from abc import abstractmethod
 from . import errors
 from .monitor import MemoryMonitor
-from .config import StageConfig
+from .config import StageConfig, cast_to_streamable
 
 SERIAL = "serial"
 MPI_PARALLEL = "mpi"
@@ -136,7 +136,6 @@ class PipelineStage:
         if not isinstance(args, dict):
             args = vars(args)
 
-
         # First, we extract configuration information from a combination of
         # command line arguments and optional 'config' file
         self._inputs = dict(config=args["config"])
@@ -147,8 +146,10 @@ class PipelineStage:
         for x in self.input_tags():
             val = args.get(x)
             aliased_tag = self.get_aliased_tag(x)
+
             if val is None:
                 val = args.get(aliased_tag)
+
             if val is None:  #pragma: no cover
                 missing_inputs.append(f"--{x}")
             else:
@@ -909,6 +910,28 @@ I currently know about these stages:
         input_config.update(stage_config)
 
         self._configs.set_config(input_config, args)
+
+    def get_config_dict(self, global_config):
+        """Write the current configuration to a dict
+
+        Parameters
+        ----------
+        global_config : dict
+            Global parameters not to write
+
+        Returns
+        -------
+        out_dict : dict
+            The configuration
+        """
+        out_dict = {}
+        for key, val in self.config.items():
+            if key in global_config:
+                if global_config[key] == val:
+                    continue
+            out_dict[key] = cast_to_streamable(val)
+        return out_dict
+
 
     def find_inputs(self, pipeline_files):
         """Find and retrun all the inputs associated to this stage in the FileManager

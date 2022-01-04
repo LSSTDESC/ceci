@@ -291,7 +291,7 @@ class Pipeline:
     Sub-classes run the pipeline using a given workflow manager.
     """
 
-    def __init__(self, stages, launcher_config):
+    def __init__(self, stages, launcher_config, **kwargs):
         """Construct a pipeline using configuraion information.
 
         Parameters
@@ -301,8 +301,18 @@ class Pipeline:
         launcher_config: dict
             Any additional configuration that will be needed by the workflow
             management.  The base class does not use this.
+
+        Keywords
+        --------
+        overall_inputs : Mapping or None
+            The global inputs to the pipeline, as Mapping of tag:url
+        modules : str
+            Space seperated path of modules loaded for this pipeline
         """
         self.launcher_config = launcher_config
+
+        self.overall_inputs = kwargs.get('overall_inputs', {}).copy()
+        self.modules = kwargs.get('modules', '')
 
         # These are populated as we add stages below
         self.stage_execution_config = {}
@@ -340,6 +350,7 @@ class Pipeline:
         stages_config = pipe_config["config"]
         stages = pipe_config["stages"]
         inputs = pipe_config["inputs"]
+        modules = pipe_config["modules"]
         run_config = {"output_dir": pipe_config["output_dir"],
                       "log_dir": pipe_config["log_dir"],
                       "resume": pipe_config["resume"]}
@@ -355,7 +366,7 @@ class Pipeline:
         except KeyError as msg:  #pragma: no cover
             raise KeyError(f"Unknown pipeline launcher {launcher_name}, options are {list(launcher_dict.keys())}") from msg
 
-        p = pipeline_class(stages, launcher_config)
+        p = pipeline_class(stages, launcher_config, overall_inputs=inputs, modules=modules)
         p.load_configs(inputs, run_config, stages_config)
         return p
 
@@ -633,10 +644,11 @@ class Pipeline:
                 stage = sec.stage_obj
 
             # for file that stage produces,
+            stage_outputs = stage.find_outputs('.')
             for tag in stage.output_tags():
                 # find all the next_stages that depend on that file
                 found_inputs.add(tag)
-                all_inputs[tag] = stage.find_outputs('.')
+                all_inputs[tag] = stage_outputs[tag]
                 for next_stage in dependencies[tag]:
                     # record that the next stage now has one less
                     # missing dependency
@@ -690,8 +702,10 @@ Some required inputs to the pipeline could not be found,
         self.run_info : information on how to run the pipeline, as provided by sub-class `initiate_run` method
         self.run_config : copy of configuration parameters on how to run the pipeline
         """
-        # Make a copy, since we'll be modifying this.
-        self.pipeline_files.insert_paths(overall_inputs)
+
+        # Make a copy, since we maybe be modifying these
+        self.overall_inputs = overall_inputs.copy()
+        self.pipeline_files.insert_paths(self.overall_inputs)
         self.run_config = run_config.copy()
 
         self.stages_config = stages_config
@@ -705,14 +719,14 @@ Some required inputs to the pipeline could not be found,
             v.update(global_config)
 
         # Get the stages in the order we need.
-        self.stages = self.ordered_stages(overall_inputs, self.stages_config)
+        self.stages = self.ordered_stages(self.overall_inputs, self.stages_config)
 
         # Initiate the run.
         # This is an implementation detail for the different subclasses to store
         # necessary information about the run if necessary.
         # Usually, the arguments are ignored, but they are provided in case a class needs to
         # do something special with any of them.
-        self.run_info = self.initiate_run(overall_inputs)
+        self.run_info = self.initiate_run(self.overall_inputs)
 
         # make sure output directories exist
         os.makedirs(run_config["output_dir"], exist_ok=True)
@@ -774,6 +788,45 @@ Some required inputs to the pipeline could not be found,
     def should_skip_stage(self, stage):
         """Return true if we should skip a stage because it is finished and we are in resume mode"""
         return stage.should_skip(self.run_config)
+
+    def save(self, pipefile, stagefile=None):
+        """Save this pipeline state to a yaml file"""
+        pipe_dict = {}
+        stage_dict = {}
+        pipe_info_list = []
+        if stagefile is None:
+            stagefile = os.path.splitext(pipefile)[0] + "_config.yml"
+        if self.run_config is not None:
+            pipe_dict.update(**self.run_config)
+        pipe_dict['config'] = stagefile
+        site = None
+        for key, val in self.stage_execution_config.items():
+            if val.stage_obj is None:
+                continue
+            if site is None:
+                site = val.site.config
+            pipe_stage_info = dict(name=val.name, nprocess=val.nprocess)
+            if val.threads_per_process != 1:
+                pipe_stage_info['threads_per_process'] = val.threads_per_process
+            pipe_info_list.append(pipe_stage_info)
+            #FIXME, for now we don't actually pull out the globals on the inputs, or the aliases
+            stage_dict[key] = val.stage_obj.get_config_dict({})
+
+        #FIXME, this is hardcoded
+        pipe_dict['modules'] = self.modules
+        pipe_dict['inputs'] = self.overall_inputs
+        pipe_dict['stages'] = pipe_info_list
+        pipe_dict['site'] = site
+        with open(pipefile, 'w') as outfile:
+            try:
+                yaml.dump(pipe_dict, outfile)
+            except Exception as msg:
+                print(f"Failed to save {str(pipe_dict)} because {msg}")
+        with open(stagefile, 'w') as outfile:
+            try:
+                yaml.dump(stage_dict, outfile)
+            except Exception as msg:
+                print(f"Failed to save {str(stage_dict)} because {msg}")
 
 
 class DryRunPipeline(Pipeline):
@@ -1160,7 +1213,7 @@ class CWLPipeline(Pipeline):
         cwl_dir = self.launcher_config["dir"]
         os.makedirs(cwl_dir, exist_ok=True)
 
-        # Write the inputs file
+        # Write the inputs files
         inputs_file = f"{cwl_dir}/cwl_inputs.yml"
         self.make_inputs_file(self.stages, overall_inputs, self.stages_config, inputs_file)
 
