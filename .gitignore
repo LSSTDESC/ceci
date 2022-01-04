@@ -13,6 +13,7 @@ tests/cwl
 nb/Untitled.ipynb
 .ipynb_checkpoints/
 .coverage
+.coverage.*
 .eggs
 out/
 test/

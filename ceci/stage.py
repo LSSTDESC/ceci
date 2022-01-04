@@ -159,7 +159,7 @@ class PipelineStage:
             raise ValueError(
                 f"""
 
-Missing these names on the command line:
+{self.instance_name} Missing these names on the command line:
     Input names: {missing_inputs}"""
             )
 

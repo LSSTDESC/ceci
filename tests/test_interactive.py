@@ -49,7 +49,7 @@ def test_config():
     assert config.get_type('chunk_rows') == int
     
 
-def test_interactive():
+def test_interactive_pipeline():
 
     # Load the pipeline interactively, this is just a temp fix to
     # get the run_config and stage_config
