@@ -911,13 +911,15 @@ I currently know about these stages:
 
         self._configs.set_config(input_config, args)
 
-    def get_config_dict(self, global_config):
+    def get_config_dict(self, global_config, reduce_config=False):
         """Write the current configuration to a dict
 
         Parameters
         ----------
         global_config : dict
             Global parameters not to write
+        reduce_config : bool
+            If true, reduce the configuration by parsing out the inputs, outputs and global params
 
         Returns
         -------
@@ -925,9 +927,16 @@ I currently know about these stages:
             The configuration
         """
         out_dict = {}
+        if reduce_config:
+            ignore_keys = self.input_tags() + self.output_tags() + ['config']
+        else:
+            ignore_keys = []
         for key, val in self.config.items():
-            if key in global_config:
-                if global_config[key] == val:
+            if reduce_config:
+                if key in global_config:
+                    if global_config[key] == val:
+                        continue
+                if key in ignore_keys:
                     continue
             out_dict[key] = cast_to_streamable(val)
         return out_dict

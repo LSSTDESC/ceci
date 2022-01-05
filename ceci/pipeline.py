@@ -313,7 +313,7 @@ class Pipeline:
 
         self.overall_inputs = kwargs.get('overall_inputs', {}).copy()
         self.modules = kwargs.get('modules', '')
-        
+
         # These are populated as we add stages below
         self.stage_execution_config = {}
         self.stage_names = []
@@ -326,7 +326,7 @@ class Pipeline:
         self.stages_config = None
         self.stage_config_data = None
         self.global_config = {}
-        
+
         # Store the individual stage informaton
         for info in stages:
             self.add_stage(info)
@@ -676,7 +676,12 @@ class Pipeline:
             sec = self.stage_execution_config[stage_name]
             stage_class = sec.stage_class
             stage_config = stage_config_data.get(stage_name, {})
-            stage_config.update(all_inputs)
+            stage_aliases = self.get_stage_aliases(stage_name, stage_config_data)
+            stage_inputs = {}
+            for tag in stage_class.input_tags():
+                aliased_tag = stage_aliases.get(tag, tag)
+                stage_inputs[aliased_tag] = all_inputs[aliased_tag]
+            stage_config.update(stage_inputs)
             stage_config['config'] = stages_config
             if sec.stage_obj is None:
                 stage = sec.build_stage_object(stage_config)
@@ -708,14 +713,15 @@ class Pipeline:
             ]
             msg1 = []
             for stage_name in stages_missing_inputs:
-                stage = self.stage_execution_config[stage_name].stage_obj
-                if stage is None:
-                    raise ValueError("Object has not been created for {stage_name}")
-                missing_inputs = [
-                    tag for tag in stage.input_tags() if tag not in found_inputs
-                ]
+                stage_aliases = self.get_stage_aliases(stage_name, stage_config_data)
+                stage_class = self.stage_execution_config[stage_name].stage_class
+                missing_inputs = []
+                for tag in stage_class.input_tags():
+                    aliased_tag = stage_aliases.get(tag, tag)
+                    if aliased_tag not in found_inputs:
+                        missing_inputs.append(aliased_tag)
                 missing_inputs = ", ".join(missing_inputs)
-                msg1.append(f"Stage {stage.instance_name} is missing input(s): {missing_inputs}")
+                msg1.append(f"Stage {stage_name} is missing input(s): {missing_inputs}")
 
             msg1 = "\n".join(msg1)
             raise ValueError(
@@ -833,8 +839,23 @@ Some required inputs to the pipeline could not be found,
         """Return true if we should skip a stage because it is finished and we are in resume mode"""
         return stage.should_skip(self.run_config)
 
-    def save(self, pipefile, stagefile=None):
-        """Save this pipeline state to a yaml file"""
+    def save(self, pipefile, **kwargs):
+        """Save this pipeline state to a yaml file
+
+        Paramaeters
+        -----------
+        pipeline: str
+            Path to the file were we save this
+
+        Keywords
+        --------
+        stagefile: str or None
+            Optional path to where we save the configuration file
+        reduce_config: bool or None
+            If true, reduce the configuration by parsing out the inputs, outputs and global params
+        """
+        stagefile = kwargs.get('stagefile')
+        reduce_config = kwargs.get('reduce_config', False)
         pipe_dict = {}
         stage_dict = {}
         pipe_info_list = []
@@ -843,19 +864,20 @@ Some required inputs to the pipeline could not be found,
         if self.run_config is not None:
             pipe_dict.update(**self.run_config)
         pipe_dict['config'] = stagefile
+        if reduce_config:
+            stage_dict['global'] = self.global_config
         site = None
         for key, val in self.stage_execution_config.items():
-            if val.stage_obj is None:
-                continue
+            if val.stage_obj is None:  #pragma: no cover
+                raise ValueError(f"Stage {key} has not been built, can not save")
             if site is None:
                 site = val.site.config
             pipe_stage_info = dict(name=val.name, nprocess=val.nprocess)
             if val.threads_per_process != 1:
                 pipe_stage_info['threads_per_process'] = val.threads_per_process
             pipe_info_list.append(pipe_stage_info)
-            stage_dict[key] = val.stage_obj.get_config_dict(self.global_config)
+            stage_dict[key] = val.stage_obj.get_config_dict(self.global_config, reduce_config=reduce_config)
 
-        stage_dict['global'] = self.global_config
         pipe_dict['modules'] = self.modules
         pipe_dict['inputs'] = self.overall_inputs
         pipe_dict['stages'] = pipe_info_list
@@ -863,12 +885,12 @@ Some required inputs to the pipeline could not be found,
         with open(pipefile, 'w') as outfile:
             try:
                 yaml.dump(pipe_dict, outfile)
-            except Exception as msg:
+            except Exception as msg:  #pragma: no cover
                 print(f"Failed to save {str(pipe_dict)} because {msg}")
         with open(stagefile, 'w') as outfile:
             try:
                 yaml.dump(stage_dict, outfile)
-            except Exception as msg:
+            except Exception as msg:  #pragma: no cover
                 print(f"Failed to save {str(stage_dict)} because {msg}")
 
 
@@ -1223,7 +1245,7 @@ class CWLPipeline(Pipeline):
         # file, so it is all collected together.
         with open(stages_config) as _stages_config_file:
             stage_config_data = yaml.safe_load(_stages_config_file)
-        self.global_config = self.stage_config_data.pop("global", {})
+        global_config = stage_config_data.pop("global", {})
 
         # For each stage, we check if any of its config information
         # is set in the config file
@@ -1233,7 +1255,7 @@ class CWLPipeline(Pipeline):
             # Record only keys that have been set.  If any are missing
             # it is an error that will be noticed later.
             for key in stage.config_options:
-                val = this_stage_config.get(key, self.global_config.get(key))
+                val = this_stage_config.get(key, global_config.get(key))
                 if val is not None:
                     inputs[f"{key}@{stage.instance_name}"] = val
 

@@ -1,8 +1,6 @@
 """ A small module with functionality to handle configuration in a way that works
 for both interactive and ballistic applications """
 
-from collections.abc import Mapping
-
 
 def cast_value(dtype, value): #pylint: disable=too-many-return-statements
     """Casts an input value to a particular type
@@ -42,8 +40,7 @@ def cast_value(dtype, value): #pylint: disable=too-many-return-statements
     # if value is an instance of self.dtype, then return it
     if isinstance(value, dtype):
         return value
-    if isinstance(value, Mapping):
-        return dtype(**value)
+    # try the constructor of dtype
     try:
         return dtype(value)
     except (TypeError, ValueError):
@@ -57,9 +54,6 @@ def cast_to_streamable(value):
     """Cast a value to something that yaml can easily stream"""
     if isinstance(value, dict):
         return value
-    if isinstance(value, Mapping):
-        #return {key:val for key, val in value.items()}
-        return dict(value)
     if isinstance(value, StageParameter):
         return value.value
     return value

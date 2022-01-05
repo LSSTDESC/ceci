@@ -26,7 +26,18 @@ def test_snapshot():
     # And run
     pipe_read.run()
         
+    pipeline.save('test_save2.yml', reduce_config=True)
+    
+    # Re-read it
+    pipe_read2 = Pipeline.read('test_save2.yml')
 
+    # Introspect
+    pipe_read2.print_stages()
+    pipe_read2.WLGCCov.print_io()
+
+
+
+    
 if __name__ == "__main__":
     test_snapshot()
 
