@@ -39,11 +39,6 @@ class PipelineStage:
     config_options = {}
     doc = ""
 
-    inputs = []
-    outputs = []
-
-    name = None
-
     def __init__(self, args, comm=None):
         """Construct a pipeline stage, specifying the inputs, outputs, and configuration for it.
 
@@ -175,7 +170,7 @@ class PipelineStage:
         self._outputs = {}
         for i, x in enumerate(self.output_tags()):
             if args.get(x) is None:
-                ftype = self.outputs[i][1]
+                ftype = self.outputs[i][1]  #pylint: disable=no-member
                 self._outputs[self.get_aliased_tag(x)] = ftype.make_name(x)
             else:
                 self._outputs[self.get_aliased_tag(x)] = args[x]
@@ -829,29 +824,43 @@ I currently know about these stages:
         return obj.file
 
     @classmethod
+    def inputs_(cls):
+        """
+        Return the dict of inputs
+        """
+        return cls.inputs  #pylint: disable=no-member
+
+    @classmethod
+    def outputs_(cls):
+        """
+        Return the dict of inputs
+        """
+        return cls.outputs  #pylint: disable=no-member
+
+    @classmethod
     def output_tags(cls):
         """
         Return the list of output tags required by this stage
         """
-        return [tag for tag, _ in cls.outputs]
+        return [tag for tag, _ in cls.outputs_()]
 
     @classmethod
     def input_tags(cls):
         """
         Return the list of input tags required by this stage
         """
-        return [tag for tag, _ in cls.inputs]
+        return [tag for tag, _ in cls.inputs_()]
 
     def get_input_type(self, tag):
         """Return the file type class of an input file with the given tag."""
-        for t, dt in self.inputs:
+        for t, dt in self.inputs_():
             if t == tag:
                 return dt
         raise ValueError(f"Tag {tag} is not a known input")  #pragma: no cover
 
     def get_output_type(self, tag):
         """Return the file type class of an output file with the given tag."""
-        for t, dt in self.outputs:
+        for t, dt in self.outputs_():
             if t == tag:
                 return dt
         raise ValueError(f"Tag {tag} is not a known output")  #pragma: no cover
@@ -951,7 +960,7 @@ I currently know about these stages:
         These are returned as a dictionary of tag : path pairs
         """
         ret_dict = {}
-        for tag, _ in self.inputs:
+        for tag, _ in self.inputs_():
             aliased_tag = self.get_aliased_tag(tag)
             ret_dict[aliased_tag] = pipeline_files[aliased_tag]
         return ret_dict
@@ -962,7 +971,7 @@ I currently know about these stages:
         These are returned as a dictionary of tag : path pairs
         """
         ret_dict = {}
-        for tag, ftype in self.outputs:
+        for tag, ftype in self.outputs_():
             aliased_tag = self.get_aliased_tag(tag)
             ret_dict[aliased_tag] = f"{outdir}/{ftype.make_name(aliased_tag)}"
         return ret_dict
@@ -970,11 +979,11 @@ I currently know about these stages:
     def print_io(self, stream=sys.stdout):
         """Print out the tags, paths and types for all the inputs and outputs of this stage"""
         stream.write("Inputs--------\n")
-        for tag, ftype in self.inputs:
+        for tag, ftype in self.inputs_():
             aliased_tag = self.get_aliased_tag(tag)
             stream.write(f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._inputs[tag]}\n")
         stream.write("Outputs--------\n")
-        for tag, ftype in self.outputs:
+        for tag, ftype in self.outputs_():
             aliased_tag = self.get_aliased_tag(tag)
             stream.write(f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._outputs[aliased_tag]}\n")
 
@@ -1096,7 +1105,7 @@ I currently know about these stages:
         flags = [cls.name]
         aliases = aliases or {}
 
-        for tag, _ in cls.inputs:
+        for tag, _ in cls.inputs_():
             aliased_tag = aliases.get(tag, tag)
             try:
                 fpath = inputs[aliased_tag]
@@ -1106,7 +1115,7 @@ I currently know about these stages:
 
         flags.append(f"--config={config}")
 
-        for tag, _ in cls.outputs:
+        for tag, _ in cls.outputs_():
             aliased_tag = aliases.get(tag, tag)
             try:
                 fpath = outputs[aliased_tag]
@@ -1201,7 +1210,7 @@ I currently know about these stages:
                 inp,
                 label=inp,
                 param_type="File",
-                param_format=cls.inputs[i][1].format,
+                param_format=cls.inputs[i][1].format,  #pylint: disable=no-member
                 input_binding=input_binding,
                 doc="Some documentation about the input",
             )
@@ -1221,14 +1230,14 @@ I currently know about these stages:
 
         # Add the definition of the outputs
         for i, out in enumerate(cls.output_tags()):
-            output_name = cls.outputs[i][1].make_name(out)
+            output_name = cls.outputs[i][1].make_name(out)  #pylint: disable=no-member
             output_binding = cwlgen.CommandOutputBinding(glob=output_name)
             output = cwlgen.CommandOutputParameter(
                 out,
                 label=out,
                 param_type="File",
                 output_binding=output_binding,
-                param_format=cls.outputs[i][1].format,
+                param_format=cls.outputs[i][1].format,  #pylint: disable=no-member
                 doc="Some results produced by the pipeline element",
             )
             cwl_tool.outputs.append(output)
