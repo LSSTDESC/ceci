@@ -464,9 +464,9 @@ class Pipeline:
         site_config["python_paths"] = paths
         load(launcher_config, [site_config])
 
-        extra_paths(paths)
-        for module in modules:
-            __import__(module)
+        with extra_paths(paths):
+            for module in modules:
+                __import__(module)
         return cls.create(pipe_config)
 
 
