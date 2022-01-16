@@ -82,6 +82,8 @@ class PipelineStage:
         ----------
         args: dict or namespace
             Specification of input and output paths and any missing config options
+        comm: MPI communicator
+            (default is None) An MPI comm object to use in preference to COMM_WORLD
         """
         self._configs = StageConfig(**self.config_options)
         self._inputs = None
@@ -188,9 +190,9 @@ class PipelineStage:
         comm: MPI communicator
             (default is None) An MPI comm object to use in preference to COMM_WORLD
         """
-        use_mpi = self.config.get('use_mpi', False)
+        mpi = self.config.get('mpi', False)
 
-        if use_mpi:  #pragma: no cover
+        if mpi:  #pragma: no cover
             try:
                 # This isn't a ceci dependency, so give a sensible error message if not installed.
                 import mpi4py.MPI
@@ -206,7 +208,7 @@ class PipelineStage:
             self._comm = comm
             self._size = self._comm.Get_size()
             self._rank = self._comm.Get_rank()
-        elif use_mpi:  #pragma: no cover
+        elif mpi:  #pragma: no cover
             self._parallel = MPI_PARALLEL
             self._comm = mpi4py.MPI.COMM_WORLD
             self._size = self._comm.Get_size()
@@ -911,12 +913,12 @@ I currently know about these stages:
 
         self._configs.set_config(input_config, args)
 
-    def get_config_dict(self, global_config, reduce_config=False):
+    def get_config_dict(self, ignore=None, reduce_config=False):
         """Write the current configuration to a dict
 
         Parameters
         ----------
-        global_config : dict
+        ignore : dict or None
             Global parameters not to write
         reduce_config : bool
             If true, reduce the configuration by parsing out the inputs, outputs and global params
@@ -931,10 +933,11 @@ I currently know about these stages:
             ignore_keys = self.input_tags() + self.output_tags() + ['config']
         else:
             ignore_keys = []
+        ignore = ignore or {}
         for key, val in self.config.items():
             if reduce_config:
-                if key in global_config:
-                    if global_config[key] == val:
+                if key in ignore:
+                    if ignore[key] == val:
                         continue
                 if key in ignore_keys:
                     continue
@@ -1091,12 +1094,10 @@ I currently know about these stages:
         module = module.split(".")[0]
 
         flags = [cls.name]
+        aliases = aliases or {}
 
         for tag, _ in cls.inputs:
-            if aliases is not None:
-                aliased_tag = aliases.get(tag, tag)
-            else:
-                aliased_tag = tag
+            aliased_tag = aliases.get(tag, tag)
             try:
                 fpath = inputs[aliased_tag]
             except KeyError as msg:  #pragma: no cover
@@ -1106,10 +1107,7 @@ I currently know about these stages:
         flags.append(f"--config={config}")
 
         for tag, _ in cls.outputs:
-            if aliases is not None:
-                aliased_tag = aliases.get(tag, tag)
-            else:
-                aliased_tag = tag
+            aliased_tag = aliases.get(tag, tag)
             try:
                 fpath = outputs[aliased_tag]
             except KeyError as msg:  #pragma: no cover

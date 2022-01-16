@@ -269,12 +269,12 @@ class Runner:
 
         with open(stdout_file, "w") as stdout:
             # launch cmd in a subprocess, and keep track in running jobs
-            with subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT) as p:
-                self.running.append((p, job, alloc))
-                self.callback(
-                    EVENT_LAUNCH,
-                    {"job": job, "stdout": stdout_file, "process": p, "nodes": alloc},
-                )
+            p = subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT)  #pylint: disable=consider-using-with
+            self.running.append((p, job, alloc))
+            self.callback(
+                EVENT_LAUNCH,
+                {"job": job, "stdout": stdout_file, "process": p, "nodes": alloc},
+            )
 
     def _ready_jobs(self):
         # Find jobs ready to be run now

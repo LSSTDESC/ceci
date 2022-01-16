@@ -107,7 +107,7 @@ class StageExecutionConfig:
 
     @classmethod
     def create(cls, stage, **kwargs):
-        """Construction method that build a StageExecutionConfig
+        """Construction method that builds a StageExecutionConfig
         from an existing PipelineStage object
 
         This is useful when building a Pipeline interactively
@@ -362,13 +362,14 @@ class Pipeline:
 
         if pipe_config.get('dry_run', False):
             pipeline_class = DryRunPipeline
-        try:
-            pipeline_class = launcher_dict[launcher_name]
-        except KeyError as msg:  #pragma: no cover
-            raise KeyError(f"Unknown pipeline launcher {launcher_name}, options are {list(launcher_dict.keys())}") from msg
+        else:
+            try:
+                pipeline_class = launcher_dict[launcher_name]
+            except KeyError as msg:  #pragma: no cover
+                raise KeyError(f"Unknown pipeline launcher {launcher_name}, options are {list(launcher_dict.keys())}") from msg
 
         p = pipeline_class(stages, launcher_config, overall_inputs=inputs, modules=modules)
-        p.load_configs(inputs, run_config, stages_config)
+        p.initialize(inputs, run_config, stages_config)
         return p
 
     @staticmethod
@@ -416,12 +417,16 @@ class Pipeline:
         pipe_config["dry_run"] = dry_run
         return pipe_config
 
-    def __getattr__(self, name):
+    def __getitem__(self, name):
         """Get a particular stage by name"""
         try:
             return self.stage_execution_config[name].stage_obj
         except Exception as msg:  #pragma: no cover
             raise AttributeError(f"Pipeline does not have stage {name}") from msg
+
+    def __getattr__(self, name):
+        """Get a particular stage by name"""
+        return self.__getitem__(name)
 
     def print_stages(self, stream=sys.stdout):
         """Print the list of stages in this pipeline to a stream"""
@@ -429,9 +434,9 @@ class Pipeline:
             stream.write(f"{stage.instance_name:20}: {str(stage)}")
             stream.write("\n")
 
-    @staticmethod
-    def read(pipeline_config_filename, extra_config=None, dry_run=False):
-        """Create a pipelie for a configuration dictionary from a yaml file and extra optional parameters
+    @classmethod
+    def read(cls, pipeline_config_filename, extra_config=None, dry_run=False):
+        """Create a pipeline for a configuration dictionary from a yaml file and extra optional parameters
 
         Parameters
         ----------
@@ -447,7 +452,7 @@ class Pipeline:
         pipeline : Pipeline
             The newly built pipeline
         """
-        pipe_config = Pipeline.build_config(pipeline_config_filename, extra_config, dry_run)
+        pipe_config = cls.build_config(pipeline_config_filename, extra_config, dry_run)
         paths = pipe_config.get("python_paths", [])
         if isinstance(paths, str):  #pragma: no cover
             paths = paths.split()
@@ -462,7 +467,7 @@ class Pipeline:
         extra_paths(paths)
         for module in modules:
             __import__(module)
-        return Pipeline.create(pipe_config)
+        return cls.create(pipe_config)
 
 
     def add_stage(self, stage_info):
@@ -531,7 +536,7 @@ class Pipeline:
 
         Notes
         -----
-        The keyword arguemets will be based to the `stage_class` constructor
+        The keyword arguments will be based to the `stage_class` constructor
 
         The output files produced by this stage will be added to the
         `Pipeline.pipeline_files` data member, so that they are available to later stages
@@ -581,7 +586,7 @@ class Pipeline:
     def ordered_stages(self, overall_inputs, stages_config=None):
         """Produce a linear ordering for the stages.
 
-        Some stages within the pipeline might be ruunnable in parallel; this
+        Some stages within the pipeline might be runnable in parallel; this
         method does not analyze this, since different workflow managers will
         treat this differently.
 
@@ -735,7 +740,7 @@ Some required inputs to the pipeline could not be found,
 
         return ordered_stages
 
-    def load_configs(self, overall_inputs, run_config, stages_config):
+    def initialize(self, overall_inputs, run_config, stages_config):
         """Load the configuation for this pipeline
 
         Parameters
@@ -839,23 +844,18 @@ Some required inputs to the pipeline could not be found,
         """Return true if we should skip a stage because it is finished and we are in resume mode"""
         return stage.should_skip(self.run_config)
 
-    def save(self, pipefile, **kwargs):
+    def save(self, pipefile, stagefile=None, reduce_config=False):
         """Save this pipeline state to a yaml file
 
         Paramaeters
         -----------
         pipeline: str
             Path to the file were we save this
-
-        Keywords
-        --------
-        stagefile: str or None
+        stagefile: str
             Optional path to where we save the configuration file
-        reduce_config: bool or None
+        reduce_config: bool
             If true, reduce the configuration by parsing out the inputs, outputs and global params
         """
-        stagefile = kwargs.get('stagefile')
-        reduce_config = kwargs.get('reduce_config', False)
         pipe_dict = {}
         stage_dict = {}
         pipe_info_list = []

@@ -52,8 +52,6 @@ def cast_value(dtype, value): #pylint: disable=too-many-return-statements
 
 def cast_to_streamable(value):
     """Cast a value to something that yaml can easily stream"""
-    if isinstance(value, dict):
-        return value
     if isinstance(value, StageParameter):
         return value.value
     return value
@@ -63,27 +61,24 @@ class StageParameter:
     """ A small class to manage a single parameter with basic type checking
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, dtype=None,  default=None, fmt='%s', msg="A parameter"):
         """ Build from keywords
 
-        Keywords
-        --------
+        Parameters
+        ----------
         dtype : `type` or `None`
             The data type for this parameter
         default : `dtype` or `None`
             The default value
-        format : `str`
+        fmt : `str`
             A formatting string for printout and representation
-        help : `str`
+        msg : `str`
             A help or docstring
         """
-        kwcopy = kwargs.copy()
-        self._help = kwcopy.pop('help', 'A Parameter')
-        self._format = kwcopy.pop('format', '%s')
-        self._dtype = kwcopy.pop('dtype', None)
-        self._default = kwcopy.pop('default', None)
-        if kwcopy:  # pragma: no cover
-            raise ValueError(f"Unknown arguments to StageParameter {str(list(kwcopy.keys()))}")
+        self._help = msg
+        self._format = fmt
+        self._dtype = dtype
+        self._default = default
         self._value = cast_value(self._dtype, self._default)
 
     @property

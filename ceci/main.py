@@ -167,8 +167,8 @@ def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False)
 def main():  #pragma: no cover
     """Main function called when ceci is invoked on the command line"""
     args = parser.parse_args()
-    pipe_config = Pipeline.build_config(args.pipeline_config_filename, args.extra_config, args.dry_run)
-    status = run(pipe_config, args.pipeline_config_filename, args.extra_config, args.dry_run)
+    pipe_config = Pipeline.build_config(args.pipeline_config, args.extra_config, args.dry_run)
+    status = run(pipe_config, args.pipeline_config, args.extra_config, args.dry_run)
 
     if status == 0:
         print("Pipeline successful.  Joy is sparked.")

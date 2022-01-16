@@ -79,10 +79,12 @@ def test_interactive_pipeline():
 
     assert len(pipe2.WLGCCov.outputs) == 1
 
-    pipe2.load_configs(overall_inputs, pipeline.run_config, pipeline.stages_config)
+    pipe2.initialize(overall_inputs, pipeline.run_config, pipeline.stages_config)
 
     pipe2.print_stages()
     pipe2.WLGCCov.print_io()
+
+    assert pipe2['WLGCCov'] == pipe2.WLGCCov
 
     rpr = repr(pipe2.WLGCCov.config)
     
