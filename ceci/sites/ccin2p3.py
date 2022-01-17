@@ -56,17 +56,17 @@ class CCParallel(Site):
                 f"{cmd} {mpi2} "
                 f"{bash_end}"
             )
-
-        # In the non-container case this is much easier
-        paths_env = (
-            "PYTHONPATH=" + (":".join(paths)) + ":$PYTHONPATH" if paths else ""
-        )
-        return (
-            f"OMP_NUM_THREADS={sec.threads_per_process} "
-            f"{paths_env} "
-            f"{mpi1} "
-            f"{cmd} {mpi2}"
-        )
+        else:
+            # In the non-container case this is much easier
+            paths_env = (
+                "PYTHONPATH=" + (":".join(paths)) + ":$PYTHONPATH" if paths else ""
+            )
+            return (
+                f"OMP_NUM_THREADS={sec.threads_per_process} "
+                f"{paths_env} "
+                f"{mpi1} "
+                f"{cmd} {mpi2}"
+            )
 
     def configure_for_parsl(self):  #pylint: disable=no-self-use
         """Utility function to set parsl configuration parameters"""

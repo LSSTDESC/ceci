@@ -47,6 +47,12 @@ def test_config():
     assert config.chunk_rows == 5000
     
     assert config.get_type('chunk_rows') == int
+
+    values = config.values()
+    for key, value in config.items():
+        #assert value == config[key].value
+        assert value in values
+    
     
 
 def test_interactive_pipeline():

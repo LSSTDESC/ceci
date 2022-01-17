@@ -73,16 +73,17 @@ class CoriSite(Site):
                 f"{cmd} {mpi2} "
                 f"{paths_end} "
             )
-        paths_env = (
-            ("PYTHONPATH=" + (":".join(paths)) + ":$PYTHONPATH") if paths else ""
-        )
-        return (
-            # In the non-container case this is much easier
-            f"OMP_NUM_THREADS={sec.threads_per_process} "
-            f"{paths_env} "
-            f"{mpi1} "
-            f"{cmd} {mpi2}"
-        )
+        else:
+            paths_env = (
+                ("PYTHONPATH=" + (":".join(paths)) + ":$PYTHONPATH") if paths else ""
+            )
+            return (
+                # In the non-container case this is much easier
+                f"OMP_NUM_THREADS={sec.threads_per_process} "
+                f"{paths_env} "
+                f"{mpi1} "
+                f"{cmd} {mpi2}"
+            )
 
     def configure_for_mini(self):
         """Utility function to setup self for local execution"""

@@ -141,7 +141,7 @@ class StageConfig(dict):
     def __str__(self):
         """ Override __str__ casting to deal with `StageParameter` object in the map """
         s = "{"
-        for key, attr in self.items():
+        for key, attr in dict.items(self):
             if isinstance(attr, StageParameter):
                 val = attr.value
             else:
@@ -180,6 +180,14 @@ class StageConfig(dict):
         """ Allow attribute-like parameter setting """
         return self.__setitem__(key, value)
 
+    def items(self):
+        """ Override items() to get the parameters values instead of the objects """
+        return [(key, cast_to_streamable(value)) for key, value in dict.items(self)]
+
+    def values(self):
+        """ Override items() to get the parameters values instead of the objects """
+        return [cast_to_streamable(value) for value in dict.values(self)]
+        
     def set_config(self, input_config, args):
         """ Utility function to load configuration
 
@@ -216,7 +224,7 @@ class StageConfig(dict):
 
     def reset(self):
         """ Reset values to their defaults """
-        for _, val in self.items():
+        for _, val in dict.items(self):
             if isinstance(val, StageParameter):
                 val.set_to_default()
 
