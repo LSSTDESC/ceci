@@ -185,7 +185,7 @@ class StageConfig(dict):
         return [(key, cast_to_streamable(value)) for key, value in dict.items(self)]
 
     def values(self):
-        """ Override items() to get the parameters values instead of the objects """
+        """ Override values() to get the parameters values instead of the objects """
         return [cast_to_streamable(value) for value in dict.values(self)]
         
     def set_config(self, input_config, args):
