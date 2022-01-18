@@ -156,6 +156,15 @@ class StageConfig(dict):
         s += self.__str__()
         return s
 
+    def to_dict(self):
+        """ Forcibly return a dict where the values have been cast from StageParameter """
+        return {key:cast_to_streamable(value) for key, value in dict.items(self)}
+
+    def __iter__(self):
+        """ Override the __iter__ to work with `StageParameter` """
+        d = self.to_dict()
+        return iter(d)
+
     def __getitem__(self, key):
         """ Override the __getitem__ to work with `StageParameter` """
         attr = dict.__getitem__(self, key)
@@ -187,7 +196,7 @@ class StageConfig(dict):
     def values(self):
         """ Override values() to get the parameters values instead of the objects """
         return [cast_to_streamable(value) for value in dict.values(self)]
-        
+
     def set_config(self, input_config, args):
         """ Utility function to load configuration
 
