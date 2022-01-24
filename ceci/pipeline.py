@@ -1151,14 +1151,16 @@ class MiniPipeline(Pipeline):
         for stage in self.stages[:]:
             if stage.instance_name not in jobs:
                 continue
-            depend[jobs[stage.instance_name]] = []
             job = jobs[stage.instance_name]
+            depend[job] = []
             # check for each of the inputs for that stage ...
             for tag in stage.input_tags():
                 for potential_parent in self.stages[:]:
                     # if that stage is supplied by another pipeline stage
+                    if potential_parent.instance_name not in jobs:
+                        continue
                     if tag in potential_parent.output_tags():
-                        depend[job].append(jobs[potential_parent.name])
+                        depend[job].append(jobs[potential_parent.instance_name])
         return depend
 
     def initiate_run(self, overall_inputs):
