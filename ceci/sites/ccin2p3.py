@@ -1,12 +1,13 @@
+"""Utility class to interface to workflow managers when using CC IN2P3"""
+
 from .site import Site
 import os
-import socket
 from ..minirunner import Node
 
 
 class CCParallel(Site):
     """Object representing execution in the local environment, e.g. a laptop."""
-    
+
     def command(self, cmd, sec):
         """Generate a complete command line to be run with the specified execution variables.
 
@@ -28,7 +29,7 @@ class CCParallel(Site):
         """
 
         mpi1 = f"{self.mpi_command} {sec.nprocess} "
-        mpi2 = f"--mpi" if sec.nprocess > 1 else ""
+        mpi2 = "--mpi" if sec.nprocess > 1 else ""
         volume_flag = f"--bind {sec.volume} " if sec.volume else ""
         paths = self.config.get("python_paths", [])
 
@@ -67,13 +68,13 @@ class CCParallel(Site):
                 f"{cmd} {mpi2}"
             )
 
-    def configure_for_parsl(self):
+    def configure_for_parsl(self):  #pylint: disable=no-self-use
+        """Utility function to set parsl configuration parameters"""
         raise ValueError("Parsl not configured for CC IN2P3 in ceci yet")
 
 
     def configure_for_mini(self):
-        import psutil
-
+        """Utility function to setup self for local execution"""
         total_cores = int(os.environ['NSLOTS'])
         cores_per_node = 16  # seems to be the case
         nodes = total_cores // cores_per_node
@@ -88,4 +89,4 @@ class CCParallel(Site):
         self.info["nodes"] = nodes
 
     def configure_for_cwl(self):
-        pass
+        """Utility function to set CWL configuration parameters"""

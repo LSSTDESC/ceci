@@ -1,5 +1,6 @@
+"""Utility class to interface to workflow managers when using local resources, e.g., a laptop"""
+
 from .site import Site
-import os
 import socket
 from ..minirunner import Node
 
@@ -28,7 +29,7 @@ class LocalSite(Site):
         """
 
         mpi1 = f"{self.mpi_command} {sec.nprocess}" if sec.nprocess > 1 else ""
-        mpi2 = f"--mpi" if sec.nprocess > 1 else ""
+        mpi2 = "--mpi" if sec.nprocess > 1 else ""
         volume_flag = f"-v {sec.volume} " if sec.volume else ""
         paths = self.config.get("python_paths", [])
 
@@ -67,15 +68,17 @@ class LocalSite(Site):
             )
 
     def configure_for_parsl(self):
+        """Utility function to set parsl configuration parameters"""
         from parsl.executors import ThreadPoolExecutor
 
         max_threads = self.config.get("max_threads", 4)
         executor = ThreadPoolExecutor(label="local", max_threads=max_threads)
-        executors = [executor]
+        #executors = [executor]
 
         self.info["executor"] = executor
 
     def configure_for_mini(self):
+        """Utility function to setup self for local execution"""
         import psutil
 
         # The default is to allow a single process
@@ -94,4 +97,4 @@ class LocalSite(Site):
         self.info["nodes"] = nodes
 
     def configure_for_cwl(self):
-        pass
+        """Utility function to set CWL configuration parameters"""

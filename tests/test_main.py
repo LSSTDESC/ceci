@@ -5,6 +5,8 @@ import os
 import pytest
 import subprocess
 
+from ceci.pipeline import Pipeline
+
 
 def run1(*config_changes, dry_run=False, expect_fail=False, expect_outputs=True):
     try:
@@ -13,7 +15,8 @@ def run1(*config_changes, dry_run=False, expect_fail=False, expect_outputs=True)
             log_dir = os.path.join(dirname, "logs")
             config = [f"output_dir={out_dir}", f"log_dir={log_dir}"]
             config += config_changes
-            status = run("tests/test.yml", config, dry_run)
+            pipe_config = Pipeline.build_config("tests/test.yml", config, dry_run)
+            status = run(pipe_config, "tests/test.yml", config, dry_run)
             if expect_fail:
                 assert status != 0
             else:

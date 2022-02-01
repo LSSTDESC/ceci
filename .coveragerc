@@ -1,0 +1,10 @@
+# .coveragerc to control coverage.py
+[run]
+omit=
+  *ceci/sites/ccin2p3.py
+  *ceci/sites/cori.py
+
+
+[html]
+directory = cover
+

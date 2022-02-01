@@ -1,3 +1,5 @@
+"""Classes and functions to manage site-specific configuration"""
+
 from .cori import CoriBatchSite, CoriInteractiveSite
 from .local import LocalSite, Site
 from .ccin2p3 import CCParallel
@@ -18,18 +20,21 @@ site_classes = {
 
 
 def set_default_site(site):
+    """Set the default site"""
     global _default_site
     _default_site = site
     return _default_site
 
 
 def reset_default_site():
+    """Set the default site to the `LocalSite`"""
     site = LocalSite({"max_threads": 2})
     site.configure_for_mini()
     set_default_site(site)
 
 
 def get_default_site():
+    """Return the current default site"""
     return _default_site
 
 
@@ -73,8 +78,8 @@ def load(launcher_config, site_configs):
 
         try:
             cls = site_classes[site_name]
-        except KeyError:
-            raise ValueError(f"Unknown site {site_name}")
+        except KeyError as msg:  #pragma: no cover
+            raise ValueError(f"Unknown site {site_name}") from msg
 
         site = cls(site_config)
         site.configure_for_launcher(launcher_name)
@@ -117,7 +122,7 @@ def setup_parsl(launcher_config, sites):
 
     # Optional logging of pipeline infrastructure to file.
     log_file = launcher_config.get("log")
-    if log_file:
+    if log_file:  #pragma: no cover
         log_file_dir = os.path.split(os.path.abspath(log_file))[0]
         os.makedirs(log_file_dir, exist_ok=True)
         set_file_logger(log_file)
