@@ -1,3 +1,5 @@
+"""Utility class to interface to workflow managers when using CORI at NERSC"""
+
 import os
 from ..minirunner import Node
 
@@ -5,6 +7,8 @@ from .site import Site
 
 
 class CoriSite(Site):
+    """Object representing execution on the CORI"""
+
     default_mpi_command = "srun -u -n"
 
     def command(self, cmd, sec):
@@ -29,7 +33,7 @@ class CoriSite(Site):
 
         # on cori we always use srun, even if the command is a single process
         mpi1 = f"{self.mpi_command} {sec.nprocess} --cpus-per-task={sec.threads_per_process}"
-        mpi2 = f"--mpi" if sec.nprocess > 1 else ""
+        mpi2 = "--mpi" if sec.nprocess > 1 else ""
         volume_flag = f"-V {sec.volume} " if sec.volume else ""
         paths = self.config.get("python_paths", [])
 
@@ -61,7 +65,7 @@ class CoriSite(Site):
             paths_end = "'" if paths else ""
             return (
                 f"{mpi1} "
-                f"shifter "
+                "shifter "
                 f"--env OMP_NUM_THREADS={sec.threads_per_process} "
                 f"{volume_flag} "
                 f"--image {sec.image} "
@@ -82,6 +86,7 @@ class CoriSite(Site):
             )
 
     def configure_for_mini(self):
+        """Utility function to setup self for local execution"""
         # if on local machine, query available cores and mem, make one node
         slurm = os.environ.get("SLURM_JOB_ID")
 
@@ -121,11 +126,14 @@ class CoriSite(Site):
         self.info["nodes"] = nodes
 
     def configure_for_cwl(self):
-        pass
+        """Utility function to set CWL configuration parameters"""
 
 
 class CoriBatchSite(CoriSite):
+    """Object representing execution on the CORI batch system"""
+
     def configure_for_parsl(self):
+        """Utility function to set parsl configuration parameters"""
         from parsl.executors import IPyParallelExecutor
         from parsl.providers import SlurmProvider
 
@@ -157,7 +165,7 @@ class CoriBatchSite(CoriSite):
             worker_init=f"source {setup_script}",
         )
 
-        executor = IPyParallelExecutor(
+        executor = IPyParallelExecutor( #pylint: disable=abstract-class-instantiated
             label="cori-batch",
             provider=provider,
         )
@@ -166,7 +174,10 @@ class CoriBatchSite(CoriSite):
 
 
 class CoriInteractiveSite(CoriSite):
+    """Object representing execution on the CORI interactive system"""
+
     def configure_for_parsl(self):
+        """Utility function to set parsl configuration parameters"""
         from parsl.executors import ThreadPoolExecutor
 
         max_threads = int(os.environ.get("SLURM_JOB_NUM_NODES", 1))
@@ -175,7 +186,10 @@ class CoriInteractiveSite(CoriSite):
 
 
 def parse_int_set(nputstr):
-    # https://stackoverflow.com/questions/712460/interpreting-number-ranges-in-python/712483
+    """Utilty funciton to parse integer sets and ranges
+
+    https://stackoverflow.com/questions/712460/interpreting-number-ranges-in-python/712483
+    """
     selection = set()
     invalid = set()
     # tokens are comma seperated values
@@ -184,7 +198,7 @@ def parse_int_set(nputstr):
         try:
             # typically tokens are plain old integers
             selection.add(int(i))
-        except:
+        except: #pylint: disable=bare-except
             # if not, then it might be a range
             try:
                 token = [int(k.strip()) for k in i.split("-")]
@@ -196,7 +210,7 @@ def parse_int_set(nputstr):
                     last = token[len(token) - 1]
                     for x in range(first, last + 1):
                         selection.add(x)
-            except:
+            except: #pylint: disable=bare-except
                 # not an int and not a range...
                 invalid.add(i)
     # Report invalid tokens before returning valid selection

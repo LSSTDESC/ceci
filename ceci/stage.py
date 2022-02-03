@@ -1,11 +1,16 @@
+"""Module with core functionality for a single pipeline stage """
+
 import pathlib
+import os
 import sys
 from textwrap import dedent
 import shutil
 import cProfile
 
-from .errors import *
+from abc import abstractmethod
+from . import errors
 from .monitor import MemoryMonitor
+from .config import StageConfig, cast_to_streamable
 
 SERIAL = "serial"
 MPI_PARALLEL = "mpi"
@@ -17,7 +22,7 @@ IN_PROGRESS_PREFIX = "inprogress_"
 class PipelineStage:
     """A PipelineStage implements a single calculation step within a wider pipeline.
 
-    Each different type of analysis stge is represented by a subclass of this
+    Each different type of analysis stage is represented by a subclass of this
     base class.  The base class handles the connection between different pipeline
     stages, and the execution of the stages within a workflow system (parsl),
     potentially in parallel (MPI).
@@ -75,48 +80,114 @@ class PipelineStage:
         comm: MPI communicator
             (default is None) An MPI comm object to use in preference to COMM_WORLD
         """
+        self._configs = StageConfig(**self.config_options)
+        self._inputs = None
+        self._outputs = None
+        self._parallel = SERIAL
+        self._comm = None
+        self._size = 1
+        self._rank = 0
+        self.dask_client = None
+
+        self.load_configs(args)
+        if comm is not None:
+            self.setup_mpi(comm)
+
+    def get_aliases(self):
+        """ Returns the dictionary of aliases used to remap inputs and outputs
+        in the case that we want to have multiple instance of this class in the pipeline """
+        return self.config.get('aliases', None)
+
+    def get_aliased_tag(self, tag):
+        """ Returns the possibly remapped value for an input or output tag
+
+        Parameter
+        ---------
+        tag : `str`
+            The input or output tag we are checking
+
+        Returns
+        -------
+        aliased_tag : `str`
+            The aliases version of the tag
+        """
+        aliases = self.get_aliases()
+        if aliases is None:
+            return tag
+        return aliases.get(tag, tag)
+
+    @abstractmethod
+    def run(self):  #pragma: no cover
+        """Run the stage and return the execution status"""
+        raise NotImplementedError('run')
+
+    def load_configs(self, args):
+        """
+        Load the configuraiton
+
+        Parameters
+        ----------
+        args: dict or namespace
+            Specification of input and output paths and any missing config options
+        """
         if not isinstance(args, dict):
             args = vars(args)
+
+        # First, we extract configuration information from a combination of
+        # command line arguments and optional 'config' file
+        self._inputs = dict(config=args["config"])
+        self.read_config(args)
 
         # We first check for missing input files, that's a show stopper
         missing_inputs = []
         for x in self.input_tags():
-            val = args[x]
+            val = args.get(x)
+            aliased_tag = self.get_aliased_tag(x)
+
             if val is None:
+                val = args.get(aliased_tag)
+
+            if val is None:  #pragma: no cover
                 missing_inputs.append(f"--{x}")
-        if missing_inputs:
+            else:
+                self._inputs[aliased_tag] = val
+        if missing_inputs:  #pragma: no cover
             missing_inputs = "  ".join(missing_inputs)
             raise ValueError(
                 f"""
 
-Missing these names on the command line:
+{self.instance_name} Missing these names on the command line:
     Input names: {missing_inputs}"""
             )
 
-        self._inputs = {x: args[x] for x in self.input_tags()}
         # We alwys assume the config arg exists, whether it is in input_tags or not
-        if args.get("config") is None:
+        if 'config' not in args:  #pragma: no cover
             raise ValueError("The argument --config was missing on the command line.")
-
-        self._inputs["config"] = args["config"]
 
         # We prefer to receive explicit filenames for the outputs but will
         # tolerate missing output filenames and will default to tag name in
         # current folder (this is for CWL compliance)
         self._outputs = {}
         for i, x in enumerate(self.output_tags()):
-            if args[x] is None:
-                ftype = self.outputs[i][1]
-                self._outputs[x] = ftype.make_name(x)
+            if args.get(x) is None:
+                ftype = self.outputs[i][1]  #pylint: disable=no-member
+                self._outputs[self.get_aliased_tag(x)] = ftype.make_name(x)
             else:
-                self._outputs[x] = args[x]
+                self._outputs[self.get_aliased_tag(x)] = args[x]
 
-        # Finally, we extract configuration information from a combination of
-        # command line arguments and optional 'config' file
-        self._configs = self.read_config(args)
 
-        use_mpi = args.get("mpi", False)
-        if use_mpi:
+    def setup_mpi(self, comm=None):
+        """
+        Setup the MPI interface
+
+        Parameters
+        ----------
+        comm: MPI communicator
+            (default is None) An MPI comm object to use in preference to COMM_WORLD
+        """
+        mpi = self.config.get('mpi', False)
+
+        if mpi:  #pragma: no cover
             try:
                 # This isn't a ceci dependency, so give a sensible error message if not installed.
                 import mpi4py.MPI
@@ -132,7 +203,7 @@ Missing these names on the command line:
             self._comm = comm
             self._size = self._comm.Get_size()
             self._rank = self._comm.Get_rank()
-        elif use_mpi:
+        elif mpi:  #pragma: no cover
             self._parallel = MPI_PARALLEL
             self._comm = mpi4py.MPI.COMM_WORLD
             self._size = self._comm.Get_size()
@@ -168,19 +239,22 @@ Missing these names on the command line:
         filename = sys.modules[cls.__module__].__file__
 
         stage_is_complete = (
-            hasattr(cls, "outputs") and hasattr(cls, "inputs") and hasattr(cls, "run")
+            hasattr(cls, 'inputs') and hasattr(cls, 'outputs') and not getattr(cls.run, '__isabstractmethod__', False)
         )
 
         # If there isn't an explicit name already then set it here.
         # by default use the class name.
-        if not hasattr(cls, "name"):
+        if not hasattr(cls, "name"):  #pragma: no cover
             cls.name = cls.__name__
+        if cls.name is None:
+            cls.name = cls.__name__
+
 
         if stage_is_complete:
             # Deal with duplicated class names
             if cls.name in cls.pipeline_stages:
                 other = cls.pipeline_stages[cls.name][1]
-                raise DuplicateStageName(
+                raise errors.DuplicateStageName(
                     "You created two pipeline stages with the"
                     f"name {cls.name}.\nOne was in {filename}\nand the "
                     f"other in {other}\nYou can either change the class "
@@ -191,7 +265,7 @@ Missing these names on the command line:
             # Check for "config" in the inputs list - this is implicit
             for name, _ in cls.inputs:
                 if name == "config":
-                    raise ReservedNameError(
+                    raise errors.ReservedNameError(
                         "An input called 'config' is implicit in each pipeline "
                         "stage and should not be added explicitly.  Please update "
                         f"your pipeline stage called {cls.name} to remove/rename "
@@ -201,7 +275,7 @@ Missing these names on the command line:
         # Check if user has over-written the config variable.
         # Quite a common error I make myself.
         if not isinstance(cls.config, property):
-            raise ReservedNameError(
+            raise errors.ReservedNameError(
                 "You have a class variable called 'config', which "
                 "is reserved in ceci for its own configuration. "
                 "You may have meant to specify config_options?"
@@ -238,16 +312,14 @@ Missing these names on the command line:
         # If not found, then check for incomplete stages
         if stage is None:
             if name in cls.incomplete_pipeline_stages:
-                raise IncompleteStage(
+                raise errors.IncompleteStage(
                     f"The stage {name} is not completely written. "
                     "Stages must specify 'inputs', 'outputs' as class variables "
                     f"and a 'run' method.\n{name} might be unfinished, or it might "
                     "be intended as a base for other classes and not to be run."
                 )
-            else:
-                raise StageNotFound(f"Unknown stage '{name}'")
-        else:
-            return stage[0]
+            raise errors.StageNotFound(f"Unknown stage '{name}'")
+        return stage[0]
 
     @classmethod
     def get_module(cls):
@@ -270,14 +342,14 @@ Missing these names on the command line:
         return cls.pipeline_stages[cls.name][0].__module__
 
     @classmethod
-    def usage(cls):
+    def usage(cls):  #pragma: no cover
         """
         Print a usage message.
         """
         stage_names = "\n- ".join(cls.pipeline_stages.keys())
         try:
             module = cls.get_module().split(".")[0]
-        except:
+        except:  #pylint: disable=bare-except
             module = "<module_name>"
         sys.stderr.write(
             f"""
@@ -299,37 +371,48 @@ I currently know about these stages:
         """
         try:
             stage_name = sys.argv[1]
-        except IndexError:
+        except IndexError:  #pragma: no cover
             cls.usage()
             return 1
-        if stage_name in ["--help", "-h"] and len(sys.argv) == 2:
+        if stage_name in ["--help", "-h"] and len(sys.argv) == 2:  #pragma: no cover
             cls.usage()
             return 1
         stage = cls.get_stage(stage_name)
-        args = stage._parse_command_line()
+        args = stage.parse_command_line()
         stage.execute(args)
         return 0
 
     @classmethod
-    def _parse_command_line(cls, cmd=None):
+    def parse_command_line(cls, cmd=None):
+        """Set up and argument parser and parse the command line
+
+        Parameters
+        ----------
+        cmd : str or None
+            The command line to part (if None this will use the system arguments)
+
+        Returns
+        -------
+        args : Namespace
+            The resulting Mapping of arguement to values
+        """
         import argparse
 
         parser = argparse.ArgumentParser(description=f"Run pipeline stage {cls.name}")
         parser.add_argument("stage_name")
-        for conf in cls.config_options:
-            def_val = cls.config_options[conf]
-            opt_type = def_val if type(def_val) == type else type(def_val)
+        for conf, def_val in cls.config_options.items():
+            opt_type = def_val if isinstance(def_val, type) else type(def_val)
 
             if opt_type == bool:
                 parser.add_argument(f"--{conf}", action="store_const", const=True)
                 parser.add_argument(f"--no-{conf}", dest=conf, action="store_const", const=False)
             elif opt_type == list:
-                out_type = def_val[0] if type(def_val[0]) == type else type(def_val[0])
-                if out_type is str:
+                out_type = def_val[0] if isinstance(def_val[0], type) else type(def_val[0])
+                if out_type is str:  #pragma: no cover
                     parser.add_argument(
                         f"--{conf}", type=lambda string: string.split(",")
                     )
-                elif out_type is int:
+                elif out_type is int:  #pragma: no cover
                     parser.add_argument(
                         f"--{conf}",
                         type=lambda string: [int(i) for i in string.split(",")],
@@ -339,11 +422,11 @@ I currently know about these stages:
                         f"--{conf}",
                         type=lambda string: [float(i) for i in string.split(",")],
                     )
-                else:
+                else:  #pragma: no cover
                     raise NotImplementedError(
                         "Only handles str, int and float list arguments"
                     )
-            else:
+            else:  #pragma: no cover
                 parser.add_argument(f"--{conf}", type=opt_type)
         for inp in cls.input_tags():
             parser.add_argument(f"--{inp}")
@@ -397,7 +480,8 @@ I currently know about these stages:
         # Create the stage instance.  Running under dask this only
         # actually needs to happen for one process, but it's not a major
         # overhead and lets us do a whole bunch of other setup above
-        stage = cls(args, comm=comm)
+        stage = cls(args)
+        stage.setup_mpi(comm)
 
         # This happens before dask is initialized
         if stage.rank == 0:
@@ -410,16 +494,16 @@ I currently know about these stages:
             if not is_client:
                 return
 
-        if args.cprofile:
+        if args.cprofile:  #pragma: no cover
             profile = cProfile.Profile()
             profile.enable()
 
-        if args.memmon:
+        if args.memmon:  #pragma: no cover
             monitor = MemoryMonitor.start_in_thread(interval=args.memmon)
 
         try:
             stage.run()
-        except Exception as error:
+        except Exception as error:  #pragma: no cover
             if args.pdb:
                 print(
                     "There was an exception - starting python debugger because you ran with --pdb"
@@ -429,7 +513,7 @@ I currently know about these stages:
             else:
                 raise
         finally:
-            if args.memmon:
+            if args.memmon:  #pragma: no cover
                 monitor.stop()
             if stage.is_dask():
                 stage.stop_dask()
@@ -438,7 +522,7 @@ I currently know about these stages:
         # final location, but subclasses can override to do other things too
         try:
             stage.finalize()
-        except Exception as error:
+        except Exception as error:  #pragma: no cover
             if args.pdb:
                 print(
                     "There was an exception in the finalization - starting python debugger because you ran with --pdb"
@@ -447,7 +531,7 @@ I currently know about these stages:
                 pdb.post_mortem()
             else:
                 raise
-        if args.cprofile:
+        if args.cprofile:  #pragma: no cover
             profile.disable()
             profile.dump_stats(args.cprofile)
             profile.print_stats("cumtime")
@@ -462,7 +546,7 @@ I currently know about these stages:
     def finalize(self):
         """Finalize the stage, moving all its outputs to their final locations."""
         # Synchronize files so that everything is closed
-        if self.is_mpi():
+        if self.is_mpi():  #pragma: no cover
             self.comm.Barrier()
 
         # Move files to their final path
@@ -479,10 +563,10 @@ I currently know about these stages:
                 # because that will be handled later.
                 if pathlib.Path(temp_name).exists():
                     # replace directories, rather than nesting more results
-                    if pathlib.Path(final_name).is_dir():
+                    if pathlib.Path(final_name).is_dir():  #pragma: no cover
                         shutil.rmtree(final_name)
                     shutil.move(temp_name, final_name)
-                else:
+                else:  #pragma: no cover
                     sys.stderr.write(
                         f"NOTE/WARNING: Expected output file {final_name} was not generated.\n"
                     )
@@ -537,22 +621,20 @@ I currently know about these stages:
         # been created by the time we modify the config. Doing it with
         # env vars seems to work. If the user has already set this then
         # we use that value. Otherwise we only want error logs
-        import os
-
         key = "DASK_LOGGING__DISTRIBUTED"
         os.environ[key] = os.environ.get(key, "error")
         try:
             import dask
             import dask_mpi
             import dask.distributed
-        except ImportError:
+        except ImportError:  #pragma: no cover
             print(
                 "ERROR: Using --mpi option on stages that use dask requires "
                 "dask[distributed] and dask_mpi to be installed."
             )
             raise
 
-        if self.size < 3:
+        if self.size < 3:  #pragma: no cover
             raise ValueError(
                 "Dask requires at least three processes. One becomes a scheduler "
                 "process, one is a client that runs the code, and more are required "
@@ -576,7 +658,8 @@ I currently know about these stages:
 
         return is_client
 
-    def stop_dask(self):
+    @staticmethod
+    def stop_dask():
         """
         End the dask event loop
         """
@@ -617,7 +700,7 @@ I currently know about these stages:
             Default=True
         """
         n_chunks = n_rows // chunk_rows
-        if n_chunks * chunk_rows < n_rows:
+        if n_chunks * chunk_rows < n_rows:  #pragma: no cover
             n_chunks += 1
         if parallel:
             it = self.split_tasks_by_rank(range(n_chunks))
@@ -666,12 +749,11 @@ I currently know about these stages:
         input_class = self.get_input_type(tag)
         obj = input_class(path, "r", **kwargs)
 
-        if wrapper:
+        if wrapper:  #pragma: no cover
             return obj
-        else:
-            return obj.file
+        return obj.file
 
-    def open_output(self, tag, wrapper=False, final_name=False, **kwargs):
+    def open_output(self, tag, wrapper=False, final_name=False, **kwargs):  #pragma: no cover
         """
         Find and open an output file with the given tag, in write mode.
 
@@ -739,40 +821,58 @@ I currently know about these stages:
         obj = output_class(path, "w", **kwargs)
         if wrapper:
             return obj
-        else:
-            return obj.file
+        return obj.file
+
+    @classmethod
+    def inputs_(cls):
+        """
+        Return the dict of inputs
+        """
+        return cls.inputs  #pylint: disable=no-member
+
+    @classmethod
+    def outputs_(cls):
+        """
+        Return the dict of inputs
+        """
+        return cls.outputs  #pylint: disable=no-member
 
     @classmethod
     def output_tags(cls):
         """
         Return the list of output tags required by this stage
         """
-        return [tag for tag, _ in cls.outputs]
+        return [tag for tag, _ in cls.outputs_()]
 
     @classmethod
     def input_tags(cls):
         """
         Return the list of input tags required by this stage
         """
-        return [tag for tag, _ in cls.inputs]
+        return [tag for tag, _ in cls.inputs_()]
 
     def get_input_type(self, tag):
         """Return the file type class of an input file with the given tag."""
-        for t, dt in self.inputs:
+        for t, dt in self.inputs_():
             if t == tag:
                 return dt
-        raise ValueError(f"Tag {tag} is not a known input")
+        raise ValueError(f"Tag {tag} is not a known input")  #pragma: no cover
 
     def get_output_type(self, tag):
         """Return the file type class of an output file with the given tag."""
-        for t, dt in self.outputs:
+        for t, dt in self.outputs_():
             if t == tag:
                 return dt
-        raise ValueError(f"Tag {tag} is not a known output")
+        raise ValueError(f"Tag {tag} is not a known output")  #pragma: no cover
 
     ##################################################
     # Configuration-related methods and properties.
     ##################################################
+
+    @property
+    def instance_name(self):
+        """Return the name associated to this particular instance of this stage"""
+        return self._configs.get('name', self.name)
 
     @property
     def config(self):
@@ -800,9 +900,15 @@ I currently know about these stages:
         # Try to load configuration file if provided
         import yaml
 
+        config_file = self.get_input("config")
+
         # This is all the config information in the file, including
         # things for other stages
-        overall_config = yaml.safe_load(open(self.get_input("config")))
+        if config_file is not None:
+            with open(config_file) as _config_file:
+                overall_config = yaml.safe_load(_config_file)
+        else:
+            overall_config = {}
 
         # The user can define global options that are inherited by
         # all the other sections if not already specified there.
@@ -811,69 +917,87 @@ I currently know about these stages:
         # This is just the config info in the file for this stage.
         # It may be incomplete - there may be things specified on the
         # command line instead, or just using their default values
-        stage_config = overall_config.get(self.name, {})
+        stage_config = overall_config.get(self.instance_name, {})
         input_config.update(stage_config)
 
-        # Here we build up the actual configuration we use on this
-        # run from all these sources
-        my_config = {}
+        self._configs.set_config(input_config, args)
 
-        # Loop over the options of the pipeline stage
-        for x in self.config_options:
-            opt = None
-            opt_type = None
+    def get_config_dict(self, ignore=None, reduce_config=False):
+        """Write the current configuration to a dict
 
-            # First look for a default value,
-            # if a type (like int) is provided as the default it indicates that
-            # this option doesn't have a default (i.e. is mandatory) and should
-            # be explicitly provided with the specified type
-            if type(self.config_options[x]) is type:
-                opt_type = self.config_options[x]
+        Parameters
+        ----------
+        ignore : dict or None
+            Global parameters not to write
+        reduce_config : bool
+            If true, reduce the configuration by parsing out the inputs, outputs and global params
 
-            elif type(self.config_options[x]) is list:
-                v = self.config_options[x][0]
-                if type(v) is type:
-                    opt_type = v
-                else:
-                    opt = self.config_options[x]
-                    opt_type = type(v)
-            else:
-                opt = self.config_options[x]
-                opt_type = type(opt)
+        Returns
+        -------
+        out_dict : dict
+            The configuration
+        """
+        out_dict = {}
+        if reduce_config:
+            ignore_keys = self.input_tags() + self.output_tags() + ['config']
+        else:
+            ignore_keys = []
+        ignore = ignore or {}
+        for key, val in self.config.items():
+            if reduce_config:
+                if key in ignore:
+                    if ignore[key] == val:
+                        continue
+                if key in ignore_keys:
+                    continue
+            out_dict[key] = cast_to_streamable(val)
+        return out_dict
 
-            # Second, look for the option in the configuration file and override
-            # default if provided TODO: Check types
-            if x in input_config:
-                opt = input_config[x]
 
-            # Finally check for command line option that would override the value
-            # in the configuration file. Note that the argument parser should
-            # already have taken care of type
-            if args[x] is not None:
-                opt = args[x]
+    def find_inputs(self, pipeline_files):
+        """Find and retrun all the inputs associated to this stage in the FileManager
 
-            # Finally, check that we got at least some value for this option
-            if opt is None:
-                raise ValueError(
-                    f"Missing configuration option {x} for stage {self.name}"
-                )
+        These are returned as a dictionary of tag : path pairs
+        """
+        ret_dict = {}
+        for tag, _ in self.inputs_():
+            aliased_tag = self.get_aliased_tag(tag)
+            ret_dict[aliased_tag] = pipeline_files[aliased_tag]
+        return ret_dict
 
-            my_config[x] = opt
+    def find_outputs(self, outdir):
+        """Find and retrun all the outputs associated to this stage
 
-        # Unspecified parameters can also be copied over.
-        # This will be needed for parameters that are more complicated, such
-        # as dictionaries or other more structured parameter information.
-        for x, val in input_config.items():
-            # Omit things we've already dealt with above
-            if x in self.config_options:
-                continue
-            # copy over everything else
-            else:
-                my_config[x] = val
+        These are returned as a dictionary of tag : path pairs
+        """
+        ret_dict = {}
+        for tag, ftype in self.outputs_():
+            aliased_tag = self.get_aliased_tag(tag)
+            ret_dict[aliased_tag] = f"{outdir}/{ftype.make_name(aliased_tag)}"
+        return ret_dict
 
-        return my_config
+    def print_io(self, stream=sys.stdout):
+        """Print out the tags, paths and types for all the inputs and outputs of this stage"""
+        stream.write("Inputs--------\n")
+        for tag, ftype in self.inputs_():
+            aliased_tag = self.get_aliased_tag(tag)
+            stream.write(f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._inputs[tag]}\n")
+        stream.write("Outputs--------\n")
+        for tag, ftype in self.outputs_():
+            aliased_tag = self.get_aliased_tag(tag)
+            stream.write(f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._outputs[aliased_tag]}\n")
 
-    def iterate_fits(self, tag, hdunum, cols, chunk_rows, parallel=True):
+    def should_skip(self, run_config):
+        """Return true if we should skip a stage b/c it's outputs already exist and we are in resume mode"""
+        outputs = self.find_outputs(run_config["output_dir"]).values()
+        already_run_stage = all(os.path.exists(output) for output in outputs)
+        return already_run_stage and run_config["resume"]
+
+    def already_finished(self):
+        """Print a warning that a stage is being skipped"""
+        print(f"Skipping stage {self.instance_name} because its outputs exist already")
+
+    def iterate_fits(self, tag, hdunum, cols, chunk_rows, parallel=True):  #pragma: no cover
         """
         Loop through chunks of the input data from a FITS file with the given tag
 
@@ -905,7 +1029,7 @@ I currently know about these stages:
         fits = self.open_input(tag)
         ext = fits[hdunum]
         n = ext.get_nrows()
-        for start, end in self.data_ranges_by_rank(n, chunk_rows, parallel=True):
+        for start, end in self.data_ranges_by_rank(n, chunk_rows, parallel=parallel):
             data = ext.read_columns(cols, rows=range(start, end))
             yield start, end, data
 
@@ -971,7 +1095,7 @@ I currently know about these stages:
     ################################
 
     @classmethod
-    def generate_command(cls, inputs, config, outputs):
+    def generate_command(cls, inputs, config, outputs, aliases=None):
         """
         Generate a command line that will run the stage
         """
@@ -979,21 +1103,24 @@ I currently know about these stages:
         module = module.split(".")[0]
 
         flags = [cls.name]
+        aliases = aliases or {}
 
-        for tag, ftype in cls.inputs:
+        for tag, _ in cls.inputs_():
+            aliased_tag = aliases.get(tag, tag)
             try:
-                fpath = inputs[tag]
-            except KeyError:
-                raise ValueError(f"Missing input location {tag}")
+                fpath = inputs[aliased_tag]
+            except KeyError as msg:  #pragma: no cover
+                raise ValueError(f"Missing input location {aliased_tag} {str(inputs)}") from msg
             flags.append(f"--{tag}={fpath}")
 
         flags.append(f"--config={config}")
 
-        for tag, ftype in cls.outputs:
+        for tag, _ in cls.outputs_():
+            aliased_tag = aliases.get(tag, tag)
             try:
-                fpath = outputs[tag]
-            except:
-                raise ValueError(f"Missing output location {tag}")
+                fpath = outputs[aliased_tag]
+            except KeyError as msg:  #pragma: no cover
+                raise ValueError(f"Missing output location {aliased_tag} {str(outputs)}") from msg
             flags.append(f"--{tag}={fpath}")
 
         flags = "   ".join(flags)
@@ -1033,32 +1160,31 @@ I currently know about these stages:
 
         type_dict = {int: "int", float: "float", str: "string", bool: "boolean"}
         # Adds the parameters of the tool
-        for opt in cls.config_options:
-            def_val = cls.config_options[opt]
+        for opt, def_val in cls.config_options.items():
 
             # Handles special case of lists:
-            if type(def_val) is list:
+            if isinstance(def_val, list):
                 v = def_val[0]
                 param_type = {
                     "type": "array",
-                    "items": type_dict[v] if type(v) == type else type_dict[type(v)],
+                    "items": type_dict[v] if isinstance(v, type) else type_dict[type(v)],
                 }
-                default = def_val if type(v) != type else None
+                default = def_val if not isinstance(v, type) else None
                 input_binding = cwlgen.CommandLineBinding(
-                    prefix="--{}=".format(opt), item_separator=",", separate=False
+                    prefix=f"--{opt}=", item_separator=",", separate=False
                 )
             else:
                 param_type = (
                     type_dict[def_val]
-                    if type(def_val) == type
+                    if isinstance(def_val, type)
                     else type_dict[type(def_val)]
                 )
-                default = def_val if type(def_val) != type else None
+                default = def_val if not isinstance(def_val, type) else None
                 if param_type == "boolean":
-                    input_binding = cwlgen.CommandLineBinding(prefix="--{}".format(opt))
+                    input_binding = cwlgen.CommandLineBinding(prefix=f"--{opt}")
                 else:
                     input_binding = cwlgen.CommandLineBinding(
-                        prefix="--{}=".format(opt), separate=False
+                        prefix=f"--{opt}=", separate=False
                     )
 
             input_param = cwlgen.CommandInputParameter(
@@ -1072,19 +1198,19 @@ I currently know about these stages:
 
             # We are bypassing the cwlgen builtin type check for the special case
             # of arrays until that gets added to the standard
-            if type(def_val) is list:
+            if isinstance(def_val, list):
                 input_param.type = param_type
 
             cwl_tool.inputs.append(input_param)
 
         # Add the inputs of the tool
         for i, inp in enumerate(cls.input_tags()):
-            input_binding = cwlgen.CommandLineBinding(prefix="--{}".format(inp))
+            input_binding = cwlgen.CommandLineBinding(prefix=f"--{inp}")
             input_param = cwlgen.CommandInputParameter(
                 inp,
                 label=inp,
                 param_type="File",
-                param_format=cls.inputs[i][1].format,
+                param_format=cls.inputs[i][1].format,  #pylint: disable=no-member
                 input_binding=input_binding,
                 doc="Some documentation about the input",
             )
@@ -1104,14 +1230,14 @@ I currently know about these stages:
 
         # Add the definition of the outputs
         for i, out in enumerate(cls.output_tags()):
-            output_name = cls.outputs[i][1].make_name(out)
+            output_name = cls.outputs[i][1].make_name(out)  #pylint: disable=no-member
             output_binding = cwlgen.CommandOutputBinding(glob=output_name)
             output = cwlgen.CommandOutputParameter(
                 out,
                 label=out,
                 param_type="File",
                 output_binding=output_binding,
-                param_format=cls.outputs[i][1].format,
+                param_format=cls.outputs[i][1].format,  #pylint: disable=no-member
                 doc="Some results produced by the pipeline element",
             )
             cwl_tool.outputs.append(output)

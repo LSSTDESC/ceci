@@ -1,6 +1,10 @@
+
+from collections import OrderedDict
+
 from ceci.sites.cori import parse_int_set
-from ceci.main import override_config
+from ceci.pipeline import override_config
 from ceci.utils import embolden
+from ceci.config import cast_value, cast_to_streamable
 
 
 def test_parse_ints():
@@ -31,3 +35,45 @@ def test_embolden():
     y = embolden(x)
     assert x in embolden(x)
     assert y[4:-4] == x
+
+
+def test_cast_value():
+    # dtype is None should allow any value
+    assert cast_value(None, 5) == 5
+    assert cast_value(None, "dog") == "dog"
+
+    # value is None is always allowed
+    assert cast_value(float, None) is None
+    assert cast_value(str, None) is None
+
+    # if isinstance(value, dtype) return value
+    assert cast_value(float, 5.) == 5.
+    assert cast_value(str, "dog") == "dog"
+
+    # if isinstance(value, Mapping) return dtype(**value)
+    odict = cast_value(dict, dict(key1='dog', key2=5))
+    assert odict['key1'] == 'dog'
+    assert odict['key2'] == 5
+
+    # if dtype(value) works return that
+    assert cast_value(float, 5) == 5.
+
+    # catch errors
+    try:
+        cast_value(float, "dog")
+    except TypeError:
+        pass
+    else:
+        raise TypeError("Failed to catch type error")
+    
+    try:
+        cast_value(int, [])
+    except TypeError:
+        pass
+    else:
+        raise TypeError("Failed to catch type error")
+    
+
+def test_cast_streamable():
+    assert cast_to_streamable(dict(key='dog'))['key'] == 'dog'
+    assert cast_to_streamable(OrderedDict([('key', 'dog')]))['key'] == 'dog'

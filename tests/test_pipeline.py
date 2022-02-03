@@ -114,7 +114,8 @@ def _return_value_test_(resume):
     }
 
     pipeline = MiniPipeline([{"name": "FailingStage"}], launcher_config)
-    status = pipeline.run({}, run_config, "tests/config.yml")
+    pipeline.initialize({}, run_config, "tests/config.yml")
+    status = pipeline.run()
     assert status == expected_status
 
     # Parsl pipeline should not run stage either
@@ -123,7 +124,8 @@ def _return_value_test_(resume):
     load(launcher_config, [site_config])
     # the above sets the new default to be the parsl-configured site
     pipeline = ParslPipeline([{"name": "FailingStage"}], launcher_config)
-    status = pipeline.run({}, run_config, "tests/config.yml")
+    pipeline.initialize({}, run_config, "tests/config.yml")
+    status = pipeline.run()
     assert status == expected_status
     clear()  # clear parsl settings
     reset_default_site()  # reset so default is minirunner again
@@ -156,7 +158,8 @@ def test_dry_run(mocker):
         "resume": False,
     }
 
-    status = pipeline.run(config["inputs"], run_config, config["config"])
+    pipeline.initialize(config["inputs"], run_config, config["config"])
+    status = pipeline.run()
 
     assert status == 0
     for cmd in pipeline.pipeline_outputs:
@@ -224,7 +227,8 @@ MyStage:
             print(sys.path)
             print(os.listdir(dirname))
             pipeline = MiniPipeline([{"name": "MyStage"}], launcher_config)
-            status = pipeline.run({}, run_config, config_path)
+            pipeline.initialize({}, run_config, config_path)
+            status = pipeline.run()
             log = open(dirname + "/MyStage.out").read()
             print(log)
             assert status == 0

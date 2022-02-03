@@ -17,7 +17,7 @@ def core_dask(comm):
             assert x == 4950
 
 
-    args = DaskTestStage._parse_command_line(["dasktest", "--config", "tests/config.yml"])
+    args = DaskTestStage.parse_command_line(["dasktest", "--config", "tests/config.yml"])
     DaskTestStage.execute(args, comm=comm)
 
     # check that all procs get here
