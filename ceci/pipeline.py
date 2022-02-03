@@ -1284,9 +1284,9 @@ class CWLPipeline(Pipeline):
         inputs_file = f"{cwl_dir}/cwl_inputs.yml"
         self.make_inputs_file(self.stages, overall_inputs, self.stages_config, inputs_file)
 
-        # CWL treats overall inputs differently, storing
-        # them in the inputs file.  We keep the
-        overall_inputs.clear()
+        # CWL treats overall inputs differently, and requires
+        # that we include the config file in there too
+        self.overall_inputs['config'] = self.stages_config
 
         return {
             "workflow": wf,
@@ -1316,9 +1316,11 @@ class CWLPipeline(Pipeline):
         # so not he same as the pipeline_files we usually see
         for inp in cwl_tool.inputs:
 
+            if (inp.id in self.overall_inputs):
+                name = inp.id
             # If this input is an putput from an earlier stage
             # then it takes its name based on that
-            if inp.id in pipeline_files:
+            elif inp.id in pipeline_files:
                 name = pipeline_files[inp.id] + "/" + inp.id
             # otherwise if it's a config option we mangle
             # it to avod clashes
@@ -1329,9 +1331,10 @@ class CWLPipeline(Pipeline):
                 name = inp.id
 
             # If it's an overall input to the entire pipeline we
-            # record that.  We only want things that aren't outputs
-            # (first clause) and that we haven't already recorded (second)
-            if (inp.id not in pipeline_files) and (
+            # record that.  Or a configuration option.
+            # And we don't want things that we've already recorded.
+            if ((inp.id in self.overall_inputs) or (
+                inp.id in stage.config_options)) and (
                 name not in self.run_info["workflow_inputs"]
             ):
                 self.run_info["workflow_inputs"].add(name)
