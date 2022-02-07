@@ -96,6 +96,11 @@ class StageParameter:
         """ Return the default value """
         return self._default
 
+    def copy(self):
+        """ Return a copy of self """
+        return StageParameter(dtype=self._dtype, default=self._default,
+                              fmt=self._format, msg=self._help)
+
     def set(self, value):
         """ Set the value, raising a TypeError if the value is the wrong type """
         self._value = cast_value(self._dtype, value)
@@ -126,16 +131,20 @@ class StageConfig(dict):
         """
         dict.__init__(self)
         for key, val in kwargs.items():
+            param = None
+            dtype = None
+            default = None
             if val is None:
-                dtype = None
-                default = None
+                pass
+            elif isinstance(val, StageParameter):
+                param = val.copy()
             elif isinstance(val, type):
                 dtype = val
-                default = None
             else:
                 dtype = type(val)
                 default = val
-            param = StageParameter(dtype=dtype, default=default)
+            if param is None:
+                param = StageParameter(dtype=dtype, default=default)
             self[key] = param
 
     def __str__(self):
