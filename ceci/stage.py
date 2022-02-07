@@ -87,11 +87,27 @@ class PipelineStage:
         self._comm = None
         self._size = 1
         self._rank = 0
+        self._io_checked = False
         self.dask_client = None
 
         self.load_configs(args)
         if comm is not None:
             self.setup_mpi(comm)
+
+    @classmethod
+    def make_stage(cls, **kwargs):
+        """ Make a stage of a particular type """
+        kwcopy = kwargs.copy()
+        kwcopy.setdefault('config', None)
+        comm = kwcopy.pop('comm', None)
+        name = kwcopy.get('name', None)
+        aliases = kwcopy.pop('aliases', {})
+        if name is not None:
+            for output_ in cls.outputs:  #pylint: disable=no-member
+                outtag = output_[0]
+                aliases[outtag] = f'{outtag}_{name}'
+        kwcopy['aliases'] = aliases
+        return cls(kwcopy, comm=comm)
 
     def get_aliases(self):
         """ Returns the dictionary of aliases used to remap inputs and outputs
@@ -133,12 +149,34 @@ class PipelineStage:
         if not isinstance(args, dict):
             args = vars(args)
 
+        # We alwys assume the config arg exists, whether it is in input_tags or not
+        if 'config' not in args:  #pragma: no cover
+            raise ValueError("The argument --config was missing on the command line.")
+
         # First, we extract configuration information from a combination of
         # command line arguments and optional 'config' file
         self._inputs = dict(config=args["config"])
         self.read_config(args)
+        self.check_io(args)
+
+    def check_io(self, args=None):
+        """
+        Check the inputs and outputs.
+        This function is seperate so that when Stages are configured interactively after
+        construction then can invove this
+
+        Parameters
+        ----------
+        args: dict or namespace
+            Specification of input and output paths and any missing config options
+        """
 
         # We first check for missing input files, that's a show stopper
+        if self._io_checked:  #pragma: no cover
+            return
+        if args is None:  #pragma: no cover
+            args = self.config
+
         missing_inputs = []
         for x in self.input_tags():
             val = args.get(x)
@@ -160,20 +198,19 @@ class PipelineStage:
     Input names: {missing_inputs}"""
             )
 
-        # We alwys assume the config arg exists, whether it is in input_tags or not
-        if 'config' not in args:  #pragma: no cover
-            raise ValueError("The argument --config was missing on the command line.")
-
         # We prefer to receive explicit filenames for the outputs but will
         # tolerate missing output filenames and will default to tag name in
         # current folder (this is for CWL compliance)
         self._outputs = {}
         for i, x in enumerate(self.output_tags()):
+            aliased_tag = self.get_aliased_tag(x)
             if args.get(x) is None:
                 ftype = self.outputs[i][1]  #pylint: disable=no-member
-                self._outputs[self.get_aliased_tag(x)] = ftype.make_name(x)
+                aliased_tag = self.get_aliased_tag(x)
+                self._outputs[aliased_tag] = ftype.make_name(aliased_tag)
             else:
-                self._outputs[self.get_aliased_tag(x)] = args[x]
+                self._outputs[aliased_tag] = args[x]
+        self._io_checked = True
 
 
     def setup_mpi(self, comm=None):
@@ -246,9 +283,8 @@ class PipelineStage:
         # by default use the class name.
         if not hasattr(cls, "name"):  #pragma: no cover
             cls.name = cls.__name__
-        if cls.name is None:
+        if cls.name is None:  #pragma: no cover
             cls.name = cls.__name__
-
 
         if stage_is_complete:
             # Deal with duplicated class names
@@ -556,8 +592,9 @@ I currently know about these stages:
         if (self.rank == 0) or self.is_dask():
             for tag in self.output_tags():
                 # find the old and new names
-                temp_name = self.get_output(tag)
-                final_name = self.get_output(tag, final_name=True)
+                aliased_tag = self.get_aliased_tag(tag)
+                temp_name = self.get_output(aliased_tag)
+                final_name = self.get_output(aliased_tag, final_name=True)
 
                 # it's not an error here if the path does not exist,
                 # because that will be handled later.
@@ -783,7 +820,8 @@ I currently know about these stages:
             Extra args are passed on to the file's class constructor.
 
         """
-        path = self.get_output(tag, final_name=final_name)
+        aliased_tag = self.get_aliased_tag(tag)
+        path = self.get_output(aliased_tag, final_name=final_name)
         output_class = self.get_output_type(tag)
 
         # HDF files can be opened for parallel writing
@@ -1182,7 +1220,7 @@ I currently know about these stages:
                 default = def_val if not isinstance(def_val, type) else None
                 if param_type == "boolean":
                     input_binding = cwlgen.CommandLineBinding(prefix=f"--{opt}")
-                else:
+                else:  #pragma: no cover
                     input_binding = cwlgen.CommandLineBinding(
                         prefix=f"--{opt}=", separate=False
                     )
