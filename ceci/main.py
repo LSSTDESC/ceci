@@ -157,7 +157,7 @@ def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False)
         run_prescript(pre_script=pre_script, dry_run=dry_run, script_args=script_args)
 
         status = run_pipeline(pipe_config)
-        if status:
+        if status:  #pragma: no cover
             return status
 
         status = run_postscript(post_script=post_script, dry_run=dry_run, script_args=script_args)

@@ -1157,7 +1157,7 @@ class MiniPipeline(Pipeline):
             for tag in stage.input_tags():
                 for potential_parent in self.stages[:]:
                     # if that stage is supplied by another pipeline stage
-                    if potential_parent.instance_name not in jobs:
+                    if potential_parent.instance_name not in jobs:  #pragma: no cover
                         continue
                     if tag in potential_parent.output_tags():
                         depend[job].append(jobs[potential_parent.instance_name])
@@ -1316,7 +1316,7 @@ class CWLPipeline(Pipeline):
         # so not he same as the pipeline_files we usually see
         for inp in cwl_tool.inputs:
 
-            if (inp.id in self.overall_inputs):
+            if inp.id in self.overall_inputs:
                 name = inp.id
             # If this input is an putput from an earlier stage
             # then it takes its name based on that
@@ -1327,7 +1327,7 @@ class CWLPipeline(Pipeline):
             elif inp.id in stage.config_options:
                 name = f"{inp.id}@{cwl_tool.id}"
             # otherwise just leave it as-is
-            else:
+            else:  #pragma: no cover
                 name = inp.id
 
             # If it's an overall input to the entire pipeline we
@@ -1409,7 +1409,7 @@ class CWLPipeline(Pipeline):
             "launch",
             f"cwltool --outdir {output_dir} " "--preserve-environment PYTHONPATH",
         )
-        if launcher == "cwltool":
+        if launcher == "cwltool":  #pragma: no cover
             launcher = (
                 f"cwltool --outdir {output_dir} " "--preserve-environment PYTHONPATH"
             )
@@ -1422,7 +1422,7 @@ class CWLPipeline(Pipeline):
             cmd = f"{launcher} {cwl_dir}/pipeline.cwl {inputs_file}"
             print(cmd)
             status = os.system(cmd)
-            if pypath:
+            if pypath:  #pragma: no cover
                 os.environ["PYTHONPATH"] = pypath
             else:
                 del os.environ["PYTHONPATH"]
