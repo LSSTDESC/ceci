@@ -1,5 +1,4 @@
 from ceci.main import run
-from parsl import clear
 import tempfile
 import os
 import pytest
