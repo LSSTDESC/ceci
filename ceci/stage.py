@@ -102,6 +102,8 @@ class PipelineStage:
         comm = kwcopy.pop('comm', None)
         name = kwcopy.get('name', None)
         aliases = kwcopy.pop('aliases', {})
+        for input_ in cls.inputs:
+            kwcopy.setdefault(input_[0], 'None')
         if name is not None:
             for output_ in cls.outputs:  #pylint: disable=no-member
                 outtag = output_[0]
