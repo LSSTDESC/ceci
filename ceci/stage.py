@@ -349,7 +349,7 @@ class PipelineStage:
         names = []
         docs = []
         for name, (stage, _) in cls.pipeline_stages.items():
-            # find the first non-empty doc line
+            # find the first non-empty doc line, if there is one.
             try:
                 doc_lines = [s.strip() for s in stage.__doc__.split("\n")]
                 doc_lines = [d for d in doc_lines if d]
@@ -363,6 +363,8 @@ class PipelineStage:
             names.append(name)
             docs.append(doc)
 
+        # Make it look like a nice table by finding the maximum
+        # length of the names, so that all the docs line up
         n = max(len(name) for name in names) + 1
         stage_texts = [f"- {name:{n}} - {d}" for name, d in zip(names, docs)]
         stage_text = "\n".join(stage_texts)
