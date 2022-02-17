@@ -200,7 +200,7 @@ class StageExecutionConfig:
             aliases = None  #pragma: no cover
         if self.stage_class is None:
             self.build_stage_class()  #pragma: no cover
-        core = self.stage_class.generate_command(inputs, config, outputs, aliases)
+        core = self.stage_class.generate_command(inputs, config, outputs, aliases, self.name)
         return self.site.command(core, self)
 
 
@@ -352,9 +352,9 @@ class Pipeline:
         stages = pipe_config["stages"]
         inputs = pipe_config["inputs"]
         modules = pipe_config["modules"]
-        run_config = {"output_dir": pipe_config["output_dir"],
-                      "log_dir": pipe_config["log_dir"],
-                      "resume": pipe_config["resume"]}
+        run_config = {"output_dir": pipe_config.get("output_dir", '.'),
+                      "log_dir": pipe_config.get("log_dir", '.'),
+                      "resume": pipe_config.get("resume", False)}
 
         launcher_dict = dict(cwl=CWLPipeline,
                              parsl=ParslPipeline,
@@ -459,7 +459,8 @@ class Pipeline:
 
         modules = pipe_config["modules"].split()
         launcher_config = pipe_config.setdefault("launcher", {"name": "mini"})
-        site_config = pipe_config.get("site", {"name": "local"})
+        site_config = dict(name='local')
+        site_config.update(**pipe_config.get("site"))
         # Pass the paths along to the site
         site_config["python_paths"] = paths
         load(launcher_config, [site_config])
@@ -872,12 +873,21 @@ Some required inputs to the pipeline could not be found,
                 raise ValueError(f"Stage {key} has not been built, can not save")
             if site is None:
                 site = val.site.config
-            pipe_stage_info = dict(name=val.name, nprocess=val.nprocess)
+            pipe_stage_info = dict(name=val.name, classname=val.class_name, nprocess=val.nprocess)
             if val.threads_per_process != 1:
                 pipe_stage_info['threads_per_process'] = val.threads_per_process
             pipe_info_list.append(pipe_stage_info)
             stage_dict[key] = val.stage_obj.get_config_dict(self.global_config, reduce_config=reduce_config)
 
+        module_list = list({val[0].get_module().split('.')[0] for val in PipelineStage.pipeline_stages.values()})
+        not_first = False
+        if self.modules:
+            not_first = True
+        for m_ in module_list:
+            if not_first:
+                self.modules += ' '
+            self.modules += f"{m_}"
+            not_first = True
         pipe_dict['modules'] = self.modules
         pipe_dict['inputs'] = self.overall_inputs
         pipe_dict['stages'] = pipe_info_list
