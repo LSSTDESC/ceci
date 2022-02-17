@@ -155,6 +155,9 @@ class PipelineStage:
         if 'config' not in args:  #pragma: no cover
             raise ValueError("The argument --config was missing on the command line.")
 
+        if 'name' in args:
+            self._configs.name = args['name']
+
         # First, we extract configuration information from a combination of
         # command line arguments and optional 'config' file
         self._inputs = dict(config=args["config"])
@@ -470,6 +473,11 @@ I currently know about these stages:
             parser.add_argument(f"--{inp}")
         for out in cls.output_tags():
             parser.add_argument(f"--{out}")
+        parser.add_argument("--name",
+                            action='store',
+                            default=None,
+                            type=str,
+                            help="Rename the stage")
         parser.add_argument("--config")
 
         if cls.parallel:
@@ -494,11 +502,11 @@ I currently know about these stages:
         )
 
         if cmd is None:
-            args = parser.parse_args()
+            ret_args = parser.parse_args()
         else:
-            args = parser.parse_args(cmd)
+            ret_args = parser.parse_args(cmd)
 
-        return args
+        return ret_args
 
     @classmethod
     def execute(cls, args, comm=None):
@@ -594,21 +602,30 @@ I currently know about these stages:
         if (self.rank == 0) or self.is_dask():
             for tag in self.output_tags():
                 # find the old and new names
-                aliased_tag = self.get_aliased_tag(tag)
-                temp_name = self.get_output(aliased_tag)
-                final_name = self.get_output(aliased_tag, final_name=True)
+                self._finalize_tag(tag)
 
-                # it's not an error here if the path does not exist,
-                # because that will be handled later.
-                if pathlib.Path(temp_name).exists():
-                    # replace directories, rather than nesting more results
-                    if pathlib.Path(final_name).is_dir():  #pragma: no cover
-                        shutil.rmtree(final_name)
-                    shutil.move(temp_name, final_name)
-                else:  #pragma: no cover
-                    sys.stderr.write(
-                        f"NOTE/WARNING: Expected output file {final_name} was not generated.\n"
-                    )
+
+    def _finalize_tag(self, tag):
+        """Finalize the data for a particular tag.
+
+        This can be overridden by sub-classes for more complicated behavior
+        """
+        aliased_tag = self.get_aliased_tag(tag)
+        temp_name = self.get_output(aliased_tag)
+        final_name = self.get_output(aliased_tag, final_name=True)
+
+        # it's not an error here if the path does not exist,
+        # because that will be handled later.
+        if pathlib.Path(temp_name).exists():
+            # replace directories, rather than nesting more results
+            if pathlib.Path(final_name).is_dir():  #pragma: no cover
+                shutil.rmtree(final_name)
+            shutil.move(temp_name, final_name)
+        else:  #pragma: no cover
+            sys.stderr.write(
+                f"NOTE/WARNING: Expected output file {final_name} was not generated.\n"
+            )
+        return final_name
 
     #############################################
     # Parallelism-related methods and properties.
@@ -1135,7 +1152,7 @@ I currently know about these stages:
     ################################
 
     @classmethod
-    def generate_command(cls, inputs, config, outputs, aliases=None):
+    def generate_command(cls, inputs, config, outputs, aliases=None, instance_name=None):
         """
         Generate a command line that will run the stage
         """
@@ -1152,6 +1169,9 @@ I currently know about these stages:
             except KeyError as msg:  #pragma: no cover
                 raise ValueError(f"Missing input location {aliased_tag} {str(inputs)}") from msg
             flags.append(f"--{tag}={fpath}")
+
+        if instance_name is not None:
+            flags.append(f"--name={instance_name}")
 
         flags.append(f"--config={config}")
 
