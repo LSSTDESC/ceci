@@ -1,4 +1,5 @@
 from ceci.stage import PipelineStage
+from ceci.config import StageParameter
 from ceci_example.types import HDFFile
 import numpy as np
 from ceci.errors import *
@@ -102,6 +103,36 @@ def test_construct():
     with pytest.raises(ValueError):
         r = list(s.iterate_hdf("inp1", "group1", ["w", "x", "y", "z"], 10, longest=False))
 
+
+def test_make_stage():
+    # This one should work
+    class TestStage(PipelineStage):
+        name = "test_copy"
+        inputs = [("inp1", HDFFile)]
+        outputs = [("out", HDFFile)]
+        config_options = {"a":"b"}
+
+        def run(self):
+            pass
+
+    stage = TestStage.make_stage(name="copy_of_test_stage", a='c', inp1='dummy')
+    assert stage.config.a == 'c'    
+        
+
+def test_parameter():
+    # This one should work
+    class TestStage(PipelineStage):
+        name = "test_stage_param"
+        inputs = [("inp1", HDFFile)]
+        outputs = []
+        config_options = dict(a=StageParameter(float, 5., msg="a float"))
+
+        def run(self):
+            pass
+
+    stage = TestStage.make_stage(a=6., inp1='dummy')
+    assert stage.config.a == 6.    
+        
 
 
 def test_incomplete():
