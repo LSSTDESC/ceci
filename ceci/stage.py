@@ -155,8 +155,9 @@ class PipelineStage:
         if 'config' not in args:  #pragma: no cover
             raise ValueError("The argument --config was missing on the command line.")
 
-        if 'name' in args:
-            self._configs.name = args['name']
+        _name = args.get('name')
+        if _name is not None:
+            self._configs.name = _name
 
         # First, we extract configuration information from a combination of
         # command line arguments and optional 'config' file
