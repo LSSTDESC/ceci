@@ -346,7 +346,29 @@ class PipelineStage:
         """
         Print a usage message.
         """
-        stage_names = "\n- ".join(cls.pipeline_stages.keys())
+        names = []
+        docs = []
+        for name, (stage, _) in cls.pipeline_stages.items():
+            # find the first non-empty doc line, if there is one.
+            try:
+                doc_lines = [s.strip() for s in stage.__doc__.split("\n")]
+                doc_lines = [d for d in doc_lines if d]
+                doc = doc_lines[0]
+            except (AttributeError, IndexError):
+                doc = ""
+            # cut off any very long lines
+            if len(doc) > 100:
+                doc = doc[:100] + ' ...'
+            # print the text
+            names.append(name)
+            docs.append(doc)
+
+        # Make it look like a nice table by finding the maximum
+        # length of the names, so that all the docs line up
+        n = max(len(name) for name in names) + 1
+        stage_texts = [f"- {name:{n}} - {d}" for name, d in zip(names, docs)]
+        stage_text = "\n".join(stage_texts)
+
         try:
             module = cls.get_module().split(".")[0]
         except:  #pylint: disable=bare-except
@@ -359,7 +381,8 @@ If no stage_arguments are given then usage information
 for the chosen stage will be given.
 
 I currently know about these stages:
-- {stage_names}
+
+{stage_text}
 """
         )
 
