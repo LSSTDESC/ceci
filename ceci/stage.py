@@ -211,7 +211,6 @@ class PipelineStage:
             aliased_tag = self.get_aliased_tag(x)
             if args.get(x) is None:
                 ftype = self.outputs[i][1]  #pylint: disable=no-member
-                aliased_tag = self.get_aliased_tag(x)
                 self._outputs[aliased_tag] = ftype.make_name(aliased_tag)
             else:
                 self._outputs[aliased_tag] = args[x]
@@ -1170,7 +1169,7 @@ I currently know about these stages:
                 raise ValueError(f"Missing input location {aliased_tag} {str(inputs)}") from msg
             flags.append(f"--{tag}={fpath}")
 
-        if instance_name is not None:
+        if instance_name is not None and instance_name != cls.name:
             flags.append(f"--name={instance_name}")
 
         flags.append(f"--config={config}")
