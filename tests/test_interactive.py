@@ -90,9 +90,9 @@ def test_interactive_pipeline():
     pipe2.build_stage(WLGCSelector, zbin_edges=[0.2, 0.3, 0.5], ra_range=[-5, 5])
     pipe2.build_stage(SysMapMaker)
     pipe2.build_stage(SourceSummarizer)
-    pipe2.build_stage(WLGCCov, aliases= dict(covariance='covariance_copy'))
+    pipe2.build_stage(WLGCCov, aliases=dict(covariance='covariance_copy'))
     pipe2.build_stage(WLGCRandoms)
-    pipe2.build_stage(WLGCTwoPoint)
+    pipe2.build_stage(WLGCTwoPoint, name="WLGC2Point")
     pipe2.build_stage(WLGCSummaryStatistic, aliases=dict(covariance='covariance_copy'))
 
     assert len(pipe2.WLGCCov.outputs) == 1
