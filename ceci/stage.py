@@ -498,7 +498,7 @@ I currently know about these stages:
             parser.add_argument(f"--{out}")
         parser.add_argument("--name",
                             action='store',
-                            default=None,
+                            default=cls.name,
                             type=str,
                             help="Rename the stage")
         parser.add_argument("--config")
