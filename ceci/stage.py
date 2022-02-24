@@ -7,7 +7,7 @@ from textwrap import dedent
 import shutil
 import cProfile
 import pdb
-import time
+import datetime
 
 from abc import abstractmethod
 from . import errors
@@ -554,7 +554,7 @@ I currently know about these stages:
         stage.setup_mpi(comm)
 
         # This happens before dask is initialized
-        start_time = datetime.datetime()
+        start_time = datetime.datetime.now()
         if stage.rank == 0:
             start_time_text = start_time.isoformat(' ')
             print(f"Executing stage: {cls.name} @ {start_time_text}")
@@ -584,10 +584,10 @@ I currently know about these stages:
                 pdb.post_mortem()
             else:
                 if stage.rank == 0:
-                    end_time = datetime.datetime()
+                    end_time = datetime.datetime.now()
                     end_time_text = end_time.isoformat(' ')
                     minutes = (end_time - start_time).total_seconds() / 60
-                    print(f"Stage failed: {cls.name} @ {end_time_text} after {minutes} minutes")
+                    print(f"Stage failed: {cls.name} @ {end_time_text} after {minutes:.2f} minutes")
                 raise
         finally:
             if args.memmon:  #pragma: no cover
@@ -618,10 +618,10 @@ I currently know about these stages:
         # and process 1 becomes the client which runs this code
         # and gets to this point
         if stage.rank == 0 or stage.is_dask():
-            end_time = datetime.datetime()
+            end_time = datetime.datetime.now()
             end_time_text = end_time.isoformat(' ')
             minutes = (end_time - start_time).total_seconds() / 60
-            print(f"Stage complete: {cls.name} @ {end_time_text} took {minutes} minutes")
+            print(f"Stage complete: {cls.name} @ {end_time_text} took {minutes:.2f} minutes")
 
     def finalize(self):
         """Finalize the stage, moving all its outputs to their final locations."""
