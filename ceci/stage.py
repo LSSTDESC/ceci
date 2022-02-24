@@ -6,6 +6,8 @@ import sys
 from textwrap import dedent
 import shutil
 import cProfile
+import pdb
+import datetime
 
 from abc import abstractmethod
 from . import errors
@@ -544,7 +546,6 @@ I currently know about these stages:
         args: namespace
             The argparse namespace for this subclass.
         """
-        import pdb
 
         # Create the stage instance.  Running under dask this only
         # actually needs to happen for one process, but it's not a major
@@ -553,8 +554,10 @@ I currently know about these stages:
         stage.setup_mpi(comm)
 
         # This happens before dask is initialized
+        start_time = datetime.datetime.now()
         if stage.rank == 0:
-            print(f"Executing stage: {cls.name}")
+            start_time_text = start_time.isoformat(' ')
+            print(f"Executing stage: {cls.name} @ {start_time_text}")
 
         if stage.is_dask():
             is_client = stage.start_dask()
@@ -580,6 +583,11 @@ I currently know about these stages:
                 print(error)
                 pdb.post_mortem()
             else:
+                if stage.rank == 0:
+                    end_time = datetime.datetime.now()
+                    end_time_text = end_time.isoformat(' ')
+                    minutes = (end_time - start_time).total_seconds() / 60
+                    print(f"Stage failed: {cls.name} @ {end_time_text} after {minutes:.2f} minutes")
                 raise
         finally:
             if args.memmon:  #pragma: no cover
@@ -610,7 +618,10 @@ I currently know about these stages:
         # and process 1 becomes the client which runs this code
         # and gets to this point
         if stage.rank == 0 or stage.is_dask():
-            print(f"Stage complete: {cls.name}")
+            end_time = datetime.datetime.now()
+            end_time_text = end_time.isoformat(' ')
+            minutes = (end_time - start_time).total_seconds() / 60
+            print(f"Stage complete: {cls.name} @ {end_time_text} took {minutes:.2f} minutes")
 
     def finalize(self):
         """Finalize the stage, moving all its outputs to their final locations."""
