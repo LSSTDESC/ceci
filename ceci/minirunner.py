@@ -79,7 +79,7 @@ class Node:
 
     __repr__ = __str__
 
-    def __hash__(self):  #pragma: no cover
+    def __hash__(self):  # pragma: no cover
         return hash(self.id)
 
     def assign(self):
@@ -139,7 +139,9 @@ class Job:
     __repr__ = __str__
 
 
-def null_callback(event_name, event_data): #pylint: disable=unused-argument,missing-function-docstring
+def null_callback(
+    event_name, event_data
+):  # pylint: disable=unused-argument,missing-function-docstring
     pass
 
 
@@ -269,7 +271,9 @@ class Runner:
 
         with open(stdout_file, "w") as stdout:
             # launch cmd in a subprocess, and keep track in running jobs
-            p = subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT)  #pylint: disable=consider-using-with
+            p = subprocess.Popen(
+                cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT
+            )  # pylint: disable=consider-using-with
             self.running.append((p, job, alloc))
             self.callback(
                 EVENT_LAUNCH,
@@ -294,7 +298,7 @@ class Runner:
                     f"Job {job} cannot be run - it needs {job.nodes}"
                     f" nodes but only {n_node} is/are available"
                 )
-            if job.cores > n_core:  #pragma: no cover
+            if job.cores > n_core:  # pragma: no cover
                 raise CannotRun(
                     f"Job {job} cannot be run - it needs {job.cores}"
                     f" cores but only {n_core} is/are available"
@@ -335,7 +339,7 @@ class Runner:
             # check status
             status = process.poll()
             # None indicates job is still running
-            if status is None:  #pragma: no cover
+            if status is None:  # pragma: no cover
                 continuing_jobs.append((process, job, alloc))
             # status !=0 indicates error in job.
             # kill everything
@@ -372,8 +376,8 @@ class Runner:
         # check if there are nodes available to run this job
         # Return them if so, or None if not.
 
-        #cores_on_node = []
-        #remaining = job.cores
+        # cores_on_node = []
+        # remaining = job.cores
         alloc = {}
 
         free_nodes = [node for node in self.nodes if not node.is_assigned]

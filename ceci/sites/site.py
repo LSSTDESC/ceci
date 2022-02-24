@@ -14,7 +14,7 @@ class Site:
         self.info = {}
         self.config = config
 
-    def check_import(self, launcher): #pylint: disable=no-self-use
+    def check_import(self, launcher):  # pylint: disable=no-self-use
         """Make sure that required libraries can be imported, and raise ImportError if they can not
 
         Parameters
@@ -31,7 +31,7 @@ class Site:
             "cwl": ["cwlgen", "cwltool"],
             "mini": ["psutil"],
         }
-        if launcher not in requirements:  #pragma: no cover
+        if launcher not in requirements:  # pragma: no cover
             raise ValueError(f"Unknown launcher '{launcher}'")
         missing = []
         libs = requirements[launcher]
@@ -40,9 +40,9 @@ class Site:
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", category=DeprecationWarning)
                     __import__(lib)
-            except ImportError:  #pragma: no cover
+            except ImportError:  # pragma: no cover
                 missing.append(lib)
-        if missing:  #pragma: no cover
+        if missing:  # pragma: no cover
             missing = ", ".join(missing)
             raise ImportError(
                 f"You must install these libraries "
@@ -60,7 +60,7 @@ class Site:
 
         self.check_import(launcher)
         configure = getattr(self, f"configure_for_{launcher}", None)
-        if configure is None:  #pragma: no cover
+        if configure is None:  # pragma: no cover
             raise ValueError(
                 f"Site {self} does not know how to configure for launcher {launcher}"
             )

@@ -165,7 +165,7 @@ class CoriBatchSite(CoriSite):
             worker_init=f"source {setup_script}",
         )
 
-        executor = IPyParallelExecutor( #pylint: disable=abstract-class-instantiated
+        executor = IPyParallelExecutor(  # pylint: disable=abstract-class-instantiated
             label="cori-batch",
             provider=provider,
         )
@@ -198,7 +198,7 @@ def parse_int_set(nputstr):
         try:
             # typically tokens are plain old integers
             selection.add(int(i))
-        except: #pylint: disable=bare-except
+        except:  # pylint: disable=bare-except
             # if not, then it might be a range
             try:
                 token = [int(k.strip()) for k in i.split("-")]
@@ -210,7 +210,7 @@ def parse_int_set(nputstr):
                     last = token[len(token) - 1]
                     for x in range(first, last + 1):
                         selection.add(x)
-            except: #pylint: disable=bare-except
+            except:  # pylint: disable=bare-except
                 # not an int and not a range...
                 invalid.add(i)
     # Report invalid tokens before returning valid selection

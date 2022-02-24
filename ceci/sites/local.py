@@ -73,7 +73,7 @@ class LocalSite(Site):
 
         max_threads = self.config.get("max_threads", 4)
         executor = ThreadPoolExecutor(label="local", max_threads=max_threads)
-        #executors = [executor]
+        # executors = [executor]
 
         self.info["executor"] = executor
 

@@ -14,7 +14,7 @@ from .utils import embolden, extra_paths
 
 
 def override_config(config, extra):
-    """ Override configuration parameters with extra parameters provided on command line
+    """Override configuration parameters with extra parameters provided on command line
 
     Parameters
     ----------
@@ -87,7 +87,7 @@ class StageExecutionConfig:
         """
         # Core attributes - mandatory
         self.name = info["name"]
-        self.class_name = info.get('classname', self.name)
+        self.class_name = info.get("classname", self.name)
         self.site = info.get("site", get_default_site())
 
         # Parallelism attributes - optional
@@ -127,8 +127,8 @@ class StageExecutionConfig:
             The newly built object
         """
         info = kwargs.copy()
-        info['name'] = stage.instance_name
-        info['classname'] = stage.name
+        info["name"] = stage.instance_name
+        info["classname"] = stage.name
         sec = cls(info)
         sec.set_stage_obj(stage)
         return sec
@@ -147,7 +147,7 @@ class StageExecutionConfig:
             determined by the self.class_name attribute
         """
         self.stage_class = PipelineStage.get_stage(self.class_name)
-        if not isinstance(stage_obj, self.stage_class):  #pragma: no cover
+        if not isinstance(stage_obj, self.stage_class):  # pragma: no cover
             raise TypeError(f"{str(stage_obj)} is not a {str(self.stage_class)}")
         self.stage_obj = stage_obj
 
@@ -172,7 +172,7 @@ class StageExecutionConfig:
         obj : `PipelineClass`
             The newly constructed object
         """
-        if self.stage_class is None:  #pragma: no cover
+        if self.stage_class is None:  # pragma: no cover
             self.stage_class = PipelineStage.get_stage(self.class_name)
         self.stage_obj = self.stage_class(args)
         return self.stage_obj
@@ -197,10 +197,12 @@ class StageExecutionConfig:
         if self.stage_obj is not None:
             aliases = self.stage_obj.get_aliases()
         else:
-            aliases = None  #pragma: no cover
+            aliases = None  # pragma: no cover
         if self.stage_class is None:
-            self.build_stage_class()  #pragma: no cover
-        core = self.stage_class.generate_command(inputs, config, outputs, aliases, self.name)
+            self.build_stage_class()  # pragma: no cover
+        core = self.stage_class.generate_command(
+            inputs, config, outputs, aliases, self.name
+        )
         return self.site.command(core, self)
 
 
@@ -311,8 +313,8 @@ class Pipeline:
         """
         self.launcher_config = launcher_config
 
-        self.overall_inputs = kwargs.get('overall_inputs', {}).copy()
-        self.modules = kwargs.get('modules', '')
+        self.overall_inputs = kwargs.get("overall_inputs", {}).copy()
+        self.modules = kwargs.get("modules", "")
 
         # These are populated as we add stages below
         self.stage_execution_config = {}
@@ -330,7 +332,6 @@ class Pipeline:
         # Store the individual stage informaton
         for info in stages:
             self.add_stage(info)
-
 
     @staticmethod
     def create(pipe_config):
@@ -352,23 +353,27 @@ class Pipeline:
         stages = pipe_config["stages"]
         inputs = pipe_config["inputs"]
         modules = pipe_config["modules"]
-        run_config = {"output_dir": pipe_config.get("output_dir", '.'),
-                      "log_dir": pipe_config.get("log_dir", '.'),
-                      "resume": pipe_config.get("resume", False)}
+        run_config = {
+            "output_dir": pipe_config.get("output_dir", "."),
+            "log_dir": pipe_config.get("log_dir", "."),
+            "resume": pipe_config.get("resume", False),
+        }
 
-        launcher_dict = dict(cwl=CWLPipeline,
-                             parsl=ParslPipeline,
-                             mini=MiniPipeline)
+        launcher_dict = dict(cwl=CWLPipeline, parsl=ParslPipeline, mini=MiniPipeline)
 
-        if pipe_config.get('dry_run', False):
+        if pipe_config.get("dry_run", False):
             pipeline_class = DryRunPipeline
         else:
             try:
                 pipeline_class = launcher_dict[launcher_name]
-            except KeyError as msg:  #pragma: no cover
-                raise KeyError(f"Unknown pipeline launcher {launcher_name}, options are {list(launcher_dict.keys())}") from msg
+            except KeyError as msg:  # pragma: no cover
+                raise KeyError(
+                    f"Unknown pipeline launcher {launcher_name}, options are {list(launcher_dict.keys())}"
+                ) from msg
 
-        p = pipeline_class(stages, launcher_config, overall_inputs=inputs, modules=modules)
+        p = pipeline_class(
+            stages, launcher_config, overall_inputs=inputs, modules=modules
+        )
         p.initialize(inputs, run_config, stages_config)
         return p
 
@@ -377,7 +382,6 @@ class Pipeline:
         """Build and return a pipeline specifically intended for interactive use"""
         launcher_config = dict(name="mini")
         return MiniPipeline([], launcher_config)
-
 
     @staticmethod
     def build_config(pipeline_config_filename, extra_config=None, dry_run=False):
@@ -421,7 +425,7 @@ class Pipeline:
         """Get a particular stage by name"""
         try:
             return self.stage_execution_config[name].stage_obj
-        except Exception as msg:  #pragma: no cover
+        except Exception as msg:  # pragma: no cover
             raise AttributeError(f"Pipeline does not have stage {name}") from msg
 
     def __getattr__(self, name):
@@ -454,12 +458,12 @@ class Pipeline:
         """
         pipe_config = cls.build_config(pipeline_config_filename, extra_config, dry_run)
         paths = pipe_config.get("python_paths", [])
-        if isinstance(paths, str):  #pragma: no cover
+        if isinstance(paths, str):  # pragma: no cover
             paths = paths.split()
 
         modules = pipe_config["modules"].split()
         launcher_config = pipe_config.setdefault("launcher", {"name": "mini"})
-        site_config = dict(name='local')
+        site_config = dict(name="local")
         site_config.update(**pipe_config.get("site"))
         # Pass the paths along to the site
         site_config["python_paths"] = paths
@@ -469,7 +473,6 @@ class Pipeline:
             for module in modules:
                 __import__(module)
         return cls.create(pipe_config)
-
 
     def add_stage(self, stage_info):
         """Add a stage to the pipeline.
@@ -520,7 +523,7 @@ class Pipeline:
         self.stage_names.append(sec.name)
         if sec.stage_obj is None:
             return {}
-        return self.pipeline_files.insert_outputs(sec.stage_obj, '.')
+        return self.pipeline_files.insert_outputs(sec.stage_obj, ".")
 
     def build_stage(self, stage_class, **kwargs):
         """Build a stage and add it to the pipeline
@@ -559,7 +562,6 @@ class Pipeline:
         self.stage_names.remove(name)
         del self.stage_execution_config[name]
 
-
     def get_stage_aliases(self, stage_name, stages_config=None):
         """Get the aliases for a particular stage
 
@@ -580,9 +582,8 @@ class Pipeline:
         if sec is not None:
             stage = sec.stage_obj
         if stage is not None:
-            return stage.config.get('aliases', {})
-        return stages_config.get(stage_name, {}).get('aliases', {})
-
+            return stage.config.get("aliases", {})
+        return stages_config.get(stage_name, {}).get("aliases", {})
 
     def ordered_stages(self, overall_inputs, stages_config=None):
         """Produce a linear ordering for the stages.
@@ -670,7 +671,11 @@ class Pipeline:
                 missing_input_counts[stage_name] -= 1
 
         # find all the stages that are ready because they have no missing inputs
-        queue = [stage_name for stage_name in stage_names if missing_input_counts[stage_name] == 0]
+        queue = [
+            stage_name
+            for stage_name in stage_names
+            if missing_input_counts[stage_name] == 0
+        ]
         ordered_stages = []
 
         all_inputs = overall_inputs.copy()
@@ -688,14 +693,14 @@ class Pipeline:
                 aliased_tag = stage_aliases.get(tag, tag)
                 stage_inputs[aliased_tag] = all_inputs[aliased_tag]
             stage_config.update(stage_inputs)
-            stage_config['config'] = stages_config
+            stage_config["config"] = stages_config
             if sec.stage_obj is None:
                 stage = sec.build_stage_object(stage_config)
             else:
                 stage = sec.stage_obj
 
             # for file that stage produces,
-            stage_outputs = stage.find_outputs('.')
+            stage_outputs = stage.find_outputs(".")
             for tag in stage.output_tags():
                 # find all the next_stages that depend on that file
                 aliased_tag = stage.get_aliased_tag(tag)
@@ -715,7 +720,9 @@ class Pipeline:
         # Try to diagnose it here.
         if len(ordered_stages) != n:
             stages_missing_inputs = [
-                stage_name for (stage_name, count) in missing_input_counts.items() if count > 0
+                stage_name
+                for (stage_name, count) in missing_input_counts.items()
+                if count > 0
             ]
             msg1 = []
             for stage_name in stages_missing_inputs:
@@ -768,9 +775,9 @@ Some required inputs to the pipeline could not be found,
         if self.stages_config is not None:
             with open(self.stages_config) as stage_config_file:
                 self.stage_config_data = yaml.safe_load(stage_config_file)
-        else:  #pragma: no cover
+        else:  # pragma: no cover
             self.stage_config_data = {}
-        self.global_config = self.stage_config_data.pop('global', {})
+        self.global_config = self.stage_config_data.pop("global", {})
         for v in self.stage_config_data.values():
             v.update(self.global_config)
 
@@ -795,7 +802,7 @@ Some required inputs to the pipeline could not be found,
 
             if self.should_skip_stage(stage):
                 stage.already_finished()
-                self.pipeline_files.insert_outputs(stage, run_config['output_dir'])
+                self.pipeline_files.insert_outputs(stage, run_config["output_dir"])
 
             # Otherwise, run the pipeline and register any outputs from the
             # pipe element.
@@ -822,22 +829,22 @@ Some required inputs to the pipeline could not be found,
         """
         outputs = {}
         for stage in self.stages:
-            stage_outputs = stage.find_outputs(self.run_config['output_dir'])
+            stage_outputs = stage.find_outputs(self.run_config["output_dir"])
             outputs.update(stage_outputs)
         return outputs
 
     @abstractmethod
-    def initiate_run(self, overall_inputs):  #pragma: no cover
+    def initiate_run(self, overall_inputs):  # pragma: no cover
         """Setup the run and return any global information about how to run the pipeline"""
         raise NotImplementedError()
 
     @abstractmethod
-    def enqueue_job(self, stage, pipeline_files):  #pragma: no cover
+    def enqueue_job(self, stage, pipeline_files):  # pragma: no cover
         """Setup the job for a single stage, and return stage specific information"""
         raise NotImplementedError()
 
     @abstractmethod
-    def run_jobs(self):  #pragma: no cover
+    def run_jobs(self):  # pragma: no cover
         """Actually run all the jobs and return the execution status"""
         raise NotImplementedError()
 
@@ -864,43 +871,52 @@ Some required inputs to the pipeline could not be found,
             stagefile = os.path.splitext(pipefile)[0] + "_config.yml"
         if self.run_config is not None:
             pipe_dict.update(**self.run_config)
-        pipe_dict['config'] = stagefile
+        pipe_dict["config"] = stagefile
         if reduce_config:
-            stage_dict['global'] = self.global_config
+            stage_dict["global"] = self.global_config
         site = None
         for key, val in self.stage_execution_config.items():
-            if val.stage_obj is None:  #pragma: no cover
+            if val.stage_obj is None:  # pragma: no cover
                 raise ValueError(f"Stage {key} has not been built, can not save")
             if site is None:
                 site = val.site.config
-            pipe_stage_info = dict(name=val.name, classname=val.class_name, nprocess=val.nprocess)
+            pipe_stage_info = dict(
+                name=val.name, classname=val.class_name, nprocess=val.nprocess
+            )
             if val.threads_per_process != 1:
-                pipe_stage_info['threads_per_process'] = val.threads_per_process
+                pipe_stage_info["threads_per_process"] = val.threads_per_process
             pipe_info_list.append(pipe_stage_info)
-            stage_dict[key] = val.stage_obj.get_config_dict(self.global_config, reduce_config=reduce_config)
+            stage_dict[key] = val.stage_obj.get_config_dict(
+                self.global_config, reduce_config=reduce_config
+            )
 
-        module_list = list({val[0].get_module().split('.')[0] for val in PipelineStage.pipeline_stages.values()})
+        module_list = list(
+            {
+                val[0].get_module().split(".")[0]
+                for val in PipelineStage.pipeline_stages.values()
+            }
+        )
         not_first = False
         if self.modules:
             not_first = True
         for m_ in module_list:
             if not_first:
-                self.modules += ' '
+                self.modules += " "
             self.modules += f"{m_}"
             not_first = True
-        pipe_dict['modules'] = self.modules
-        pipe_dict['inputs'] = self.overall_inputs
-        pipe_dict['stages'] = pipe_info_list
-        pipe_dict['site'] = site
-        with open(pipefile, 'w') as outfile:
+        pipe_dict["modules"] = self.modules
+        pipe_dict["inputs"] = self.overall_inputs
+        pipe_dict["stages"] = pipe_info_list
+        pipe_dict["site"] = site
+        with open(pipefile, "w") as outfile:
             try:
                 yaml.dump(pipe_dict, outfile)
-            except Exception as msg:  #pragma: no cover
+            except Exception as msg:  # pragma: no cover
                 print(f"Failed to save {str(pipe_dict)} because {msg}")
-        with open(stagefile, 'w') as outfile:
+        with open(stagefile, "w") as outfile:
             try:
                 yaml.dump(stage_dict, outfile)
-            except Exception as msg:  #pragma: no cover
+            except Exception as msg:  # pragma: no cover
                 print(f"Failed to save {str(stage_dict)} because {msg}")
 
 
@@ -920,7 +936,7 @@ class DryRunPipeline(Pipeline):
         return False
 
     def enqueue_job(self, stage, pipeline_files):
-        outputs = stage.find_outputs(self.run_config['output_dir'])
+        outputs = stage.find_outputs(self.run_config["output_dir"])
         sec = self.stage_execution_config[stage.instance_name]
 
         cmd = sec.generate_full_command(pipeline_files, outputs, self.stages_config)
@@ -954,7 +970,7 @@ class ParslPipeline(Pipeline):
 
         from parsl.data_provider.files import File
 
-        #log_dir = self.run_config["log_dir"]
+        # log_dir = self.run_config["log_dir"]
         # convert the command into an app
         app = self.generate_app(stage, self.run_config)
 
@@ -969,7 +985,9 @@ class ParslPipeline(Pipeline):
         inputs.append(File(self.stages_config))
         # The outputs are just strings.  python dicts are now ordered,
         # so this works okay.
-        outputs = [File(f) for f in stage.find_outputs(self.run_config['output_dir']).values()]
+        outputs = [
+            File(f) for f in stage.find_outputs(self.run_config["output_dir"]).values()
+        ]
 
         # have parsl queue the app
         future = app(inputs=inputs, outputs=outputs)
@@ -1006,7 +1024,7 @@ Standard output:
                 if os.path.exists(stdout_file):
                     with open(stdout_file) as _stdout:
                         sys.stderr.write(_stdout.read())
-                else:  #pragma: no cover
+                else:  # pragma: no cover
                     sys.stderr.write("STDOUT MISSING!\n\n")
 
                 sys.stderr.write(
@@ -1022,7 +1040,7 @@ Standard error:
                 if os.path.exists(stderr_file):
                     with open(stderr_file) as _stderr:
                         sys.stderr.write(_stderr.read())
-                else:  #pragma: no cover
+                else:  # pragma: no cover
                     sys.stderr.write("STDERR MISSING!\n\n")
                 return 1
         return 0
@@ -1097,7 +1115,7 @@ def {stage.instance_name}(inputs, outputs, stdout='{log_dir}/{stage.instance_nam
 
         # local variables for creating this function.
         d = {"executor": executor.label, "cmd1": cmd1}
-        exec(template, {"parsl": parsl}, d) #pylint: disable=exec-used
+        exec(template, {"parsl": parsl}, d)  # pylint: disable=exec-used
 
         # Return the function itself.
         return d[stage.instance_name]
@@ -1167,7 +1185,7 @@ class MiniPipeline(Pipeline):
             for tag in stage.input_tags():
                 for potential_parent in self.stages[:]:
                     # if that stage is supplied by another pipeline stage
-                    if potential_parent.instance_name not in jobs:  #pragma: no cover
+                    if potential_parent.instance_name not in jobs:  # pragma: no cover
                         continue
                     if tag in potential_parent.output_tags():
                         depend[job].append(jobs[potential_parent.instance_name])
@@ -1180,7 +1198,7 @@ class MiniPipeline(Pipeline):
 
     def enqueue_job(self, stage, pipeline_files):
         sec = self.stage_execution_config[stage.instance_name]
-        outputs = stage.find_outputs(self.run_config['output_dir'])
+        outputs = stage.find_outputs(self.run_config["output_dir"])
         cmd = sec.generate_full_command(pipeline_files, outputs, self.stages_config)
         job = minirunner.Job(
             stage.instance_name,
@@ -1234,7 +1252,9 @@ class CWLPipeline(Pipeline):
     """
 
     @staticmethod
-    def make_inputs_file(stages, overall_inputs, stages_config, inputs_file):  #pylint: disable=missing-function-docstring
+    def make_inputs_file(
+        stages, overall_inputs, stages_config, inputs_file
+    ):  # pylint: disable=missing-function-docstring
 
         # find out the class of the file objects.  This is a bit ugly,
         # but the only way we record this now it in the stages.
@@ -1292,11 +1312,13 @@ class CWLPipeline(Pipeline):
 
         # Write the inputs files
         inputs_file = f"{cwl_dir}/cwl_inputs.yml"
-        self.make_inputs_file(self.stages, overall_inputs, self.stages_config, inputs_file)
+        self.make_inputs_file(
+            self.stages, overall_inputs, self.stages_config, inputs_file
+        )
 
         # CWL treats overall inputs differently, and requires
         # that we include the config file in there too
-        self.overall_inputs['config'] = self.stages_config
+        self.overall_inputs["config"] = self.stages_config
 
         return {
             "workflow": wf,
@@ -1337,16 +1359,15 @@ class CWLPipeline(Pipeline):
             elif inp.id in stage.config_options:
                 name = f"{inp.id}@{cwl_tool.id}"
             # otherwise just leave it as-is
-            else:  #pragma: no cover
+            else:  # pragma: no cover
                 name = inp.id
 
             # If it's an overall input to the entire pipeline we
             # record that.  Or a configuration option.
             # And we don't want things that we've already recorded.
-            if ((inp.id in self.overall_inputs) or (
-                inp.id in stage.config_options)) and (
-                name not in self.run_info["workflow_inputs"]
-            ):
+            if (
+                (inp.id in self.overall_inputs) or (inp.id in stage.config_options)
+            ) and (name not in self.run_info["workflow_inputs"]):
                 self.run_info["workflow_inputs"].add(name)
                 # These are the overall inputs to the enture pipeline.
                 # Convert them to CWL input parameters
@@ -1419,7 +1440,7 @@ class CWLPipeline(Pipeline):
             "launch",
             f"cwltool --outdir {output_dir} " "--preserve-environment PYTHONPATH",
         )
-        if launcher == "cwltool":  #pragma: no cover
+        if launcher == "cwltool":  # pragma: no cover
             launcher = (
                 f"cwltool --outdir {output_dir} " "--preserve-environment PYTHONPATH"
             )
@@ -1432,7 +1453,7 @@ class CWLPipeline(Pipeline):
             cmd = f"{launcher} {cwl_dir}/pipeline.cwl {inputs_file}"
             print(cmd)
             status = os.system(cmd)
-            if pypath:  #pragma: no cover
+            if pypath:  # pragma: no cover
                 os.environ["PYTHONPATH"] = pypath
             else:
                 del os.environ["PYTHONPATH"]

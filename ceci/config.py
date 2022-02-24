@@ -2,7 +2,7 @@
 for both interactive and ballistic applications """
 
 
-def cast_value(dtype, value): #pylint: disable=too-many-return-statements
+def cast_value(dtype, value):  # pylint: disable=too-many-return-statements
     """Casts an input value to a particular type
 
     Parameters
@@ -58,11 +58,10 @@ def cast_to_streamable(value):
 
 
 class StageParameter:
-    """ A small class to manage a single parameter with basic type checking
-    """
+    """A small class to manage a single parameter with basic type checking"""
 
-    def __init__(self, dtype=None,  default=None, fmt='%s', msg="A parameter"):
-        """ Build from keywords
+    def __init__(self, dtype=None, default=None, fmt="%s", msg="A parameter"):
+        """Build from keywords
 
         Parameters
         ----------
@@ -83,41 +82,41 @@ class StageParameter:
 
     @property
     def value(self):
-        """ Return the value """
+        """Return the value"""
         return self._value
 
     @property
     def dtype(self):
-        """ Return the data type """
+        """Return the data type"""
         return self._dtype
 
     @property
     def default(self):
-        """ Return the default value """
+        """Return the default value"""
         return self._default
 
     def copy(self):
-        """ Return a copy of self """
-        return StageParameter(dtype=self._dtype, default=self._default,
-                              fmt=self._format, msg=self._help)
+        """Return a copy of self"""
+        return StageParameter(
+            dtype=self._dtype, default=self._default, fmt=self._format, msg=self._help
+        )
 
     def set(self, value):
-        """ Set the value, raising a TypeError if the value is the wrong type """
+        """Set the value, raising a TypeError if the value is the wrong type"""
         self._value = cast_value(self._dtype, value)
         return self._value
 
     def set_to_default(self):
-        """ Set the value to the default """
+        """Set the value to the default"""
         self._value = cast_value(self._dtype, self._default)
         return self._value
 
 
 class StageConfig(dict):
-    """ A small class to manage a dictionary of configuration parameters with basic type checking
-    """
+    """A small class to manage a dictionary of configuration parameters with basic type checking"""
 
     def __init__(self, **kwargs):
-        """ Build from keywords
+        """Build from keywords
 
         Note
         ----
@@ -148,7 +147,7 @@ class StageConfig(dict):
             self[key] = param
 
     def __str__(self):
-        """ Override __str__ casting to deal with `StageParameter` object in the map """
+        """Override __str__ casting to deal with `StageParameter` object in the map"""
         s = "{"
         for key, attr in dict.items(self):
             if isinstance(attr, StageParameter):
@@ -160,29 +159,29 @@ class StageConfig(dict):
         return s
 
     def __repr__(self):
-        """ A custom representation """
+        """A custom representation"""
         s = "StageConfig"
         s += self.__str__()
         return s
 
     def to_dict(self):
-        """ Forcibly return a dict where the values have been cast from StageParameter """
-        return {key:cast_to_streamable(value) for key, value in dict.items(self)}
+        """Forcibly return a dict where the values have been cast from StageParameter"""
+        return {key: cast_to_streamable(value) for key, value in dict.items(self)}
 
     def __iter__(self):
-        """ Override the __iter__ to work with `StageParameter` """
+        """Override the __iter__ to work with `StageParameter`"""
         d = self.to_dict()
         return iter(d)
 
     def __getitem__(self, key):
-        """ Override the __getitem__ to work with `StageParameter` """
+        """Override the __getitem__ to work with `StageParameter`"""
         attr = dict.__getitem__(self, key)
         if isinstance(attr, StageParameter):
             return attr.value
         return attr
 
     def __setitem__(self, key, value):
-        """ Override the __setitem__ to work with `StageParameter` """
+        """Override the __setitem__ to work with `StageParameter`"""
         if key in self:
             attr = dict.__getitem__(self, key)
             if isinstance(attr, StageParameter):
@@ -191,23 +190,23 @@ class StageConfig(dict):
         return value
 
     def __getattr__(self, key):
-        """ Allow attribute-like parameter access """
+        """Allow attribute-like parameter access"""
         return self.__getitem__(key)
 
     def __setattr__(self, key, value):
-        """ Allow attribute-like parameter setting """
+        """Allow attribute-like parameter setting"""
         return self.__setitem__(key, value)
 
     def items(self):
-        """ Override items() to get the parameters values instead of the objects """
+        """Override items() to get the parameters values instead of the objects"""
         return [(key, cast_to_streamable(value)) for key, value in dict.items(self)]
 
     def values(self):
-        """ Override values() to get the parameters values instead of the objects """
+        """Override values() to get the parameters values instead of the objects"""
         return [cast_to_streamable(value) for value in dict.values(self)]
 
     def set_config(self, input_config, args):
-        """ Utility function to load configuration
+        """Utility function to load configuration
 
         Parameters
         ----------
@@ -239,9 +238,8 @@ class StageConfig(dict):
                 continue
             self[key] = val
 
-
     def reset(self):
-        """ Reset values to their defaults """
+        """Reset values to their defaults"""
         for _, val in dict.items(self):
             if isinstance(val, StageParameter):
                 val.set_to_default()

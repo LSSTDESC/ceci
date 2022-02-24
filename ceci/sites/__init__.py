@@ -78,7 +78,7 @@ def load(launcher_config, site_configs):
 
         try:
             cls = site_classes[site_name]
-        except KeyError as msg:  #pragma: no cover
+        except KeyError as msg:  # pragma: no cover
             raise ValueError(f"Unknown site {site_name}") from msg
 
         site = cls(site_config)
@@ -122,7 +122,7 @@ def setup_parsl(launcher_config, sites):
 
     # Optional logging of pipeline infrastructure to file.
     log_file = launcher_config.get("log")
-    if log_file:  #pragma: no cover
+    if log_file:  # pragma: no cover
         log_file_dir = os.path.split(os.path.abspath(log_file))[0]
         os.makedirs(log_file_dir, exist_ok=True)
         set_file_logger(log_file)

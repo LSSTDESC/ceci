@@ -68,14 +68,13 @@ class CCParallel(Site):
                 f"{cmd} {mpi2}"
             )
 
-    def configure_for_parsl(self):  #pylint: disable=no-self-use
+    def configure_for_parsl(self):  # pylint: disable=no-self-use
         """Utility function to set parsl configuration parameters"""
         raise ValueError("Parsl not configured for CC IN2P3 in ceci yet")
 
-
     def configure_for_mini(self):
         """Utility function to setup self for local execution"""
-        total_cores = int(os.environ['NSLOTS'])
+        total_cores = int(os.environ["NSLOTS"])
         cores_per_node = 16  # seems to be the case
         nodes = total_cores // cores_per_node
         last_node_codes = total_cores % cores_per_node

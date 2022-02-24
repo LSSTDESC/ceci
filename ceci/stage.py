@@ -98,28 +98,28 @@ class PipelineStage:
 
     @classmethod
     def make_stage(cls, **kwargs):
-        """ Make a stage of a particular type """
+        """Make a stage of a particular type"""
         kwcopy = kwargs.copy()
-        kwcopy.setdefault('config', None)
-        comm = kwcopy.pop('comm', None)
-        name = kwcopy.get('name', None)
-        aliases = kwcopy.pop('aliases', {})
+        kwcopy.setdefault("config", None)
+        comm = kwcopy.pop("comm", None)
+        name = kwcopy.get("name", None)
+        aliases = kwcopy.pop("aliases", {})
         for input_ in cls.inputs:
-            kwcopy.setdefault(input_[0], 'None')
+            kwcopy.setdefault(input_[0], "None")
         if name is not None:
-            for output_ in cls.outputs:  #pylint: disable=no-member
+            for output_ in cls.outputs:  # pylint: disable=no-member
                 outtag = output_[0]
-                aliases[outtag] = f'{outtag}_{name}'
-        kwcopy['aliases'] = aliases
+                aliases[outtag] = f"{outtag}_{name}"
+        kwcopy["aliases"] = aliases
         return cls(kwcopy, comm=comm)
 
     def get_aliases(self):
-        """ Returns the dictionary of aliases used to remap inputs and outputs
-        in the case that we want to have multiple instance of this class in the pipeline """
-        return self.config.get('aliases', None)
+        """Returns the dictionary of aliases used to remap inputs and outputs
+        in the case that we want to have multiple instance of this class in the pipeline"""
+        return self.config.get("aliases", None)
 
     def get_aliased_tag(self, tag):
-        """ Returns the possibly remapped value for an input or output tag
+        """Returns the possibly remapped value for an input or output tag
 
         Parameter
         ---------
@@ -137,9 +137,9 @@ class PipelineStage:
         return aliases.get(tag, tag)
 
     @abstractmethod
-    def run(self):  #pragma: no cover
+    def run(self):  # pragma: no cover
         """Run the stage and return the execution status"""
-        raise NotImplementedError('run')
+        raise NotImplementedError("run")
 
     def load_configs(self, args):
         """
@@ -154,10 +154,10 @@ class PipelineStage:
             args = vars(args)
 
         # We alwys assume the config arg exists, whether it is in input_tags or not
-        if 'config' not in args:  #pragma: no cover
+        if "config" not in args:  # pragma: no cover
             raise ValueError("The argument --config was missing on the command line.")
 
-        _name = args.get('name')
+        _name = args.get("name")
         if _name is not None:
             self._configs.name = _name
 
@@ -180,9 +180,9 @@ class PipelineStage:
         """
 
         # We first check for missing input files, that's a show stopper
-        if self._io_checked:  #pragma: no cover
+        if self._io_checked:  # pragma: no cover
             return
-        if args is None:  #pragma: no cover
+        if args is None:  # pragma: no cover
             args = self.config
 
         missing_inputs = []
@@ -193,11 +193,11 @@ class PipelineStage:
             if val is None:
                 val = args.get(aliased_tag)
 
-            if val is None:  #pragma: no cover
+            if val is None:  # pragma: no cover
                 missing_inputs.append(f"--{x}")
             else:
                 self._inputs[aliased_tag] = val
-        if missing_inputs:  #pragma: no cover
+        if missing_inputs:  # pragma: no cover
             missing_inputs = "  ".join(missing_inputs)
             raise ValueError(
                 f"""
@@ -213,12 +213,11 @@ class PipelineStage:
         for i, x in enumerate(self.output_tags()):
             aliased_tag = self.get_aliased_tag(x)
             if args.get(x) is None:
-                ftype = self.outputs[i][1]  #pylint: disable=no-member
+                ftype = self.outputs[i][1]  # pylint: disable=no-member
                 self._outputs[aliased_tag] = ftype.make_name(aliased_tag)
             else:
                 self._outputs[aliased_tag] = args[x]
         self._io_checked = True
-
 
     def setup_mpi(self, comm=None):
         """
@@ -229,9 +228,9 @@ class PipelineStage:
         comm: MPI communicator
             (default is None) An MPI comm object to use in preference to COMM_WORLD
         """
-        mpi = self.config.get('mpi', False)
+        mpi = self.config.get("mpi", False)
 
-        if mpi:  #pragma: no cover
+        if mpi:  # pragma: no cover
             try:
                 # This isn't a ceci dependency, so give a sensible error message if not installed.
                 import mpi4py.MPI
@@ -247,7 +246,7 @@ class PipelineStage:
             self._comm = comm
             self._size = self._comm.Get_size()
             self._rank = self._comm.Get_rank()
-        elif mpi:  #pragma: no cover
+        elif mpi:  # pragma: no cover
             self._parallel = MPI_PARALLEL
             self._comm = mpi4py.MPI.COMM_WORLD
             self._size = self._comm.Get_size()
@@ -283,14 +282,16 @@ class PipelineStage:
         filename = sys.modules[cls.__module__].__file__
 
         stage_is_complete = (
-            hasattr(cls, 'inputs') and hasattr(cls, 'outputs') and not getattr(cls.run, '__isabstractmethod__', False)
+            hasattr(cls, "inputs")
+            and hasattr(cls, "outputs")
+            and not getattr(cls.run, "__isabstractmethod__", False)
         )
 
         # If there isn't an explicit name already then set it here.
         # by default use the class name.
-        if not hasattr(cls, "name"):  #pragma: no cover
+        if not hasattr(cls, "name"):  # pragma: no cover
             cls.name = cls.__name__
-        if cls.name is None:  #pragma: no cover
+        if cls.name is None:  # pragma: no cover
             cls.name = cls.__name__
 
         if stage_is_complete:
@@ -385,7 +386,7 @@ class PipelineStage:
         return cls.pipeline_stages[cls.name][0].__module__
 
     @classmethod
-    def usage(cls):  #pragma: no cover
+    def usage(cls):  # pragma: no cover
         """
         Print a usage message.
         """
@@ -401,7 +402,7 @@ class PipelineStage:
                 doc = ""
             # cut off any very long lines
             if len(doc) > 100:
-                doc = doc[:100] + ' ...'
+                doc = doc[:100] + " ..."
             # print the text
             names.append(name)
             docs.append(doc)
@@ -414,7 +415,7 @@ class PipelineStage:
 
         try:
             module = cls.get_module().split(".")[0]
-        except:  #pylint: disable=bare-except
+        except:  # pylint: disable=bare-except
             module = "<module_name>"
         sys.stderr.write(
             f"""
@@ -437,10 +438,10 @@ I currently know about these stages:
         """
         try:
             stage_name = sys.argv[1]
-        except IndexError:  #pragma: no cover
+        except IndexError:  # pragma: no cover
             cls.usage()
             return 1
-        if stage_name in ["--help", "-h"] and len(sys.argv) == 2:  #pragma: no cover
+        if stage_name in ["--help", "-h"] and len(sys.argv) == 2:  # pragma: no cover
             cls.usage()
             return 1
         stage = cls.get_stage(stage_name)
@@ -471,14 +472,18 @@ I currently know about these stages:
 
             if opt_type == bool:
                 parser.add_argument(f"--{conf}", action="store_const", const=True)
-                parser.add_argument(f"--no-{conf}", dest=conf, action="store_const", const=False)
+                parser.add_argument(
+                    f"--no-{conf}", dest=conf, action="store_const", const=False
+                )
             elif opt_type == list:
-                out_type = def_val[0] if isinstance(def_val[0], type) else type(def_val[0])
-                if out_type is str:  #pragma: no cover
+                out_type = (
+                    def_val[0] if isinstance(def_val[0], type) else type(def_val[0])
+                )
+                if out_type is str:  # pragma: no cover
                     parser.add_argument(
                         f"--{conf}", type=lambda string: string.split(",")
                     )
-                elif out_type is int:  #pragma: no cover
+                elif out_type is int:  # pragma: no cover
                     parser.add_argument(
                         f"--{conf}",
                         type=lambda string: [int(i) for i in string.split(",")],
@@ -488,21 +493,23 @@ I currently know about these stages:
                         f"--{conf}",
                         type=lambda string: [float(i) for i in string.split(",")],
                     )
-                else:  #pragma: no cover
+                else:  # pragma: no cover
                     raise NotImplementedError(
                         "Only handles str, int and float list arguments"
                     )
-            else:  #pragma: no cover
+            else:  # pragma: no cover
                 parser.add_argument(f"--{conf}", type=opt_type)
         for inp in cls.input_tags():
             parser.add_argument(f"--{inp}")
         for out in cls.output_tags():
             parser.add_argument(f"--{out}")
-        parser.add_argument("--name",
-                            action='store',
-                            default=cls.name,
-                            type=str,
-                            help="Rename the stage")
+        parser.add_argument(
+            "--name",
+            action="store",
+            default=cls.name,
+            type=str,
+            help="Rename the stage",
+        )
         parser.add_argument("--config")
 
         if cls.parallel:
@@ -556,7 +563,7 @@ I currently know about these stages:
         # This happens before dask is initialized
         start_time = datetime.datetime.now()
         if stage.rank == 0:
-            start_time_text = start_time.isoformat(' ')
+            start_time_text = start_time.isoformat(" ")
             print(f"Executing stage: {cls.name} @ {start_time_text}")
 
         if stage.is_dask():
@@ -566,16 +573,16 @@ I currently know about these stages:
             if not is_client:
                 return
 
-        if args.cprofile:  #pragma: no cover
+        if args.cprofile:  # pragma: no cover
             profile = cProfile.Profile()
             profile.enable()
 
-        if args.memmon:  #pragma: no cover
+        if args.memmon:  # pragma: no cover
             monitor = MemoryMonitor.start_in_thread(interval=args.memmon)
 
         try:
             stage.run()
-        except Exception as error:  #pragma: no cover
+        except Exception as error:  # pragma: no cover
             if args.pdb:
                 print(
                     "There was an exception - starting python debugger because you ran with --pdb"
@@ -585,12 +592,14 @@ I currently know about these stages:
             else:
                 if stage.rank == 0:
                     end_time = datetime.datetime.now()
-                    end_time_text = end_time.isoformat(' ')
+                    end_time_text = end_time.isoformat(" ")
                     minutes = (end_time - start_time).total_seconds() / 60
-                    print(f"Stage failed: {cls.name} @ {end_time_text} after {minutes:.2f} minutes")
+                    print(
+                        f"Stage failed: {cls.name} @ {end_time_text} after {minutes:.2f} minutes"
+                    )
                 raise
         finally:
-            if args.memmon:  #pragma: no cover
+            if args.memmon:  # pragma: no cover
                 monitor.stop()
             if stage.is_dask():
                 stage.stop_dask()
@@ -599,7 +608,7 @@ I currently know about these stages:
         # final location, but subclasses can override to do other things too
         try:
             stage.finalize()
-        except Exception as error:  #pragma: no cover
+        except Exception as error:  # pragma: no cover
             if args.pdb:
                 print(
                     "There was an exception in the finalization - starting python debugger because you ran with --pdb"
@@ -608,7 +617,7 @@ I currently know about these stages:
                 pdb.post_mortem()
             else:
                 raise
-        if args.cprofile:  #pragma: no cover
+        if args.cprofile:  # pragma: no cover
             profile.disable()
             profile.dump_stats(args.cprofile)
             profile.print_stats("cumtime")
@@ -619,14 +628,16 @@ I currently know about these stages:
         # and gets to this point
         if stage.rank == 0 or stage.is_dask():
             end_time = datetime.datetime.now()
-            end_time_text = end_time.isoformat(' ')
+            end_time_text = end_time.isoformat(" ")
             minutes = (end_time - start_time).total_seconds() / 60
-            print(f"Stage complete: {cls.name} @ {end_time_text} took {minutes:.2f} minutes")
+            print(
+                f"Stage complete: {cls.name} @ {end_time_text} took {minutes:.2f} minutes"
+            )
 
     def finalize(self):
         """Finalize the stage, moving all its outputs to their final locations."""
         # Synchronize files so that everything is closed
-        if self.is_mpi():  #pragma: no cover
+        if self.is_mpi():  # pragma: no cover
             self.comm.Barrier()
 
         # Move files to their final path
@@ -637,7 +648,6 @@ I currently know about these stages:
             for tag in self.output_tags():
                 # find the old and new names
                 self._finalize_tag(tag)
-
 
     def _finalize_tag(self, tag):
         """Finalize the data for a particular tag.
@@ -652,10 +662,10 @@ I currently know about these stages:
         # because that will be handled later.
         if pathlib.Path(temp_name).exists():
             # replace directories, rather than nesting more results
-            if pathlib.Path(final_name).is_dir():  #pragma: no cover
+            if pathlib.Path(final_name).is_dir():  # pragma: no cover
                 shutil.rmtree(final_name)
             shutil.move(temp_name, final_name)
-        else:  #pragma: no cover
+        else:  # pragma: no cover
             sys.stderr.write(
                 f"NOTE/WARNING: Expected output file {final_name} was not generated.\n"
             )
@@ -717,14 +727,14 @@ I currently know about these stages:
             import dask
             import dask_mpi
             import dask.distributed
-        except ImportError:  #pragma: no cover
+        except ImportError:  # pragma: no cover
             print(
                 "ERROR: Using --mpi option on stages that use dask requires "
                 "dask[distributed] and dask_mpi to be installed."
             )
             raise
 
-        if self.size < 3:  #pragma: no cover
+        if self.size < 3:  # pragma: no cover
             raise ValueError(
                 "Dask requires at least three processes. One becomes a scheduler "
                 "process, one is a client that runs the code, and more are required "
@@ -754,6 +764,7 @@ I currently know about these stages:
         End the dask event loop
         """
         from dask_mpi import send_close_signal
+
         send_close_signal()
 
     def split_tasks_by_rank(self, tasks):
@@ -790,7 +801,7 @@ I currently know about these stages:
             Default=True
         """
         n_chunks = n_rows // chunk_rows
-        if n_chunks * chunk_rows < n_rows:  #pragma: no cover
+        if n_chunks * chunk_rows < n_rows:  # pragma: no cover
             n_chunks += 1
         if parallel:
             it = self.split_tasks_by_rank(range(n_chunks))
@@ -839,11 +850,13 @@ I currently know about these stages:
         input_class = self.get_input_type(tag)
         obj = input_class(path, "r", **kwargs)
 
-        if wrapper:  #pragma: no cover
+        if wrapper:  # pragma: no cover
             return obj
         return obj.file
 
-    def open_output(self, tag, wrapper=False, final_name=False, **kwargs):  #pragma: no cover
+    def open_output(
+        self, tag, wrapper=False, final_name=False, **kwargs
+    ):  # pragma: no cover
         """
         Find and open an output file with the given tag, in write mode.
 
@@ -919,14 +932,14 @@ I currently know about these stages:
         """
         Return the dict of inputs
         """
-        return cls.inputs  #pylint: disable=no-member
+        return cls.inputs  # pylint: disable=no-member
 
     @classmethod
     def outputs_(cls):
         """
         Return the dict of inputs
         """
-        return cls.outputs  #pylint: disable=no-member
+        return cls.outputs  # pylint: disable=no-member
 
     @classmethod
     def output_tags(cls):
@@ -947,14 +960,14 @@ I currently know about these stages:
         for t, dt in self.inputs_():
             if t == tag:
                 return dt
-        raise ValueError(f"Tag {tag} is not a known input")  #pragma: no cover
+        raise ValueError(f"Tag {tag} is not a known input")  # pragma: no cover
 
     def get_output_type(self, tag):
         """Return the file type class of an output file with the given tag."""
         for t, dt in self.outputs_():
             if t == tag:
                 return dt
-        raise ValueError(f"Tag {tag} is not a known output")  #pragma: no cover
+        raise ValueError(f"Tag {tag} is not a known output")  # pragma: no cover
 
     ##################################################
     # Configuration-related methods and properties.
@@ -963,7 +976,7 @@ I currently know about these stages:
     @property
     def instance_name(self):
         """Return the name associated to this particular instance of this stage"""
-        return self._configs.get('name', self.name)
+        return self._configs.get("name", self.name)
 
     @property
     def config(self):
@@ -1030,7 +1043,7 @@ I currently know about these stages:
         """
         out_dict = {}
         if reduce_config:
-            ignore_keys = self.input_tags() + self.output_tags() + ['config']
+            ignore_keys = self.input_tags() + self.output_tags() + ["config"]
         else:
             ignore_keys = []
         ignore = ignore or {}
@@ -1043,7 +1056,6 @@ I currently know about these stages:
                     continue
             out_dict[key] = cast_to_streamable(val)
         return out_dict
-
 
     def find_inputs(self, pipeline_files):
         """Find and retrun all the inputs associated to this stage in the FileManager
@@ -1072,11 +1084,15 @@ I currently know about these stages:
         stream.write("Inputs--------\n")
         for tag, ftype in self.inputs_():
             aliased_tag = self.get_aliased_tag(tag)
-            stream.write(f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._inputs[tag]}\n")
+            stream.write(
+                f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._inputs[tag]}\n"
+            )
         stream.write("Outputs--------\n")
         for tag, ftype in self.outputs_():
             aliased_tag = self.get_aliased_tag(tag)
-            stream.write(f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._outputs[aliased_tag]}\n")
+            stream.write(
+                f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._outputs[aliased_tag]}\n"
+            )
 
     def should_skip(self, run_config):
         """Return true if we should skip a stage b/c it's outputs already exist and we are in resume mode"""
@@ -1088,7 +1104,9 @@ I currently know about these stages:
         """Print a warning that a stage is being skipped"""
         print(f"Skipping stage {self.instance_name} because its outputs exist already")
 
-    def iterate_fits(self, tag, hdunum, cols, chunk_rows, parallel=True):  #pragma: no cover
+    def iterate_fits(
+        self, tag, hdunum, cols, chunk_rows, parallel=True
+    ):  # pragma: no cover
         """
         Loop through chunks of the input data from a FITS file with the given tag
 
@@ -1186,7 +1204,9 @@ I currently know about these stages:
     ################################
 
     @classmethod
-    def generate_command(cls, inputs, config, outputs, aliases=None, instance_name=None):
+    def generate_command(
+        cls, inputs, config, outputs, aliases=None, instance_name=None
+    ):
         """
         Generate a command line that will run the stage
         """
@@ -1200,8 +1220,10 @@ I currently know about these stages:
             aliased_tag = aliases.get(tag, tag)
             try:
                 fpath = inputs[aliased_tag]
-            except KeyError as msg:  #pragma: no cover
-                raise ValueError(f"Missing input location {aliased_tag} {str(inputs)}") from msg
+            except KeyError as msg:  # pragma: no cover
+                raise ValueError(
+                    f"Missing input location {aliased_tag} {str(inputs)}"
+                ) from msg
             flags.append(f"--{tag}={fpath}")
 
         if instance_name is not None and instance_name != cls.name:
@@ -1213,8 +1235,10 @@ I currently know about these stages:
             aliased_tag = aliases.get(tag, tag)
             try:
                 fpath = outputs[aliased_tag]
-            except KeyError as msg:  #pragma: no cover
-                raise ValueError(f"Missing output location {aliased_tag} {str(outputs)}") from msg
+            except KeyError as msg:  # pragma: no cover
+                raise ValueError(
+                    f"Missing output location {aliased_tag} {str(outputs)}"
+                ) from msg
             flags.append(f"--{tag}={fpath}")
 
         flags = "   ".join(flags)
@@ -1261,7 +1285,9 @@ I currently know about these stages:
                 v = def_val[0]
                 param_type = {
                     "type": "array",
-                    "items": type_dict[v] if isinstance(v, type) else type_dict[type(v)],
+                    "items": type_dict[v]
+                    if isinstance(v, type)
+                    else type_dict[type(v)],
                 }
                 default = def_val if not isinstance(v, type) else None
                 input_binding = cwlgen.CommandLineBinding(
@@ -1276,7 +1302,7 @@ I currently know about these stages:
                 default = def_val if not isinstance(def_val, type) else None
                 if param_type == "boolean":
                     input_binding = cwlgen.CommandLineBinding(prefix=f"--{opt}")
-                else:  #pragma: no cover
+                else:  # pragma: no cover
                     input_binding = cwlgen.CommandLineBinding(
                         prefix=f"--{opt}=", separate=False
                     )
@@ -1304,7 +1330,7 @@ I currently know about these stages:
                 inp,
                 label=inp,
                 param_type="File",
-                param_format=cls.inputs[i][1].format,  #pylint: disable=no-member
+                param_format=cls.inputs[i][1].format,  # pylint: disable=no-member
                 input_binding=input_binding,
                 doc="Some documentation about the input",
             )
@@ -1324,14 +1350,14 @@ I currently know about these stages:
 
         # Add the definition of the outputs
         for i, out in enumerate(cls.output_tags()):
-            output_name = cls.outputs[i][1].make_name(out)  #pylint: disable=no-member
+            output_name = cls.outputs[i][1].make_name(out)  # pylint: disable=no-member
             output_binding = cwlgen.CommandOutputBinding(glob=output_name)
             output = cwlgen.CommandOutputParameter(
                 out,
                 label=out,
                 param_type="File",
                 output_binding=output_binding,
-                param_format=cls.outputs[i][1].format,  #pylint: disable=no-member
+                param_format=cls.outputs[i][1].format,  # pylint: disable=no-member
                 doc="Some results produced by the pipeline element",
             )
             cwl_tool.outputs.append(output)

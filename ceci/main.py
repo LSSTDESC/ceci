@@ -41,7 +41,7 @@ def run_prescript(pre_script=None, dry_run=False, script_args=None):
     script_args : `list`, (`str`)
         Arguments to the script
     """
-    if script_args is None:  #pragma: no cover
+    if script_args is None:  # pragma: no cover
         script_args = []
     if pre_script and not dry_run:
         subprocess.check_call(pre_script.split() + script_args, shell=True)
@@ -90,11 +90,11 @@ def run_postscript(post_script=None, dry_run=False, script_args=None):
     return_code : `int`
         Usual unix convention of 0 -> success, non-zero is an error code
     """
-    if script_args is None:  #pragma: no cover
+    if script_args is None:  # pragma: no cover
         script_args = []
     if post_script and not dry_run:
         return_code = subprocess.call(post_script.split() + script_args, shell=True)
-        if return_code:  #pragma: no cover
+        if return_code:  # pragma: no cover
             sys.stderr.write(
                 f"\nWARNING: The post-script command {post_script} "
                 "returned error status {return_code}\n\n"
@@ -129,7 +129,7 @@ def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False)
     # they can be added within any containers or other launchers
     # that we use
     paths = pipe_config.get("python_paths", [])
-    if isinstance(paths, str):  #pragma: no cover
+    if isinstance(paths, str):  # pragma: no cover
         paths = paths.split()
 
     launcher_config = pipe_config.setdefault("launcher", {"name": "mini"})
@@ -139,7 +139,7 @@ def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False)
     load(launcher_config, [site_config])
 
     # Python modules in which to search for pipeline stages
-    modules = pipe_config.get("modules", '').split()
+    modules = pipe_config.get("modules", "").split()
 
     pre_script = pipe_config.get("pre_script")
     post_script = pipe_config.get("post_script")
@@ -157,17 +157,21 @@ def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False)
         run_prescript(pre_script=pre_script, dry_run=dry_run, script_args=script_args)
 
         status = run_pipeline(pipe_config)
-        if status:  #pragma: no cover
+        if status:  # pragma: no cover
             return status
 
-        status = run_postscript(post_script=post_script, dry_run=dry_run, script_args=script_args)
+        status = run_postscript(
+            post_script=post_script, dry_run=dry_run, script_args=script_args
+        )
         return status
 
 
-def main():  #pragma: no cover
+def main():  # pragma: no cover
     """Main function called when ceci is invoked on the command line"""
     args = parser.parse_args()
-    pipe_config = Pipeline.build_config(args.pipeline_config, args.extra_config, args.dry_run)
+    pipe_config = Pipeline.build_config(
+        args.pipeline_config, args.extra_config, args.dry_run
+    )
     status = run(pipe_config, args.pipeline_config, args.extra_config, args.dry_run)
 
     if status == 0:
@@ -177,5 +181,5 @@ def main():  #pragma: no cover
     return status
 
 
-if __name__ == "__main__":  #pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     sys.exit(main())
