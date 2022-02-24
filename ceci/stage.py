@@ -554,8 +554,8 @@ I currently know about these stages:
         stage.setup_mpi(comm)
 
         # This happens before dask is initialized
+        start_time = datetime.datetime()
         if stage.rank == 0:
-            start_time = datetime.datetime()
             start_time_text = start_time.isoformat(' ')
             print(f"Executing stage: {cls.name} @ {start_time_text}")
 
@@ -583,6 +583,11 @@ I currently know about these stages:
                 print(error)
                 pdb.post_mortem()
             else:
+                if stage.rank == 0:
+                    end_time = datetime.datetime()
+                    end_time_text = end_time.isoformat(' ')
+                    minutes = (end_time - start_time).total_seconds() / 60
+                    print(f"Stage failed: {cls.name} @ {end_time_text} after {minutes} minutes")
                 raise
         finally:
             if args.memmon:  #pragma: no cover
