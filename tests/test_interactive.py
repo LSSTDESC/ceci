@@ -25,10 +25,12 @@ def test_config():
     config.free = 42
 
 
+    config.chunk_rows = 133
+    config.free = 42
     assert config.get("potato") is None
     assert config.get("potato", "roast") == "roast"
-    assert config.get("chunk_rows") == 5000
-    assert config.get("chunk_rows", "xxx") == 5000
+    assert config.get("chunk_rows") == 133
+    assert config.get("chunk_rows", "xxx") == 133
     assert config.get("free") == 42
     assert config.get("free", 444444) == 42
 
