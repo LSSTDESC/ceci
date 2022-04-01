@@ -250,3 +250,9 @@ class StageConfig(dict):
         if isinstance(attr, StageParameter):
             return attr.dtype
         return type(attr)
+
+    def get(self, key, default=None):
+        if key in self:
+            return self[key]
+        else:
+            return default

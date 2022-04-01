@@ -24,6 +24,14 @@ def test_config():
     config.free = 'dog'
     config.free = 42
 
+
+    assert config.get("potato") is None
+    assert config.get("potato", "roast") == "roast"
+    assert config.get("chunk_rows") == 5000
+    assert config.get("chunk_rows", "xxx") == 5000
+    assert config.get("free") == 42
+    assert config.get("free", 444444) == 42
+
     try:
         config.chunk_rows = 'a'
     except TypeError:
