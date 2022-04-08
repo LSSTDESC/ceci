@@ -38,6 +38,7 @@ class PipelineStage:
     dask_parallel = False
     config_options = {}
     doc = ""
+    allow_reload = False
 
     def __init__(self, args, comm=None):
         """Construct a pipeline stage, specifying the inputs, outputs, and configuration for it.
@@ -252,7 +253,7 @@ class PipelineStage:
 
         if stage_is_complete:
             # Deal with duplicated class names
-            if cls.name in cls.pipeline_stages:
+            if cls.name in cls.pipeline_stages and not cls.allow_reload:
                 other = cls.pipeline_stages[cls.name][1]
                 raise errors.DuplicateStageName(
                     "You created two pipeline stages with the"
