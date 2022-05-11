@@ -1077,7 +1077,9 @@ I currently know about these stages:
         ret_dict = {}
         for tag, ftype in self.outputs_():
             aliased_tag = self.get_aliased_tag(tag)
-            ret_dict[aliased_tag] = f"{outdir}/{ftype.make_name(aliased_tag)}"
+            if not aliased_tag in self._outputs.keys(): # pragma: no cover
+                self._outputs[aliased_tag]=ftype.make_name(aliased_tag)
+            ret_dict[aliased_tag] = f"{outdir}/{self._outputs[aliased_tag]}"
         return ret_dict
 
     def print_io(self, stream=sys.stdout):
