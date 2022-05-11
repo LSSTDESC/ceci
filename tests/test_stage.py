@@ -4,6 +4,8 @@ from ceci_example.types import HDFFile
 import numpy as np
 from ceci.errors import *
 import pytest
+import h5py
+import os
 
 # TODO: test MPI facilities properly with:
 # https://github.com/rmjarvis/TreeCorr/blob/releases/4.1/tests/mock_mpi.py
@@ -329,6 +331,36 @@ def test_bool_flags():
 
     h = Hotel3(Hotel3.parse_command_line(cmd))
     assert h.config['xyz'] is True
+
+
+def test_open_input():
+    class India(PipelineStage):
+        inputs = [("my_input", HDFFile)]
+        outputs = []
+        config_options = {}
+    cmd = "India", "--config", "tests/config.yml", "--my_input", "tests/test.hdf5"
+
+    # Testing without an alias
+    ii = India(India.parse_command_line(cmd))
+    assert os.path.exists(ii.get_input("my_input"))
+    f = ii.open_input("my_input")
+    print(f.keys())
+    f.close()
+
+    # Testing with an alias - config.yml defines an alias for my_input, my_alias
+    ii = India.make_stage(name="IndiaCopy", my_input="tests/test.hdf5", config="tests/config.yml")
+
+    print(ii.get_aliases())
+
+    # This currently works
+    assert os.path.exists(ii.get_input("my_alias"))
+
+    # This doesn't work. Using my_input also fails
+    f = ii.open_input("my_alias")
+    print(f.keys())
+    f.close()
+
+
 
 
 
