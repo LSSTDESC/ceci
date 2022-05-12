@@ -355,8 +355,8 @@ def test_open_input():
     # This currently works
     assert os.path.exists(ii.get_input("my_alias"))
 
-    # This doesn't work. Using my_input also fails
-    f = ii.open_input("my_alias")
+    # This works now
+    f = ii.open_input("my_input")
     print(f.keys())
     f.close()
 
