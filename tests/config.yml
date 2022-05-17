@@ -7,3 +7,12 @@ shearMeasurementPipe:
 WLGCSelector:
     zbin_edges: [0.2, 0.3, 0.5]
     ra_range: [-5, 5]
+
+IndiaCopy:
+    aliases:
+        my_input: "my_alias"
+
+
+JulietCopy:
+    aliases:
+        my_input: "my_alias"

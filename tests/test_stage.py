@@ -4,6 +4,8 @@ from ceci_example.types import HDFFile
 import numpy as np
 from ceci.errors import *
 import pytest
+import h5py
+import os
 
 # TODO: test MPI facilities properly with:
 # https://github.com/rmjarvis/TreeCorr/blob/releases/4.1/tests/mock_mpi.py
@@ -118,7 +120,7 @@ def test_make_stage():
     stage = TestStage.make_stage(name="copy_of_test_stage", a='c', inp1='dummy', out="my_file.hdf5")
     assert stage.find_outputs('.')['out_copy_of_test_stage'] =='./my_file.hdf5'
     assert stage.config.a == 'c'
-        
+
 
 def test_parameter():
     # This one should work
@@ -132,8 +134,8 @@ def test_parameter():
             pass
 
     stage = TestStage.make_stage(a=6., inp1='dummy')
-    assert stage.config.a == 6.    
-        
+    assert stage.config.a == 6.
+
 
 
 def test_incomplete():
@@ -329,6 +331,61 @@ def test_bool_flags():
 
     h = Hotel3(Hotel3.parse_command_line(cmd))
     assert h.config['xyz'] is True
+
+
+def test_open_input():
+    class India(PipelineStage):
+        inputs = [("my_input", HDFFile)]
+        outputs = []
+        config_options = {}
+    cmd = "India", "--config", "tests/config.yml", "--my_input", "tests/test.hdf5"
+
+    # Testing without an alias
+    ii = India(India.parse_command_line(cmd))
+    assert os.path.exists(ii.get_input("my_input"))
+    f = ii.open_input("my_input")
+    print(f.keys())
+    f.close()
+
+    # Testing with an alias - config.yml defines an alias for my_input, my_alias
+    ii = India.make_stage(name="IndiaCopy", my_input="tests/test.hdf5", config="tests/config.yml")
+
+    print(ii.get_aliases())
+
+    # This currently works
+    assert os.path.exists(ii.get_input("my_alias"))
+
+    # This works now
+    f = ii.open_input("my_input")
+    print(f.keys())
+    f.close()
+
+
+def test_open_output():
+    class Juliett(PipelineStage):
+        inputs = []
+        outputs = [("my_output", HDFFile)]
+        config_options = {}
+    cmd = "Juliett", "--config", "tests/config.yml", "--my_output", "tests/test_out.hdf5"
+
+    # Testing without an alias
+    jj = Juliett(Juliett.parse_command_line(cmd))
+    #assert os.path.exists(jj.get_output("my_output"))
+    f = jj.open_output("my_output")
+    print(f.keys())
+    f.close()
+
+    # Testing with an alias - config.yml defines an alias for my_input, my_alias
+    jj = Juliett.make_stage(name="JuliettCopy", aliases=dict(my_output='my_alias'))
+
+    print(jj.get_aliases())
+
+    # This works now
+    f = jj.open_output("my_output")
+    print(f.keys())
+    f.close()
+
+
 
 
 

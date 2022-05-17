@@ -847,7 +847,8 @@ I currently know about these stages:
         a more specific object - see the types.py file for more info.
 
         """
-        path = self.get_input(tag)
+        aliased_tag = self.get_aliased_tag(tag)
+        path = self.get_input(aliased_tag)
         input_class = self.get_input_type(tag)
         obj = input_class(path, "r", **kwargs)
 
