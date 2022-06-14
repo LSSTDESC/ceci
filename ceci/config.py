@@ -122,6 +122,11 @@ class StageParameter:
         self._value = cast_value(self._dtype, self._default)
         return self._value
 
+    def set_default(self, default):
+        """Set the default value"""
+        self._default = default
+        self.set_to_default()
+
 
 class StageConfig(dict):
     """A small class to manage a dictionary of configuration parameters with basic type checking"""
