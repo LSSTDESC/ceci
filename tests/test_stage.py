@@ -165,7 +165,7 @@ def test_parameter():
     par = StageParameter(int, 0, msg="a float")
     assert par == 0
     par.set_default(1)
-    assert par == 1
+    assert par.value == 1
     assert par.defalt == 1
     
 
