@@ -162,7 +162,12 @@ def test_parameter():
     stage = TestStage_3.make_stage(inp1='dummy')
     assert stage.config.a is None
 
-
+    par = StageParameter(int, 0, msg="a float")
+    assert par == 0
+    par.set_default(1)
+    assert par == 1
+    assert par.defalt == 1
+    
 
 def test_incomplete():
     class Alpha(PipelineStage):
