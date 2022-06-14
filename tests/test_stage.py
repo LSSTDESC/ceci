@@ -136,6 +136,32 @@ def test_parameter():
     stage = TestStage.make_stage(a=6., inp1='dummy')
     assert stage.config.a == 6.
 
+    # This one should not work
+    class TestStage_2(PipelineStage):
+        name = "test_stage_param_2"
+        inputs = [("inp1", HDFFile)]
+        outputs = []
+        config_options = dict(a=StageParameter(float, None, msg="a float"))
+
+        def run(self):
+            pass
+
+    with pytest.raises(ValueError):
+        stage = TestStage_2.make_stage(inp1='dummy')
+
+    # This one should work
+    class TestStage_3(PipelineStage):
+        name = "test_stage_param_3"
+        inputs = [("inp1", HDFFile)]
+        outputs = []
+        config_options = dict(a=StageParameter(float, None, required=False, msg="a float"))
+
+        def run(self):
+            pass
+
+    stage = TestStage_3.make_stage(inp1='dummy')
+    assert stage.config.a is None
+
 
 
 def test_incomplete():

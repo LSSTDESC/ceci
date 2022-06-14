@@ -60,7 +60,7 @@ def cast_to_streamable(value):
 class StageParameter:
     """A small class to manage a single parameter with basic type checking"""
 
-    def __init__(self, dtype=None, default=None, fmt="%s", msg="A parameter"):
+    def __init__(self, dtype=None, default=None, fmt="%s", required=None, msg="A parameter"):
         """Build from keywords
 
         Parameters
@@ -71,6 +71,8 @@ class StageParameter:
             The default value
         fmt : `str`
             A formatting string for printout and representation
+        required : `bool` or `None`
+
         msg : `str`
             A help or docstring
         """
@@ -78,6 +80,10 @@ class StageParameter:
         self._format = fmt
         self._dtype = dtype
         self._default = default
+        if required is not None:
+            self._required = required
+        else:
+            self._required = self._default is None
         self._value = cast_value(self._dtype, self._default)
 
     @property
@@ -95,10 +101,15 @@ class StageParameter:
         """Return the default value"""
         return self._default
 
+    @property
+    def required(self):
+        """Return the required flag"""
+        return self._required
+
     def copy(self):
         """Return a copy of self"""
         return StageParameter(
-            dtype=self._dtype, default=self._default, fmt=self._format, msg=self._help
+            dtype=self._dtype, default=self._default, fmt=self._format, required=self._required, msg=self._help
         )
 
     def set(self, value):
@@ -223,7 +234,7 @@ class StageConfig(dict):
                 val = args[key]
             if val is None:
                 attr = self.get(key)
-                if attr.default is None:
+                if attr.required:
                     raise ValueError(f"Missing configuration option {key}")
                 val = attr.default
             self.__setattr__(key, val)
