@@ -153,6 +153,8 @@ class StageConfig(dict):
                 pass
             elif isinstance(val, StageParameter):
                 param = val.copy()
+            elif isinstance(val, StageConfig):
+                param = val.get(key).copy()
             elif isinstance(val, type):
                 dtype = val
             else:
