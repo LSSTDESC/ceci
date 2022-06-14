@@ -166,7 +166,7 @@ def test_parameter():
     assert par.value == 0
     par.set_default(1)
     assert par.value == 1
-    assert par.defalt == 1
+    assert par.default == 1
     
 
 def test_incomplete():
