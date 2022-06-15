@@ -133,10 +133,72 @@ def test_parameter():
         def run(self):
             pass
 
-    stage = TestStage.make_stage(a=6., inp1='dummy')
-    assert stage.config.a == 6.
+    stage_1 = TestStage.make_stage(a=6., inp1='dummy')
+    assert stage_1.config.a == 6.
+
+    # This one should not work
+    class TestStage_2(PipelineStage):
+        name = "test_stage_param_2"
+        inputs = [("inp1", HDFFile)]
+        outputs = []
+        config_options = dict(a=StageParameter(float, None, msg="a float"))
+
+        def run(self):
+            pass
+
+    with pytest.raises(ValueError):
+        stage_2 = TestStage_2.make_stage(inp1='dummy')
+
+    # This one should work
+    class TestStage_3(PipelineStage):
+        name = "test_stage_param_3"
+        inputs = [("inp1", HDFFile)]
+        outputs = []
+        config_options = dict(a=StageParameter(float, None, required=False, msg="a float"))
+
+        def run(self):
+            pass
+
+    stage_3 = TestStage_3.make_stage(inp1='dummy')
+    assert stage_3.config.a is None
+
+    par = StageParameter(int, 0, msg="a float")
+    assert par.value == 0
+    par.set_default(1)
+    assert par.value == 1
+    assert par.default == 1
+
+    # This one should work
+    class TestStage_4(PipelineStage):
+        name = "test_stage_param_4"
+        inputs = [("inp1", HDFFile)]
+        outputs = []
+        config_options = dict(a=stage_1.config)
+
+        def run(self):
+            pass
+
+    stage_4 = TestStage_4.make_stage(inp1='dummy')
+    assert stage_4.config.a == 5.
 
 
+    stage_1.config.get('a').set_default(7.)
+    # This one should work
+    class TestStage_5(PipelineStage):
+        name = "test_stage_param_5"
+        inputs = [("inp1", HDFFile)]
+        outputs = []
+        config_options = dict(a=stage_1.config)
+
+        def run(self):
+            pass
+
+    stage_5 = TestStage_4.make_stage(inp1='dummy')
+    assert stage_5.config.a == 7.
+
+
+
+    
 
 def test_incomplete():
     class Alpha(PipelineStage):
