@@ -783,6 +783,52 @@ I currently know about these stages:
             if i % self.size == self.rank:
                 yield task
 
+    def map_tasks_by_rank(self, function, tasks, allgather=False):
+        """Run a function over a series of tasks in parallel
+
+        This mirrors the map function, and returns the equivalent of
+        [function(task) for task in tasks], but executes in parallel.
+
+        Parameters
+        ----------
+        function: Callable
+            Function to be run on tasks
+
+        tasks: Iterable
+            Any sequence of tasks, which should be the same
+            on all processes
+
+        allgather: bool
+            Whether to give all ranks the results or just the
+            root process. Default = False.
+
+        Returns
+        -------
+        results: list
+            A list of the results of calling the function on each task,
+            in the same order as the input tasks
+        """
+        results = []
+        for i, task in enumerate(tasks):
+            if i % self.size == self.rank:
+                results.append(function(task))
+        if self.comm is not None:
+            if allgather:
+                collected_results = self.comm.allgather(results)
+            else:
+                collected_results = self.comm.gather(results)
+                if self.rank != 0:
+                    return
+            results = []
+            n = sum(len(r) for r in collected_results)
+            for i in range(n):
+                j = i % self.size
+                k = i // self.size
+                results.append(collected_results[j][k])
+        return results
+
+
+
     def data_ranges_by_rank(self, n_rows, chunk_rows, parallel=True):
         """Split a number of rows by process.
 
