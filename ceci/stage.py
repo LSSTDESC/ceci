@@ -812,7 +812,9 @@ I currently know about these stages:
         for i, task in enumerate(tasks):
             if i % self.size == self.rank:
                 results.append(function(task))
+
         if self.comm is not None:
+            # Collate result as a list-of-lists
             if allgather:
                 collected_results = self.comm.allgather(results)
             else:
