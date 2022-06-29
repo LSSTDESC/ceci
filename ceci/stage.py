@@ -796,7 +796,9 @@ I currently know about these stages:
 
         tasks: Iterable
             Any sequence of tasks, which should be the same
-            on all processes
+            on all processes. Or at least the same length:
+            tasks not allocated to this process are ignored so
+            you could get away with a dummy task for them.
 
         allgather: bool
             Whether to give all ranks the results or just the
@@ -809,24 +811,36 @@ I currently know about these stages:
             in the same order as the input tasks
         """
         results = []
+        # We keep track of the number of tasks manually rather
+        # than calling len(tasks) because this allows tasks to
+        # be an iterator.
+        n = 0
         for i, task in enumerate(tasks):
+            n += 1
             if i % self.size == self.rank:
                 results.append(function(task))
 
+        # If this is running in serial then the above just functions
+        # like a basic map or list comprehension.
         if self.comm is not None:
-            # Collate result as a list-of-lists
+            # Collate result as a list-of-lists, one sub-list for
+            # each process
             if allgather:
                 collected_results = self.comm.allgather(results)
             else:
                 collected_results = self.comm.gather(results)
                 if self.rank != 0:
                     return
+            # convert the list-of-lists back into a single list
+            # of results, returning to the original ordering.
+            # The round-robin way we allocated them in the first
+            # place is reversed by this.
             results = []
-            n = sum(len(r) for r in collected_results)
             for i in range(n):
                 j = i % self.size
                 k = i // self.size
                 results.append(collected_results[j][k])
+
         return results
 
 
