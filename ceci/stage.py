@@ -783,42 +783,42 @@ I currently know about these stages:
             if i % self.size == self.rank:
                 yield task
 
-    def map_tasks_by_rank(self, function, tasks, allgather=False):
-        """Run a function over a series of tasks in parallel
+    def map_tasks_by_rank(self, function, inputs, allgather=False):
+        """Run a function over a series of inputs, in parallel
 
         This mirrors the map function, and returns the equivalent of
-        [function(task) for task in tasks], but executes in parallel.
+        [function(input) for input in inputs], but executes in parallel.
 
         Parameters
         ----------
         function: Callable
-            Function to be run on tasks
+            Function to be run on each item in inputs
 
-        tasks: Iterable
-            Any sequence of tasks, which should be the same
+        inputs: Iterable
+            Any sequence of inputs, which should be the same
             on all processes. Or at least the same length:
-            tasks not allocated to this process are ignored so
-            you could get away with a dummy task for them.
+            inputs not assigned to this process are ignored so
+            you could get away with a dummy input for them.
 
         allgather: bool
-            Whether to give all ranks the results or just the
-            root process. Default = False.
+            Whether to give all ranks the results (True) or just the
+            root process (False). Default = False.
 
         Returns
         -------
         results: list
-            A list of the results of calling the function on each task,
+            A list of the results of calling the function on each input,
             in the same order as the input tasks
         """
         results = []
-        # We keep track of the number of tasks manually rather
-        # than calling len(tasks) because this allows tasks to
+        # We keep track of the number of inputs manually rather
+        # than calling len(inputs) because this allows inputs to
         # be an iterator.
         n = 0
-        for i, task in enumerate(tasks):
+        for i, inp in enumerate(inputs):
             n += 1
             if i % self.size == self.rank:
-                results.append(function(task))
+                results.append(function(inp))
 
         # If this is running in serial then the above just functions
         # like a basic map or list comprehension.
