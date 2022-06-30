@@ -783,6 +783,68 @@ I currently know about these stages:
             if i % self.size == self.rank:
                 yield task
 
+    def map_tasks_by_rank(self, function, inputs, allgather=False):
+        """Run a function over a series of inputs, in parallel
+
+        This mirrors the map function, and returns the equivalent of
+        [function(input) for input in inputs], but executes in parallel.
+
+        Parameters
+        ----------
+        function: Callable
+            Function to be run on each item in inputs
+
+        inputs: Iterable
+            Any sequence of inputs, which should be the same
+            on all processes. Or at least the same length:
+            inputs not assigned to this process are ignored so
+            you could get away with a dummy input for them.
+
+        allgather: bool
+            Whether to give all ranks the results (True) or just the
+            root process (False). Default = False.
+
+        Returns
+        -------
+        results: list
+            A list of the results of calling the function on each input,
+            in the same order as the input tasks
+        """
+        results = []
+        # We keep track of the number of inputs manually rather
+        # than calling len(inputs) because this allows inputs to
+        # be an iterator.
+        n = 0
+        for i, inp in enumerate(inputs):
+            n += 1
+            if i % self.size == self.rank:
+                results.append(function(inp))
+
+        # If this is running in serial then the above just functions
+        # like a basic map or list comprehension.
+        if self.comm is not None:
+            # Collate result as a list-of-lists, one sub-list for
+            # each process
+            if allgather:
+                collected_results = self.comm.allgather(results)
+            else:
+                collected_results = self.comm.gather(results)
+                if self.rank != 0:
+                    return
+            # convert the list-of-lists back into a single list
+            # of results, returning to the original ordering.
+            # The round-robin way we allocated them in the first
+            # place is reversed by this.
+            results = []
+            for i in range(n):
+                j = i % self.size
+                k = i // self.size
+                results.append(collected_results[j][k])
+
+        return results
+
+
+
     def data_ranges_by_rank(self, n_rows, chunk_rows, parallel=True):
         """Split a number of rows by process.
 

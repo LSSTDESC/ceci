@@ -448,6 +448,45 @@ def test_open_output():
     f.close()
 
 
+def core_test_map(comm):
+    size = comm.size if comm else 1
+    class Kilo(PipelineStage):
+        name = f"Kilo_{size}"
+        inputs = []
+        outputs = []
+        config_options = {"nproc_run": int}
+
+        def run(self):
+            self.power = 2
+            self.my_count = 0
+            x = [1, 2, 3, 4, 5, 6]
+            y = self.map_tasks_by_rank(self.raise_to_power, x, allgather = True)
+            assert y == [1, 4, 9, 16, 25, 36]
+            assert self.my_count == len(x) // self.config["nproc_run"]
+
+            self.power = 3
+            self.my_count = 0
+            y = self.map_tasks_by_rank(self.raise_to_power, x, allgather = False)
+
+            if self.rank == 0:
+                assert y == [1, 8, 27, 64, 125, 216]
+            else:
+                assert y is None
+            assert self.my_count == len(x) // self.config["nproc_run"]
+
+        def raise_to_power(self, x):
+            self.my_count += 1
+            return x ** self.power
+
+    kk = Kilo.make_stage(comm=comm, nproc_run=size)
+    kk.run()
+
+
+def test_map():
+    import mockmpi
+    core_test_map(None)
+    mockmpi.mock_mpiexec(2, core_test_map)
+    mockmpi.mock_mpiexec(3, core_test_map)
 
 
 
