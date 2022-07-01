@@ -169,7 +169,8 @@ class PipelineStage:
             self.read_config(args)
         except Exception as error:
             error_class = type(error)
-            raise error_class(f"Error configuring {self.instance_name}: {error.message}")
+            msg = str(error)
+            raise error_class(f"Error configuring {self.instance_name}: {msg}")
         self.check_io(args)
 
     def check_io(self, args=None):
