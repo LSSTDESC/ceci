@@ -165,7 +165,10 @@ class PipelineStage:
         # First, we extract configuration information from a combination of
         # command line arguments and optional 'config' file
         self._inputs = dict(config=args["config"])
-        self.read_config(args)
+        try:
+            self.read_config(args)
+        except:
+            raise RuntimeError(f"Error configuring {self.instance_name} (see above)")
         self.check_io(args)
 
     def check_io(self, args=None):
