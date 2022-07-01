@@ -167,8 +167,9 @@ class PipelineStage:
         self._inputs = dict(config=args["config"])
         try:
             self.read_config(args)
-        except:
-            raise RuntimeError(f"Error configuring {self.instance_name} (see above)")
+        except Exception as error:
+            error_class = type(error)
+            raise error_class(f"Error configuring {self.instance_name}: {error.message}")
         self.check_io(args)
 
     def check_io(self, args=None):
