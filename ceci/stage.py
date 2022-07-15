@@ -83,6 +83,9 @@ class PipelineStage:
         comm: MPI communicator
             (default is None) An MPI comm object to use in preference to COMM_WORLD
         """
+        if not isinstance(args, dict):
+            args = vars(args)
+
         self._configs = StageConfig(**self.config_options)
         self._inputs = None
         self._outputs = None
@@ -92,7 +95,7 @@ class PipelineStage:
         self._rank = 0
         self._io_checked = False
         self.dask_client = None
-
+        self._rerun_key = args.get('rerun_key', 0)
         self.load_configs(args)
         if comm is not None:
             self.setup_mpi(comm)
@@ -148,12 +151,9 @@ class PipelineStage:
 
         Parameters
         ----------
-        args: dict or namespace
+        args: dict
             Specification of input and output paths and any missing config options
         """
-        if not isinstance(args, dict):
-            args = vars(args)
-
         # We alwys assume the config arg exists, whether it is in input_tags or not
         if "config" not in args:  # pragma: no cover
             raise ValueError("The argument --config was missing on the command line.")
@@ -532,6 +532,13 @@ I currently know about these stages:
             type=int,
             default=0,
             help="Report memory use. Argument gives interval in seconds between reports",
+        )
+
+        parser.add_argument(
+            "--rerun-key",
+            type=int,
+            default=0,
+            help="A key to use when re-running an interrupted run. Subclasses can use this as they wish.",
         )
 
         if cmd is None:

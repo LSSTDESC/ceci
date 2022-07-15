@@ -489,6 +489,36 @@ def test_map():
     mockmpi.mock_mpiexec(3, core_test_map)
 
 
+def test_key():
+    class Lima(PipelineStage):
+        name = f"Lima"
+        inputs = []
+        outputs = []
+        config_options = {}
+
+        def run(self):
+            pass
+
+    # First check interactive construction
+
+    # default rerun key should be zero
+    ll1 = Lima.make_stage()
+    assert ll1._rerun_key == 0
+
+    # if we set it explicitly it should work like this
+    ll2 = Lima.make_stage(rerun_key=78910)
+    assert ll2._rerun_key == 78910
+
+    # Now test command-line construction
+
+    # again test both default value and set value
+    cmd = ["Lima", "--config", "tests/config.yml"]
+    ll3 = Lima(Lima.parse_command_line(cmd))
+    assert ll3._rerun_key == 0
+
+    ll4 = Lima(Lima.parse_command_line(cmd + ["--rerun-key", "54321"]))
+    assert ll4._rerun_key == 54321
+
 
 def test_unknown_stage():
     with pytest.raises(StageNotFound):
