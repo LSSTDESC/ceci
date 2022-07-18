@@ -1016,8 +1016,7 @@ I currently know about these stages:
 
 
         # Return an opened object representing the file
-        obj = output_class(path, "w", **kwargs)
-        obj.provenance = self.provenance
+        obj = output_class(path, "w", provenance=self.provenance, **kwargs)
 
         if wrapper:
             return obj

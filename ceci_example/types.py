@@ -19,6 +19,7 @@ class DataFile(BaseIOHandle):
     """
 
     def __init__(self, path, mode, validate=True, **kwargs):
+        super().__init__(kwargs.pop("provenance"))
         self.path = path
         self.mode = mode
 
