@@ -8,6 +8,7 @@ import shutil
 import cProfile
 import pdb
 import datetime
+import desc_provenance
 
 from abc import abstractmethod
 from . import errors
@@ -96,6 +97,7 @@ class PipelineStage:
         self._io_checked = False
         self.dask_client = None
         self._rerun_key = args.get('rerun_key', 0)
+        self._provenance = None
         self.load_configs(args)
         if comm is not None:
             self.setup_mpi(comm)
@@ -339,7 +341,7 @@ class PipelineStage:
     #############################################
 
     @classmethod
-    def get_stage(cls, name):
+    def get_stage(cls, name, incomplete=False):
         """
         Return the PipelineStage subclass with the given name.
 
@@ -385,6 +387,19 @@ class PipelineStage:
             The module containing this class.
         """
         return cls.pipeline_stages[cls.name][0].__module__
+
+    @classmethod
+    def get_module_file(cls):
+        """
+        Return the path to the file containing the current sub-class
+
+        Returns
+        -------
+        path: Path object
+            The file defining this class.
+        """
+        return cls.pipeline_stages[cls.name][1]
+
 
     @classmethod
     def usage(cls):  # pragma: no cover
@@ -992,8 +1007,10 @@ I currently know about these stages:
                 )
                 raise RuntimeError("h5py module is not MPI-enabled.")
 
+
         # Return an opened object representing the file
-        obj = output_class(path, "w", **kwargs)
+        obj = output_class(path, "w", provenance=self.provenance, **kwargs)
+
         if wrapper:
             return obj
         return obj.file
@@ -1039,6 +1056,28 @@ I currently know about these stages:
             if t == tag:
                 return dt
         raise ValueError(f"Tag {tag} is not a known output")  # pragma: no cover
+
+
+    @property
+    def provenance(self):
+        if self._provenance is not None:
+            return self._provenance
+
+        p = desc_provenance.Provenance()
+
+        # Ignore any missing files
+        input_files = {tag: path for tag, path in self._inputs.items() if path is not None}
+
+        # Get the place this stage is defined
+        directory = os.path.split(self.get_module_file())[0]
+
+        # Make and write provenance information
+        p.generate(user_config=self.config.to_dict(), input_files=input_files, directory=directory)
+
+        self._provenance = p
+        return p
+
+
 
     ##################################################
     # Configuration-related methods and properties.
