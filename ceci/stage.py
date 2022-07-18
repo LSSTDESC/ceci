@@ -341,7 +341,7 @@ class PipelineStage:
     #############################################
 
     @classmethod
-    def get_stage(cls, name, incomplete=False):
+    def get_stage(cls, name):
         """
         Return the PipelineStage subclass with the given name.
 
