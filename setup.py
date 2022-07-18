@@ -28,7 +28,7 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Development Status :: 3 - Alpha',
     ],
-    packages=['ceci', 'ceci.sites'],
+    packages=['ceci', 'ceci.sites', 'ceci.provenance'],
     entry_points={
         'console_scripts':['ceci=ceci.main:main']
     },
