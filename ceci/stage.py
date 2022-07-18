@@ -8,6 +8,7 @@ import shutil
 import cProfile
 import pdb
 import datetime
+from .provenance import Provenance
 
 from abc import abstractmethod
 from . import errors
@@ -83,6 +84,9 @@ class PipelineStage:
         comm: MPI communicator
             (default is None) An MPI comm object to use in preference to COMM_WORLD
         """
+        if not isinstance(args, dict):
+            args = vars(args)
+
         self._configs = StageConfig(**self.config_options)
         self._inputs = None
         self._outputs = None
@@ -92,7 +96,8 @@ class PipelineStage:
         self._rank = 0
         self._io_checked = False
         self.dask_client = None
-
+        self._rerun_key = args.get('rerun_key', 0)
+        self._provenance = None
         self.load_configs(args)
         if comm is not None:
             self.setup_mpi(comm)
@@ -148,12 +153,9 @@ class PipelineStage:
 
         Parameters
         ----------
-        args: dict or namespace
+        args: dict
             Specification of input and output paths and any missing config options
         """
-        if not isinstance(args, dict):
-            args = vars(args)
-
         # We alwys assume the config arg exists, whether it is in input_tags or not
         if "config" not in args:  # pragma: no cover
             raise ValueError("The argument --config was missing on the command line.")
@@ -392,6 +394,19 @@ class PipelineStage:
         return cls.pipeline_stages[cls.name][0].__module__
 
     @classmethod
+    def get_module_file(cls):
+        """
+        Return the path to the file containing the current sub-class
+
+        Returns
+        -------
+        path: Path object
+            The file defining this class.
+        """
+        return cls.pipeline_stages[cls.name][1]
+
+
+    @classmethod
     def usage(cls):  # pragma: no cover
         """
         Print a usage message.
@@ -537,6 +552,13 @@ I currently know about these stages:
             type=int,
             default=0,
             help="Report memory use. Argument gives interval in seconds between reports",
+        )
+
+        parser.add_argument(
+            "--rerun-key",
+            type=int,
+            default=0,
+            help="A key to use when re-running an interrupted run. Subclasses can use this as they wish.",
         )
 
         if cmd is None:
@@ -918,6 +940,13 @@ I currently know about these stages:
         path = self.get_input(aliased_tag)
         input_class = self.get_input_type(tag)
         obj = input_class(path, "r", **kwargs)
+        prov = Provenance()
+        try:
+            prov.read(path)
+            obj.provenance = prov
+        except:
+            pass
+
 
         if wrapper:  # pragma: no cover
             return obj
@@ -990,8 +1019,10 @@ I currently know about these stages:
                 )
                 raise RuntimeError("h5py module is not MPI-enabled.")
 
+
         # Return an opened object representing the file
-        obj = output_class(path, "w", **kwargs)
+        obj = output_class(path, "w", provenance=self.provenance, **kwargs)
+
         if wrapper:
             return obj
         return obj.file
@@ -1037,6 +1068,28 @@ I currently know about these stages:
             if t == tag:
                 return dt
         raise ValueError(f"Tag {tag} is not a known output")  # pragma: no cover
+
+
+    @property
+    def provenance(self):
+        if self._provenance is not None:
+            return self._provenance
+
+        p = Provenance()
+
+        # Ignore any missing files
+        input_files = {tag: path for tag, path in self._inputs.items() if path is not None}
+
+        # Get the place this stage is defined
+        directory = os.path.split(self.get_module_file())[0]
+
+        # Make and write provenance information
+        p.generate(user_config=self.config.to_dict(), input_files=input_files, directory=directory)
+
+        self._provenance = p
+        return p
+
+
 
     ##################################################
     # Configuration-related methods and properties.

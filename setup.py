@@ -28,7 +28,7 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Development Status :: 3 - Alpha',
     ],
-    packages=['ceci', 'ceci.sites'],
+    packages=['ceci', 'ceci.sites', 'ceci.provenance'],
     entry_points={
         'console_scripts':['ceci=ceci.main:main']
     },
@@ -38,6 +38,6 @@ setup(
     extras_require={
       'parsl': ['flask', 'parsl>=1.0.0'],
       'cwl': ['cwlgen>=0.4', 'cwltool>=2.0.20200126090152'],
-      'test': ['pytest', 'codecov', 'pytest-cov'],
+      'test': ['pytest', 'codecov', 'pytest-cov', 'fitsio', 'h5py', "ruamel.yaml"],
       }
 )
