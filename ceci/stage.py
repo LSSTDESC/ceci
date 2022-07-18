@@ -8,7 +8,7 @@ import shutil
 import cProfile
 import pdb
 import datetime
-import desc_provenance
+from .provenance import Provenance
 
 from abc import abstractmethod
 from . import errors
@@ -1063,7 +1063,7 @@ I currently know about these stages:
         if self._provenance is not None:
             return self._provenance
 
-        p = desc_provenance.Provenance()
+        p = Provenance()
 
         # Ignore any missing files
         input_files = {tag: path for tag, path in self._inputs.items() if path is not None}
