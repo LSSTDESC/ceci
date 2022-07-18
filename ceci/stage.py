@@ -935,6 +935,13 @@ I currently know about these stages:
         path = self.get_input(aliased_tag)
         input_class = self.get_input_type(tag)
         obj = input_class(path, "r", **kwargs)
+        prov = Provenance()
+        try:
+            prov.read(path)
+            obj.provenance = prov
+        except:
+            pass
+
 
         if wrapper:  # pragma: no cover
             return obj
@@ -1009,7 +1016,8 @@ I currently know about these stages:
 
 
         # Return an opened object representing the file
-        obj = output_class(path, "w", provenance=self.provenance, **kwargs)
+        obj = output_class(path, "w", **kwargs)
+        obj.provenance = self.provenance
 
         if wrapper:
             return obj

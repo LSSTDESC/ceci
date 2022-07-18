@@ -1,4 +1,6 @@
-class DataFile:
+from ceci import BaseIOHandle
+
+class DataFile(BaseIOHandle):
     """
     A class representing a DataFile to be made by pipeline stages
     and passed on to subsequent ones.
@@ -16,7 +18,7 @@ class DataFile:
 
     """
 
-    def __init__(self, path, mode, extra_provenance=None, validate=True, **kwargs):
+    def __init__(self, path, mode, validate=True, **kwargs):
         self.path = path
         self.mode = mode
 

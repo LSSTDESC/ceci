@@ -253,7 +253,8 @@ class Provenance:
 
         # If passed a directory, make a provenance file in that directory
         if suffix == "" and isinstance(f, pathlib.Path) and f.is_dir():
-            return self.write_yaml(f + "provenance.yaml")
+            p = f.parent / (f.name + ".provenance.yaml")
+            return self.write_yaml(p)
 
         if suffix and not suffix.startswith("."):
             suffix = "." + suffix
@@ -270,8 +271,11 @@ class Provenance:
         }
         method = writers.get(suffix)
 
+        # If we do not know how to write to this file type
+        # then just put a file next to it.
         if method is None:
-            return self.write_yaml(f + ".provenance.yaml")
+            p = f.parent / (f.name + ".provenance.yaml")
+            return self.write_yaml(p)
 
         return method(f)
 
@@ -305,8 +309,10 @@ class Provenance:
         }
 
         method = readers.get(p.suffix)
+
         if method is None:
-            raise errors.ProvenanceFileTypeUnknown(filename)
+            method = self.read_yaml
+            filename = p.parent / (p.name + ".provenance.yaml")
 
         return method(filename)
 
@@ -867,4 +873,6 @@ class Provenance:
         return d
 
     def generate_file_id(self):
-        self[base_section, "file_id"] = uuid.uuid4().hex
+        file_id = uuid.uuid4().hex
+        self[base_section, "file_id"] = file_id
+        return file_id
