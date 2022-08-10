@@ -344,7 +344,7 @@ class PipelineStage:
     #############################################
 
     @classmethod
-    def get_stage(cls, name):
+    def get_stage(cls, name, module_name=None):
         """
         Return the PipelineStage subclass with the given name.
 
@@ -358,7 +358,12 @@ class PipelineStage:
             The corresponding subclass
         """
         stage = cls.pipeline_stages.get(name)
-
+        if stage is None:
+            if module_name:
+                print("importing ", module_name)
+                __import__(module_name)
+            stage = cls.pipeline_stages.get(name)
+                
         # If not found, then check for incomplete stages
         if stage is None:
             if name in cls.incomplete_pipeline_stages:
@@ -450,7 +455,14 @@ I currently know about these stages:
         if stage_name in ["--help", "-h"] and len(sys.argv) == 2:  # pragma: no cover
             cls.usage()
             return 1
-        stage = cls.get_stage(stage_name)
+        if stage_name.find('.') >= 0:
+            tokens = stage_name.split('.')            
+            module_name = '.'.join(tokens[:-1])
+            stage_name = tokens[-1]
+        else:
+            module_name = None
+            
+        stage = cls.get_stage(stage_name, module_name)
         args = stage.parse_command_line()
         stage.execute(args)
         return 0
@@ -1284,7 +1296,7 @@ I currently know about these stages:
         module = cls.get_module()
         module = module.split(".")[0]
 
-        flags = [cls.name]
+        flags = [f"{cls.get_module()}.{cls.name}"]
         aliases = aliases or {}
 
         for tag, _ in cls.inputs_():
