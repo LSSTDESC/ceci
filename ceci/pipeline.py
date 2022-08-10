@@ -90,7 +90,7 @@ class StageExecutionConfig:
         # Core attributes - mandatory
         self.name = info["name"]
         self.class_name = info.get("classname", self.name)
-        self.module_name = info["module_name"]
+        self.module_name = info.get("module_name")
         self.site = info.get("site", get_default_site())
 
         # Parallelism attributes - optional

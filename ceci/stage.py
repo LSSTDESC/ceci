@@ -352,6 +352,9 @@ class PipelineStage:
         for each new stage - instead we can just use a single one which can query
         which class it should be using based on the name.
 
+        If module_name is provided, this will import that module
+        in order to load the required class.
+
         Returns
         -------
         cls: class
@@ -363,7 +366,7 @@ class PipelineStage:
                 print("importing ", module_name)
                 __import__(module_name)
             stage = cls.pipeline_stages.get(name)
-                
+
         # If not found, then check for incomplete stages
         if stage is None:
             if name in cls.incomplete_pipeline_stages:
@@ -456,12 +459,12 @@ I currently know about these stages:
             cls.usage()
             return 1
         if stage_name.find('.') >= 0:
-            tokens = stage_name.split('.')            
+            tokens = stage_name.split('.')
             module_name = '.'.join(tokens[:-1])
             stage_name = tokens[-1]
         else:
             module_name = None
-            
+
         stage = cls.get_stage(stage_name, module_name)
         args = stage.parse_command_line()
         stage.execute(args)
