@@ -363,7 +363,6 @@ class PipelineStage:
         stage = cls.pipeline_stages.get(name)
         if stage is None:
             if module_name:
-                print("importing ", module_name)
                 __import__(module_name)
             stage = cls.pipeline_stages.get(name)
 
@@ -1299,7 +1298,15 @@ I currently know about these stages:
         module = cls.get_module()
         module = module.split(".")[0]
 
-        flags = [f"{cls.get_module()}.{cls.name}"]
+        if sys.modules[module].__file__:
+            # Regular module, stage will be imported with module
+            flags = [f"{cls.name}"]
+        else:
+            # Namescape module, use 'ceci' to the get main
+            # and specify the full path
+            flags = [f"{cls.get_module()}.{cls.name}"]
+            module = 'ceci'
+
         aliases = aliases or {}
 
         for tag, _ in cls.inputs_():
