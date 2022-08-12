@@ -55,6 +55,8 @@ class StageExecutionConfig:
         The name of the stage
     class_name: str
         The name of the class of the stage
+    module_name: str
+        The name of the module for the stage
     site: Site object
         (default the global default) The site this stage is run on
     nprocess: int
@@ -88,6 +90,7 @@ class StageExecutionConfig:
         # Core attributes - mandatory
         self.name = info["name"]
         self.class_name = info.get("classname", self.name)
+        self.module_name = info.get("module_name")
         self.site = info.get("site", get_default_site())
 
         # Parallelism attributes - optional
@@ -129,6 +132,7 @@ class StageExecutionConfig:
         info = kwargs.copy()
         info["name"] = stage.instance_name
         info["classname"] = stage.name
+        info["module_name"] = stage.get_module()
         sec = cls(info)
         sec.set_stage_obj(stage)
         return sec
@@ -146,7 +150,7 @@ class StageExecutionConfig:
         TypeError : if stage_obj is not and instance of self.stage_class as
             determined by the self.class_name attribute
         """
-        self.stage_class = PipelineStage.get_stage(self.class_name)
+        self.stage_class = PipelineStage.get_stage(self.class_name, self.module_name)
         if not isinstance(stage_obj, self.stage_class):  # pragma: no cover
             raise TypeError(f"{str(stage_obj)} is not a {str(self.stage_class)}")
         self.stage_obj = stage_obj
@@ -155,7 +159,7 @@ class StageExecutionConfig:
         """Set the stage_class attribute by finding
         self.class_name in the dictionary of classes from `Pipeline_stage`
         """
-        self.stage_class = PipelineStage.get_stage(self.class_name)
+        self.stage_class = PipelineStage.get_stage(self.class_name, self.module_name)
         return self.stage_class
 
     def build_stage_object(self, args):
@@ -173,7 +177,7 @@ class StageExecutionConfig:
             The newly constructed object
         """
         if self.stage_class is None:  # pragma: no cover
-            self.stage_class = PipelineStage.get_stage(self.class_name)
+            self.stage_class = PipelineStage.get_stage(self.class_name, self.module_name)
         self.stage_obj = self.stage_class(args)
         return self.stage_obj
 
@@ -881,7 +885,7 @@ Some required inputs to the pipeline could not be found,
             if site is None:
                 site = val.site.config
             pipe_stage_info = dict(
-                name=val.name, classname=val.class_name, nprocess=val.nprocess
+                name=val.name, classname=val.class_name, nprocess=val.nprocess, module_name=val.module_name,
             )
             if val.threads_per_process != 1:
                 pipe_stage_info["threads_per_process"] = val.threads_per_process

@@ -38,6 +38,6 @@ setup(
     extras_require={
       'parsl': ['flask', 'parsl>=1.0.0'],
       'cwl': ['cwlgen>=0.4', 'cwltool>=2.0.20200126090152'],
-      'test': ['pytest', 'codecov', 'pytest-cov'],
+      'test': ['pytest', 'codecov', 'pytest-cov', 'pytest-mock', 'mockmpi'],
       }
 )
