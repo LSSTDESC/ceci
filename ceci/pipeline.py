@@ -1187,11 +1187,13 @@ class MiniPipeline(Pipeline):
             depend[job] = []
             # check for each of the inputs for that stage ...
             for tag in stage.input_tags():
+                aliased_tag = stage.get_aliased_tag(tag)
                 for potential_parent in self.stages[:]:
                     # if that stage is supplied by another pipeline stage
                     if potential_parent.instance_name not in jobs:  # pragma: no cover
                         continue
-                    if tag in potential_parent.output_tags():
+                    potential_parent_tags = [potential_parent.get_aliased_tag(tag_) for tag_ in potential_parent.output_tags()]
+                    if aliased_tag in potential_parent_tags:
                         depend[job].append(jobs[potential_parent.instance_name])
         return depend
 
