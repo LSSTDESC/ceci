@@ -928,6 +928,44 @@ Some required inputs to the pipeline could not be found,
             except Exception as msg:  # pragma: no cover
                 print(f"Failed to save {str(stage_dict)} because {msg}")
 
+    def make_flow_chart(self, filename):
+        import pygraphviz
+
+        # Make a graph object
+        graph = pygraphviz.AGraph(directed=True)
+
+        # Nodes we have already added
+        seen = set()
+
+        # Add overall pipeline inputs
+        for inp in self.overall_inputs.keys():
+            graph.add_node(inp, shape='box', color='gold', style='filled')
+            seen.add(inp)
+
+        for stage in self.stages:
+            # add the stage itself
+            graph.add_node(stage.instance_name, shape='ellipse', color='orangered', style='filled')
+            # connect that stage to its inputs
+            for inp, _ in stage.inputs:
+                inp = stage.get_aliased_tag(inp)
+                if inp not in seen:
+                    graph.add_node(inp, shape='box', color='skyblue', style='filled')
+                    seen.add(inp)
+                graph.add_edge(inp, stage.instance_name, color='black')
+            # and to its outputs
+            for out, _ in stage.outputs:
+                out = stage.get_aliased_tag(out)
+                if out not in seen:
+                    graph.add_node(out, shape='box', color='skyblue', style='filled')
+                    seen.add(out)
+                graph.add_edge(stage.instance_name, out, color='black')
+
+        # finally, output the stage to file
+        if filename.endswith('.dot'):
+            graph.write(filename)
+        else:
+            graph.draw(filename, prog='dot')
+
 
 
 class DryRunPipeline(Pipeline):
@@ -971,44 +1009,9 @@ class DryRunPipeline(Pipeline):
 
 class FlowChartPipeline(DryRunPipeline):
     def run_jobs(self):
-        import pygraphviz
-
         filename = self.run_config["flow_chart"]
-        # Make a graph object
-        graph = pygraphviz.AGraph(directed=True)
-
-        # Nodes we have already added
-        seen = set()
-
-        # Add overall pipeline inputs
-        for inp in self.overall_inputs.keys():
-            graph.add_node(inp, shape='box', color='gold', style='filled')
-            seen.add(inp)
-
-        for stage in self.stages:
-            # add the stage itself
-            graph.add_node(stage.instance_name, shape='ellipse', color='orangered', style='filled')
-            # connect that stage to its inputs
-            for inp, _ in stage.inputs:
-                inp = stage.get_aliased_tag(inp)
-                if inp not in seen:
-                    graph.add_node(inp, shape='box', color='skyblue', style='filled')
-                    seen.add(inp)
-                graph.add_edge(inp, stage.instance_name, color='black')
-            # and to its outputs
-            for out, _ in stage.outputs:
-                out = stage.get_aliased_tag(out)
-                if out not in seen:
-                    graph.add_node(out, shape='box', color='skyblue', style='filled')
-                    seen.add(out)
-                graph.add_edge(stage.instance_name, out, color='black')
-
-        # finally, output the stage to file
-        if filename.endswith('.dot'):
-            graph.write(filename)
-        else:
-            graph.draw(filename, prog='dot')
-
+        self.make_flow_chart(filename)
+        return 0
 
 
 class ParslPipeline(Pipeline):

@@ -12,7 +12,7 @@ def test_flow_chart():
         "log_dir": config["log_dir"],
         "output_dir": config["output_dir"],
         "resume": False,
-        "flow_chart": "test.png",
+        "flow_chart": "ceci_test_flow_chart.png",
     }
 
     pipeline.initialize(config["inputs"], run_config, config["config"])
