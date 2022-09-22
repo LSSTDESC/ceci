@@ -30,10 +30,9 @@ jobs:
 
     - name: Install
       run: |
-        pip install --upgrade pytest pytest-mock codecov pytest-cov h5py pyyaml mockmpi
-        pip install dask[distributed]
+        pip install --upgrade pip wheel
+        pip install .[all] pytest pytest-mock codecov pytest-cov h5py pyyaml mockmpi dask[distributed]
         pip install --no-deps git+https://github.com/joezuntz/dask-mpi
-        pip install .[all]
 
     - name: Tests
       run: |
