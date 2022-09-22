@@ -8,15 +8,15 @@ import subprocess
 from ceci.pipeline import Pipeline
 
 
-def run1(*config_changes, dry_run=False, expect_fail=False, expect_outputs=True):
+def run1(*config_changes, config_yaml="tests/test.yml", dry_run=False, expect_fail=False, expect_outputs=True):
     try:
         with tempfile.TemporaryDirectory() as dirname:
             out_dir = os.path.join(dirname, "output")
             log_dir = os.path.join(dirname, "logs")
             config = [f"output_dir={out_dir}", f"log_dir={log_dir}"]
             config += config_changes
-            pipe_config = Pipeline.build_config("tests/test.yml", config, dry_run)
-            status = run(pipe_config, "tests/test.yml", config, dry_run)
+            pipe_config = Pipeline.build_config(config_yaml, config, dry_run)
+            status = run(pipe_config, config_yaml, config, dry_run)
             if expect_fail:
                 assert status != 0
             else:
@@ -44,6 +44,10 @@ def test_run_parsl():
 def test_run_cwl():
     run1("launcher.name=cwl", "launcher.dir=tests/cwl") == 0
 
+
+def test_run_namespace():
+    run1(config_yaml="tests/test_namespace.yml", expect_outputs=False) == 0
+  
 
 def test_pre_script():
     # use the bash "true" command to simulate a

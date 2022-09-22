@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Lightweight pipeline engine for LSST DESC
-Copyright (c) 2018-2020 LSST DESC
+Copyright (c) 2018-2022 LSST DESC
 http://opensource.org/licenses/MIT
 """
 from setuptools import setup
@@ -12,10 +12,10 @@ with open('README.md', encoding="utf-8") as f:
     long_description = f.read()
 
 extras_require={
-  'parsl': ['flask', 'parsl>=1.0.0'],
-  'cwl': ['cwlgen>=0.4', 'cwltool>=2.0.20200126090152'],
-  'test': ['pytest', 'codecov', 'pytest-cov'],
-  'viz': ['pygraphviz'],
+    'parsl': ['flask', 'parsl>=1.0.0'],
+    'cwl': ['cwlgen>=0.4', 'cwltool>=2.0.20200126090152'],
+    'test': ['pytest', 'codecov', 'pytest-cov', 'pytest-mock', 'mockmpi'],
+    'viz': ['pygraphviz'],
 }
 extras_require['all'] = sum(extras_require.values(), [])
 
