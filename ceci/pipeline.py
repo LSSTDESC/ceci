@@ -357,11 +357,14 @@ class Pipeline:
             "output_dir": pipe_config.get("output_dir", "."),
             "log_dir": pipe_config.get("log_dir", "."),
             "resume": pipe_config.get("resume", False),
+            "flow_chart": pipe_config.get("flow_chart", ""),
         }
 
         launcher_dict = dict(cwl=CWLPipeline, parsl=ParslPipeline, mini=MiniPipeline)
 
-        if pipe_config.get("dry_run", False):
+        if pipe_config.get("flow_chart", False):
+            pipeline_class = FlowChartPipeline
+        elif pipe_config.get("dry_run", False):
             pipeline_class = DryRunPipeline
         else:
             try:
@@ -384,7 +387,7 @@ class Pipeline:
         return MiniPipeline([], launcher_config)
 
     @staticmethod
-    def build_config(pipeline_config_filename, extra_config=None, dry_run=False):
+    def build_config(pipeline_config_filename, extra_config=None, dry_run=False, flow_chart=None):
         """Build a configuration dictionary from a yaml file and extra optional parameters
 
         Parameters
@@ -419,6 +422,8 @@ class Pipeline:
         # Launchers may need to know if this is a dry-run
         launcher_config["dry_run"] = dry_run
         pipe_config["dry_run"] = dry_run
+        launcher_config["flow_chart"] = flow_chart
+        pipe_config["flow_chart"] = flow_chart
         return pipe_config
 
     def __getitem__(self, name):
@@ -920,6 +925,7 @@ Some required inputs to the pipeline could not be found,
                 print(f"Failed to save {str(stage_dict)} because {msg}")
 
 
+
 class DryRunPipeline(Pipeline):
     """A pipeline subclass which just does a dry-run, showing which commands
     would be executed.
@@ -958,6 +964,47 @@ class DryRunPipeline(Pipeline):
 
     def find_all_outputs(self):
         return {}
+
+class FlowChartPipeline(DryRunPipeline):
+    def run_jobs(self):
+        import pygraphviz
+
+        filename = self.run_config["flow_chart"]
+        # Make a graph object
+        graph = pygraphviz.AGraph(directed=True)
+
+        # Nodes we have already added
+        seen = set()
+
+        # Add overall pipeline inputs
+        for inp in self.overall_inputs.keys():
+            graph.add_node(inp, shape='box', color='gold', style='filled')
+            seen.add(inp)
+
+        for stage in self.stages:
+            # add the stage itself
+            graph.add_node(stage.instance_name, shape='ellipse', color='orangered', style='filled')
+            # connect that stage to its inputs
+            for inp, _ in stage.inputs:
+                inp = stage.get_aliased_tag(inp)
+                if inp not in seen:
+                    graph.add_node(inp, shape='box', color='skyblue', style='filled')
+                    seen.add(inp)
+                graph.add_edge(inp, stage.instance_name, color='black')
+            # and to its outputs
+            for out, _ in stage.outputs:
+                out = stage.get_aliased_tag(out)
+                if out not in seen:
+                    graph.add_node(out, shape='box', color='skyblue', style='filled')
+                    seen.add(out)
+                graph.add_edge(stage.instance_name, out, color='black')
+
+        # finally, output the stage to file
+        if filename.endswith('.dot'):
+            graph.write(filename)
+        else:
+            graph.draw(filename, prog='dot')
+
 
 
 class ParslPipeline(Pipeline):

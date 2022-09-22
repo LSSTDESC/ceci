@@ -11,6 +11,14 @@ from io import open
 with open('README.md', encoding="utf-8") as f:
     long_description = f.read()
 
+extras_require={
+  'parsl': ['flask', 'parsl>=1.0.0'],
+  'cwl': ['cwlgen>=0.4', 'cwltool>=2.0.20200126090152'],
+  'test': ['pytest', 'codecov', 'pytest-cov'],
+  'viz': ['pygraphviz'],
+}
+extras_require['all'] = sum(extras_require.values(), [])
+
 setup(
     name='ceci',
     description='Lightweight pipeline engine for LSST DESC',
@@ -35,9 +43,5 @@ setup(
     use_scm_version=True,
     setup_requires=["setuptools_scm"],
     install_requires=['pyyaml', 'psutil'],
-    extras_require={
-      'parsl': ['flask', 'parsl>=1.0.0'],
-      'cwl': ['cwlgen>=0.4', 'cwltool>=2.0.20200126090152'],
-      'test': ['pytest', 'codecov', 'pytest-cov'],
-      }
+    extras_require=extras_require
 )

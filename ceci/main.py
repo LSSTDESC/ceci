@@ -23,6 +23,12 @@ parser.add_argument(
     help="Just print out the commands the pipeline would run without executing them",
 )
 parser.add_argument(
+    "--flow-chart",
+    type=str,
+    default="",
+    help="Make a flow chart image instead of running anything",
+)
+parser.add_argument(
     "extra_config",
     nargs="*",
     help="Over-ride the main pipeline yaml file e.g. launcher.name=cwl",
@@ -169,8 +175,12 @@ def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False)
 def main():  # pragma: no cover
     """Main function called when ceci is invoked on the command line"""
     args = parser.parse_args()
+    # If we are making a flow chart then we also set dry_run to stop
+    # pre-scripts and post-scripts running
+    if args.flow_chart:
+        args.dry_run = True
     pipe_config = Pipeline.build_config(
-        args.pipeline_config, args.extra_config, args.dry_run
+        args.pipeline_config, args.extra_config, args.dry_run, args.flow_chart
     )
     status = run(pipe_config, args.pipeline_config, args.extra_config, args.dry_run)
 
