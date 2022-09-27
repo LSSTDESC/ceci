@@ -13,9 +13,10 @@ with open('README.md', encoding="utf-8") as f:
 
 extras_require={
     'parsl': ['flask', 'parsl>=1.0.0'],
-    'cwl': ['cwlgen>=0.4', 'cwltool>=2.0.20200126090152'],
+    'cwl': ['cwlref-runner', 'cwl-utils'],
     'test': ['pytest', 'codecov', 'pytest-cov', 'pytest-mock', 'mockmpi'],
     'viz': ['pygraphviz'],
+    'dask': ['dask', "dask_mpi @ git+https://github.com/joezuntz/dask-mpi"],
 }
 extras_require['all'] = sum(extras_require.values(), [])
 
