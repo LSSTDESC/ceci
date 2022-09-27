@@ -30,6 +30,7 @@ jobs:
 
     - name: Install
       run: |
+        sudo apt-get update && sudo apt-get -y install libopenmpi-dev openmpi-bin
         pip install --upgrade pip wheel
         pip install .[all] pytest pytest-mock codecov pytest-cov h5py pyyaml mockmpi dask[distributed]
         pip install --no-deps git+https://github.com/joezuntz/dask-mpi
