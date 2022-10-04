@@ -1,4 +1,3 @@
-from ceci.main import run
 import tempfile
 import os
 import pytest

@@ -1,4 +1,4 @@
-from ceci.main import run
+from ceci.main import run_pipeline
 from parsl import clear
 import tempfile
 import os
@@ -16,7 +16,7 @@ def run1(*config_changes, config_yaml="tests/test.yml", dry_run=False, expect_fa
             config = [f"output_dir={out_dir}", f"log_dir={log_dir}"]
             config += config_changes
             pipe_config = Pipeline.build_config(config_yaml, config, dry_run)
-            status = run(pipe_config, config_yaml, config, dry_run)
+            status = run_pipeline(pipe_config)
             if expect_fail:
                 assert status != 0
             else:
@@ -49,23 +49,6 @@ def test_run_namespace():
     run1(config_yaml="tests/test_namespace.yml", expect_outputs=False) == 0
   
 
-def test_pre_script():
-    # use the bash "true" command to simulate a
-    # pre-script suceeding
-    run1("pre_script='true'")
-    # and false to simulate a failure
-    with pytest.raises(subprocess.CalledProcessError):
-        # error should happen before we get to the asserts, so no expect_fail etc
-        run1("pre_script='false'")
-
-
-def test_post_script():
-    # use the bash "true" command to simulate a
-    # pre-script suceeding
-    run1("post_script='true'")
-    # and false to simulate a failure - should not raise an error
-    # but should fail.  Outputs should exist.
-    run1("post_script='false'", expect_fail=True, expect_outputs=True)
 
 
 if __name__ == "__main__":

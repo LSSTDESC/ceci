@@ -1,6 +1,5 @@
 from ceci.sites import load, get_default_site
 from ceci.pipeline import StageExecutionConfig
-from ceci.main import run
 import pytest
 import os
 

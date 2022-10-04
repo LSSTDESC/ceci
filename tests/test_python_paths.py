@@ -1,5 +1,4 @@
 import sys
-from ceci.main import run
 from ceci.utils import remove_last, extra_paths
 import pytest
 import os
