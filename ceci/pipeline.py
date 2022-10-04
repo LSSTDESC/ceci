@@ -948,7 +948,7 @@ Some required inputs to the pipeline could not be found,
             # connect that stage to its inputs
             for inp, _ in stage.inputs:
                 inp = stage.get_aliased_tag(inp)
-                if inp not in seen:
+                if inp not in seen: # pragma: no cover
                     graph.add_node(inp, shape='box', color='skyblue', style='filled')
                     seen.add(inp)
                 graph.add_edge(inp, stage.instance_name, color='black')
