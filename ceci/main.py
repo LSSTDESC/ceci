@@ -109,7 +109,7 @@ def main():  # pragma: no cover
     pipe_config = Pipeline.build_config(
         args.pipeline_config, args.extra_config, args.dry_run, args.flow_chart
     )
-    status = run(pipe_config, args.pipeline_config, args.extra_config, args.dry_run)
+    status = run_pipeline(pipe_config)
 
     if status == 0:
         print("Pipeline successful.  Joy is sparked.")
