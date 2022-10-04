@@ -39,6 +39,9 @@ def test_run_dry_run():
 def test_flow_chart():
     run1(flow_chart="test.png", expect_outputs=False)
 
+def test_flow_chart_dot():
+    run1(flow_chart="test.dot", expect_outputs=False)
+
 
 def test_run_parsl():
     run1("launcher.name=parsl", "launcher.max_threads=3")
