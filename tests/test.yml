@@ -74,7 +74,7 @@ stages:
 inputs:
     DM: ./tests/inputs/dm.txt
     fiducial_cosmology: ./tests/inputs/fiducial_cosmology.txt
-
+    unused: ./tests/inputs/not_real.txt
 # Overall configuration file 
 config: ./tests/config.yml
 
