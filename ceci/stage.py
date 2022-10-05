@@ -12,7 +12,7 @@ import datetime
 from abc import abstractmethod
 from . import errors
 from .monitor import MemoryMonitor
-from .config import StageConfig, cast_to_streamable
+from .config import StageParameter, StageConfig, cast_to_streamable
 
 SERIAL = "serial"
 MPI_PARALLEL = "mpi"
@@ -488,8 +488,10 @@ I currently know about these stages:
         parser = argparse.ArgumentParser(description=f"Run pipeline stage {cls.name}")
         parser.add_argument("stage_name")
         for conf, def_val in cls.config_options.items():
-            opt_type = def_val if isinstance(def_val, type) else type(def_val)
-
+            if isinstance(def_val, StageParameter):
+                opt_type = def_val.dtype
+            else:
+                opt_type = def_val if isinstance(def_val, type) else type(def_val)
             if opt_type == bool:
                 parser.add_argument(f"--{conf}", action="store_const", const=True)
                 parser.add_argument(

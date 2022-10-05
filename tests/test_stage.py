@@ -128,13 +128,25 @@ def test_parameter():
         name = "test_stage_param"
         inputs = [("inp1", HDFFile)]
         outputs = []
-        config_options = dict(a=StageParameter(float, 5., msg="a float"))
+        config_options = dict(
+            a=StageParameter(float, 5., msg="a float"),
+            b=StageParameter(str, msg="a str"),
+        )
 
         def run(self):
             pass
 
-    stage_1 = TestStage.make_stage(a=6., inp1='dummy')
+    stage_1 = TestStage.make_stage(
+        a=6., b='puffins are not extinct?', inp1='dummy',
+        )
     assert stage_1.config.a == 6.
+    assert stage_1.config.b == 'puffins are not extinct?'
+
+    cmd = "TestStage", "--a", "6", "--b", "puffins are not extinct?", "--inp", "dummy"
+    stage_1_cmd = TestStage(TestStage.parse_command_line(cmd))
+    assert stage_1_cmd.config.a == 6.
+    assert stage_1_cmd.config.b == 'puffins are not extinct?'
+
 
     # This one should not work
     class TestStage_2(PipelineStage):
@@ -198,7 +210,7 @@ def test_parameter():
 
 
 
-    
+
 
 def test_incomplete():
     class Alpha(PipelineStage):
