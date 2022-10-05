@@ -49,8 +49,8 @@ ceci = "ceci.main:main"
 [project.optional-dependencies]
 
 parsl = [
-    "flask >= 1.0.0",
-    "matplotlib",
+    "parsl >= 1.0.0",
+    "flask",
 ]
 
 cwl = [
