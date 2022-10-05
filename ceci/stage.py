@@ -1346,27 +1346,28 @@ I currently know about these stages:
         """
         Produces a CWL App object which can then be exported to yaml
         """
-        import cwlgen
+        import cwl_utils.parser.cwl_v1_0 as cwlgen
 
         module = cls.get_module()
         module = module.split(".")[0]
 
         # Basic definition of the tool
-        cwl_tool = cwlgen.CommandLineTool(
-            tool_id=cls.name,
+        cwl_tool =  cwlgen.CommandLineTool([], [],
+            id=cls.name,
             label=cls.name,
-            base_command="python3",
-            cwl_version="v1.0",
+            baseCommand="python3",
+            cwlVersion="v1.0",
             doc=cls.__doc__,
+            arguments=[],
         )
         if log_dir is not None:
             cwl_tool.stdout = f"{cls.name}.out"
             cwl_tool.stderr = f"{cls.name}.err"
 
         # Adds the first input binding with the name of the module and pipeline stage
-        input_arg = cwlgen.CommandLineBinding(position=-1, value_from=f"-m{module}")
+        input_arg = cwlgen.CommandLineBinding(position=-1, valueFrom=f"-m{module}")
         cwl_tool.arguments.append(input_arg)
-        input_arg = cwlgen.CommandLineBinding(position=0, value_from=f"{cls.name}")
+        input_arg = cwlgen.CommandLineBinding(position=0, valueFrom=f"{cls.name}")
         cwl_tool.arguments.append(input_arg)
 
         type_dict = {int: "int", float: "float", str: "string", bool: "boolean"}
@@ -1384,7 +1385,7 @@ I currently know about these stages:
                 }
                 default = def_val if not isinstance(v, type) else None
                 input_binding = cwlgen.CommandLineBinding(
-                    prefix=f"--{opt}=", item_separator=",", separate=False
+                    prefix=f"--{opt}=", itemSeparator=",", separate=False
                 )
             else:
                 param_type = (
@@ -1403,8 +1404,8 @@ I currently know about these stages:
             input_param = cwlgen.CommandInputParameter(
                 opt,
                 label=opt,
-                param_type=param_type,
-                input_binding=input_binding,
+                type=param_type,
+                inputBinding=input_binding,
                 default=default,
                 doc="Some documentation about this parameter",
             )
@@ -1422,9 +1423,9 @@ I currently know about these stages:
             input_param = cwlgen.CommandInputParameter(
                 inp,
                 label=inp,
-                param_type="File",
-                param_format=cls.inputs[i][1].format,  # pylint: disable=no-member
-                input_binding=input_binding,
+                type="File",
+                format=cls.inputs[i][1].format,  # pylint: disable=no-member
+                inputBinding=input_binding,
                 doc="Some documentation about the input",
             )
             cwl_tool.inputs.append(input_param)
@@ -1434,9 +1435,9 @@ I currently know about these stages:
         input_param = cwlgen.CommandInputParameter(
             "config",
             label="config",
-            param_type="File",
-            param_format="http://edamontology.org/format_3750",
-            input_binding=input_binding,
+            type="File",
+            format="http://edamontology.org/format_3750",
+            inputBinding=input_binding,
             doc="Configuration file",
         )
         cwl_tool.inputs.append(input_param)
@@ -1448,9 +1449,9 @@ I currently know about these stages:
             output = cwlgen.CommandOutputParameter(
                 out,
                 label=out,
-                param_type="File",
-                output_binding=output_binding,
-                param_format=cls.outputs[i][1].format,  # pylint: disable=no-member
+                type="File",
+                outputBinding=output_binding,
+                format=cls.outputs[i][1].format,  # pylint: disable=no-member
                 doc="Some results produced by the pipeline element",
             )
             cwl_tool.outputs.append(output)
@@ -1459,14 +1460,14 @@ I currently know about these stages:
             output = cwlgen.CommandOutputParameter(
                 f"{cls.name}@stdout",
                 label="stdout",
-                param_type="stdout",
+                type="stdout",
                 doc="Pipeline elements standard output",
             )
             cwl_tool.outputs.append(output)
             error = cwlgen.CommandOutputParameter(
                 f"{cls.name}@stderr",
                 label="stderr",
-                param_type="stderr",
+                type="stderr",
                 doc="Pipeline elements standard output",
             )
             cwl_tool.outputs.append(error)

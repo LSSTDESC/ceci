@@ -1,0 +1,94 @@
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "wheel",
+    "setuptools-scm",
+]
+
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ceci"
+description = "Lightweight pipeline engine for LSST DESC"
+readme = "README.md"
+urls = {homepage = "https://github.com/LSSTDESC/ceci"}
+authors =[{name = "Joe Zuntz"}]
+license = {text = "BSD 3-Clause License"}
+classifiers = [
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+
+dynamic = ["version"]
+
+dependencies =[
+    "pyyaml > 3",
+    "psutil",
+]
+
+
+
+[tool.setuptools_scm]
+# This activates use_scm_version to get the version number from git tags.
+
+[tool.setuptools]
+packages = [
+    "ceci",
+    "ceci.sites",
+]
+
+
+[project.scripts]
+ceci = "ceci.main:main"
+
+[project.optional-dependencies]
+
+parsl = [
+    "parsl >= 1.0.0",
+    "flask",
+]
+
+cwl = [
+    "cwlref-runner",
+    "cwl-utils",
+]
+
+viz = [
+    "pygraphviz"
+]
+
+dask = [
+    "dask",
+    "dask_mpi @ git+https://github.com/joezuntz/dask-mpi",
+]
+
+test = [
+    "pytest",
+    "codecov",
+    "pytest-cov",
+    "pytest-mock",
+    "mockmpi",
+    "h5py",
+    "dask[distributed]",
+]
+
+all = [
+    "parsl >= 1.0.0",
+    "flask",
+    "cwlref-runner",
+    "cwl-utils",
+    "pygraphviz",
+    "pytest",
+    "codecov",
+    "pytest-cov",
+    "pytest-mock",
+    "mockmpi",
+    "h5py",
+    "dask[distributed]",
+    "dask_mpi @ git+https://github.com/joezuntz/dask-mpi",
+]

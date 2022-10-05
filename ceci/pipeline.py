@@ -361,11 +361,14 @@ class Pipeline:
             "output_dir": pipe_config.get("output_dir", "."),
             "log_dir": pipe_config.get("log_dir", "."),
             "resume": pipe_config.get("resume", False),
+            "flow_chart": pipe_config.get("flow_chart", ""),
         }
 
         launcher_dict = dict(cwl=CWLPipeline, parsl=ParslPipeline, mini=MiniPipeline)
 
-        if pipe_config.get("dry_run", False):
+        if pipe_config.get("flow_chart", False):
+            pipeline_class = FlowChartPipeline
+        elif pipe_config.get("dry_run", False):
             pipeline_class = DryRunPipeline
         else:
             try:
@@ -388,7 +391,7 @@ class Pipeline:
         return MiniPipeline([], launcher_config)
 
     @staticmethod
-    def build_config(pipeline_config_filename, extra_config=None, dry_run=False):
+    def build_config(pipeline_config_filename, extra_config=None, dry_run=False, flow_chart=None):
         """Build a configuration dictionary from a yaml file and extra optional parameters
 
         Parameters
@@ -423,6 +426,8 @@ class Pipeline:
         # Launchers may need to know if this is a dry-run
         launcher_config["dry_run"] = dry_run
         pipe_config["dry_run"] = dry_run
+        launcher_config["flow_chart"] = flow_chart
+        pipe_config["flow_chart"] = flow_chart
         return pipe_config
 
     def __getitem__(self, name):
@@ -923,6 +928,45 @@ Some required inputs to the pipeline could not be found,
             except Exception as msg:  # pragma: no cover
                 print(f"Failed to save {str(stage_dict)} because {msg}")
 
+    def make_flow_chart(self, filename):
+        import pygraphviz
+
+        # Make a graph object
+        graph = pygraphviz.AGraph(directed=True)
+
+        # Nodes we have already added
+        seen = set()
+
+        # Add overall pipeline inputs
+        for inp in self.overall_inputs.keys():
+            graph.add_node(inp, shape='box', color='gold', style='filled')
+            seen.add(inp)
+
+        for stage in self.stages:
+            # add the stage itself
+            graph.add_node(stage.instance_name, shape='ellipse', color='orangered', style='filled')
+            # connect that stage to its inputs
+            for inp, _ in stage.inputs:
+                inp = stage.get_aliased_tag(inp)
+                if inp not in seen: # pragma: no cover
+                    graph.add_node(inp, shape='box', color='skyblue', style='filled')
+                    seen.add(inp)
+                graph.add_edge(inp, stage.instance_name, color='black')
+            # and to its outputs
+            for out, _ in stage.outputs:
+                out = stage.get_aliased_tag(out)
+                if out not in seen:
+                    graph.add_node(out, shape='box', color='skyblue', style='filled')
+                    seen.add(out)
+                graph.add_edge(stage.instance_name, out, color='black')
+
+        # finally, output the stage to file
+        if filename.endswith('.dot'):
+            graph.write(filename)
+        else:
+            graph.draw(filename, prog='dot')
+
+
 
 class DryRunPipeline(Pipeline):
     """A pipeline subclass which just does a dry-run, showing which commands
@@ -962,6 +1006,12 @@ class DryRunPipeline(Pipeline):
 
     def find_all_outputs(self):
         return {}
+
+class FlowChartPipeline(DryRunPipeline):
+    def run_jobs(self):
+        filename = self.run_config["flow_chart"]
+        self.make_flow_chart(filename)
+        return 0
 
 
 class ParslPipeline(Pipeline):
@@ -1309,9 +1359,9 @@ class CWLPipeline(Pipeline):
             yaml.dump(inputs, f)
 
     def initiate_run(self, overall_inputs):
-        from cwlgen.workflow import Workflow
+        from cwl_utils.parser.cwl_v1_0 import Workflow
 
-        wf = Workflow()
+        wf = Workflow([], [], [], cwlVersion="v1.0")
 
         cwl_dir = self.launcher_config["dir"]
         os.makedirs(cwl_dir, exist_ok=True)
@@ -1336,8 +1386,8 @@ class CWLPipeline(Pipeline):
         }
 
     def enqueue_job(self, stage, pipeline_files):
-        from cwlgen.workflowdeps import WorkflowStep, WorkflowStepInput
-        from cwlgen.workflowdeps import WorkflowOutputParameter, InputParameter
+        from cwl_utils.parser.cwl_v1_0 import WorkflowStep, WorkflowStepInput
+        from cwl_utils.parser.cwl_v1_0 import WorkflowOutputParameter, InputParameter
 
         cwl_dir = self.run_info["cwl_dir"]
         workflow = self.run_info["workflow"]
@@ -1345,10 +1395,11 @@ class CWLPipeline(Pipeline):
 
         # Create a CWL representation of this step
         cwl_tool = stage.generate_cwl(log_dir)
-        cwl_tool.export(f"{cwl_dir}/{stage.instance_name}.cwl")
+        with open(f"{cwl_dir}/{stage.instance_name}.cwl", "w") as f:
+            yaml.dump(cwl_tool.save(), f)
 
         # Load that representation again and add it to the pipeline
-        step = WorkflowStep(stage.instance_name, run=f"{cwl_tool.id}.cwl")
+        step = WorkflowStep(stage.instance_name, [], [], run=f"{cwl_tool.id}.cwl")
 
         # For CWL these inputs are a mix of file and config inputs,
         # so not he same as the pipeline_files we usually see
@@ -1378,7 +1429,7 @@ class CWLPipeline(Pipeline):
                 # These are the overall inputs to the enture pipeline.
                 # Convert them to CWL input parameters
                 cwl_inp = InputParameter(
-                    name, label=inp.label, param_type=inp.type, param_format=inp.format
+                    name, label=inp.label, type=inp.type, format=inp.format
                 )
                 cwl_inp.default = inp.default
 
@@ -1390,7 +1441,7 @@ class CWLPipeline(Pipeline):
                 workflow.inputs.append(cwl_inp)
 
             # Record that thisis an input to the step.
-            step.inputs.append(WorkflowStepInput(input_id=inp.id, source=name))
+            step.in_.append(WorkflowStepInput(id=inp.id, source=name))
 
         # Also record that we want all the pipeline outputs
         for tag, ftype in stage.outputs:
@@ -1400,28 +1451,26 @@ class CWLPipeline(Pipeline):
             # Also record that each file is an output to the entire pipeline
             cwl_out = WorkflowOutputParameter(
                 tag,
-                f"{step.id}/{tag}",
-                label=tag,
-                param_type="File",
-                param_format=ftype.__name__,
+                outputSource=f"{step.id}/{tag}",
+                type="File",
+                format=ftype.__name__,
             )
             workflow.outputs.append(cwl_out)
 
         # Also capture stdout and stderr as outputs
         cwl_out = WorkflowOutputParameter(
             f"{step.id}@stdout",
-            output_source=f"{step.id}/{step.id}@stdout",
+            outputSource=f"{step.id}/{step.id}@stdout",
             label="stdout",
-            param_type="File",
+            type="File",
         )
         step.out.append(f"{step.id}@stdout")
         workflow.outputs.append(cwl_out)
 
         cwl_out = WorkflowOutputParameter(
             f"{step.id}@stderr",
-            f"{step.id}/{step.id}@stderr",
-            label="stderr",
-            param_type="File",
+            outputSource=f"{step.id}/{step.id}@stderr",
+            type="File",
         )
         step.out.append(f"{step.id}@stderr")
         workflow.outputs.append(cwl_out)
@@ -1439,7 +1488,10 @@ class CWLPipeline(Pipeline):
         output_dir = self.run_config["output_dir"]
         log_dir = self.run_config["log_dir"]
         inputs_file = self.run_info["inputs_file"]
-        workflow.export(f"{cwl_dir}/pipeline.cwl")
+
+        with open(f"{cwl_dir}/pipeline.cwl", "w") as f:
+            yaml.dump(workflow.save(), f)
+
 
         # If 'launcher' is defined, use that
         launcher = self.launcher_config.get(

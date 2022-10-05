@@ -8,14 +8,14 @@ import subprocess
 from ceci.pipeline import Pipeline
 
 
-def run1(*config_changes, config_yaml="tests/test.yml", dry_run=False, expect_fail=False, expect_outputs=True):
+def run1(*config_changes, config_yaml="tests/test.yml", dry_run=False, expect_fail=False, expect_outputs=True, flow_chart=None):
     try:
         with tempfile.TemporaryDirectory() as dirname:
             out_dir = os.path.join(dirname, "output")
             log_dir = os.path.join(dirname, "logs")
             config = [f"output_dir={out_dir}", f"log_dir={log_dir}"]
             config += config_changes
-            pipe_config = Pipeline.build_config(config_yaml, config, dry_run)
+            pipe_config = Pipeline.build_config(config_yaml, config, dry_run, flow_chart)
             status = run(pipe_config, config_yaml, config, dry_run)
             if expect_fail:
                 assert status != 0
@@ -35,6 +35,12 @@ def test_run_mini():
 
 def test_run_dry_run():
     run1(dry_run=True, expect_fail=False, expect_outputs=False)
+
+def test_flow_chart():
+    run1(flow_chart="test.png", expect_outputs=False)
+
+def test_flow_chart_dot():
+    run1(flow_chart="test.dot", expect_outputs=False)
 
 
 def test_run_parsl():
