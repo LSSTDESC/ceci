@@ -7,6 +7,7 @@ import subprocess
 from .pipeline import Pipeline
 from .sites import load, set_default_site, get_default_site
 from .utils import extra_paths
+import contextlib
 
 # Add the current dir to the path - often very useful
 sys.path.append(os.getcwd())
@@ -35,23 +36,6 @@ parser.add_argument(
 )
 
 
-def run_prescript(pre_script=None, dry_run=False, script_args=None):
-    """Run a script before running the pipeline
-
-    Parameters
-    ----------
-    pre_script : `str`
-        The script to run
-    dry_run : `bool`
-        If true do not run the script
-    script_args : `list`, (`str`)
-        Arguments to the script
-    """
-    if script_args is None:  # pragma: no cover
-        script_args = []
-    if pre_script and not dry_run:
-        subprocess.check_call(pre_script.split() + script_args, shell=True)
-
 
 def run_pipeline(pipe_config):
     """Run a pipeline as defined by a particular configuration
@@ -66,68 +50,16 @@ def run_pipeline(pipe_config):
     status : `int`
         Usual unix convention of 0 -> success, non-zero is an error code
     """
-    default_site = get_default_site()
-    try:
+    with prepare_for_pipeline(pipe_config):
         p = Pipeline.create(pipe_config)
         status = p.run()
-    finally:
-        # The create command above changes the default site.
-        # So that this function doesn't confuse later things,
-        # reset that site now.
-        set_default_site(default_site)
-
     return status
 
 
-def run_postscript(post_script=None, dry_run=False, script_args=None):
-    """Run a script after the pipeline finishes
-
-    Parameters
-    ----------
-    post_script : `str`
-        The script to run
-    dry_run : `bool`
-        If true do not run the script
-    script_args : `list`, (`str`)
-        Arguments to the script
-
-    Returns
-    -------
-    return_code : `int`
-        Usual unix convention of 0 -> success, non-zero is an error code
+@contextlib.contextmanager
+def prepare_for_pipeline(pipe_config):
     """
-    if script_args is None:  # pragma: no cover
-        script_args = []
-    if post_script and not dry_run:
-        return_code = subprocess.call(post_script.split() + script_args, shell=True)
-        if return_code:  # pragma: no cover
-            sys.stderr.write(
-                f"\nWARNING: The post-script command {post_script} "
-                "returned error status {return_code}\n\n"
-            )
-        return return_code
-        # Otherwise everything must have gone fine.
-    return 0
-
-
-def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False):
-    """Run a pipeline and associated scripts
-
-    Parameters
-    ----------
-    pipe_config : `dict`
-        The configuration dictionary
-    pipe_config_filename : `str`
-        The yaml file with the pipeline configuration
-    extra_config : `dict`
-        Extra parameters to override configuration
-    dry_run : `bool`
-        Flag to not actually run jobs
-
-    Returns
-    -------
-    status : `int`
-        Usual unix convention of 0 -> success, non-zero is an error code
+    Prepare the paths and launcher needed to read and run a pipeline.
     """
 
     # Later we will add these paths to sys.path for running here,
@@ -138,8 +70,10 @@ def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False)
     if isinstance(paths, str):  # pragma: no cover
         paths = paths.split()
 
+    # Get information (maybe the default) on the launcher we may be using
     launcher_config = pipe_config.setdefault("launcher", {"name": "mini"})
     site_config = pipe_config.get("site", {"name": "local"})
+
     # Pass the paths along to the site
     site_config["python_paths"] = paths
     load(launcher_config, [site_config])
@@ -147,29 +81,22 @@ def run(pipe_config, pipeline_config_filename, extra_config=None, dry_run=False)
     # Python modules in which to search for pipeline stages
     modules = pipe_config.get("modules", "").split()
 
-    pre_script = pipe_config.get("pre_script")
-    post_script = pipe_config.get("post_script")
-    script_args = [pipeline_config_filename]
-    if extra_config:
-        script_args += extra_config
+    # This helps with testing
+    default_site = get_default_site()
 
     # temporarily add the paths to sys.path,
     # but remove them at the end
     with extra_paths(paths):
 
+        # Import modules. We have to do this because the definitions
+        # of the stages can be inside.
         for module in modules:
             __import__(module)
 
-        run_prescript(pre_script=pre_script, dry_run=dry_run, script_args=script_args)
-
-        status = run_pipeline(pipe_config)
-        if status:  # pragma: no cover
-            return status
-
-        status = run_postscript(
-            post_script=post_script, dry_run=dry_run, script_args=script_args
-        )
-        return status
+        try:
+            yield
+        finally:
+            set_default_site(default_site)
 
 
 def main():  # pragma: no cover
@@ -182,7 +109,7 @@ def main():  # pragma: no cover
     pipe_config = Pipeline.build_config(
         args.pipeline_config, args.extra_config, args.dry_run, args.flow_chart
     )
-    status = run(pipe_config, args.pipeline_config, args.extra_config, args.dry_run)
+    status = run_pipeline(pipe_config)
 
     if status == 0:
         print("Pipeline successful.  Joy is sparked.")
