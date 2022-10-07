@@ -490,6 +490,7 @@ I currently know about these stages:
         for conf, def_val in cls.config_options.items():
             if isinstance(def_val, StageParameter):
                 opt_type = def_val.dtype
+                def_val = def_val.default
             else:
                 opt_type = def_val if isinstance(def_val, type) else type(def_val)
             if opt_type == bool:
@@ -498,9 +499,12 @@ I currently know about these stages:
                     f"--no-{conf}", dest=conf, action="store_const", const=False
                 )
             elif opt_type == list:
-                out_type = (
-                    def_val[0] if isinstance(def_val[0], type) else type(def_val[0])
-                )
+                if not def_val:
+                    out_type = str
+                else:
+                    out_type = (
+                        def_val[0] if isinstance(def_val[0], type) else type(def_val[0])
+                    )
                 if out_type is str:  # pragma: no cover
                     parser.add_argument(
                         f"--{conf}", type=lambda string: string.split(",")
