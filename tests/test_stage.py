@@ -131,6 +131,8 @@ def test_parameter():
         config_options = dict(
             a=StageParameter(float, 5., msg="a float"),
             b=StageParameter(str, msg="a str"),
+            c=StageParameter(list, [1,2,3], msg="a list"),
+            d=StageParameter(list, [], msg="an empty list"),
         )
 
         def run(self):
@@ -141,7 +143,9 @@ def test_parameter():
         )
     assert stage_1.config.a == 6.
     assert stage_1.config.b == 'puffins are not extinct?'
-
+    assert 1 in stage_1.config.c
+    assert len(stage_1.config.d) == 0
+    
     cmd = "TestStage", "--a", "6", "--b", "puffins are not extinct?", "--inp", "dummy"
     stage_1_cmd = TestStage(TestStage.parse_command_line(cmd))
     assert stage_1_cmd.config.a == 6.
