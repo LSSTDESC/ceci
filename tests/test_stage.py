@@ -530,7 +530,7 @@ def test_wrong_mpi_flag():
     assert not LimaParallel.parse_command_line(["LimaParallel"]).mpi
 
     with pytest.raises(ValueError):
-        assert LimaSerial.parse_command_line(["LimaParallel", "--mpi"]).mpi
+        assert LimaSerial.parse_command_line(["LimaSerial", "--mpi"]).mpi
 
 
 # could add more tests here for constructor, but the regression tests here and in TXPipe are
