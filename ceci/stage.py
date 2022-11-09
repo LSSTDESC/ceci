@@ -542,7 +542,6 @@ I currently know about these stages:
             parser.add_argument(
                 "--mpi", action="store_true", help="Set up MPI parallelism"
             )
-
         parser.add_argument(
             "--pdb", action="store_true", help="Run under the python debugger"
         )
