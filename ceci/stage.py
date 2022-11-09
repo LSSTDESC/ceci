@@ -572,7 +572,7 @@ I currently know about these stages:
                 raise ValueError(mpi_err)
             ret_args = parser.parse_args()
         else:
-            if "--mpi" in cmd:
+            if ("--mpi" in cmd and not cls.parallel):
                 raise ValueError(mpi_err)
             ret_args = parser.parse_args(cmd)
 
