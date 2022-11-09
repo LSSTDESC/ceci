@@ -544,8 +544,9 @@ I currently know about these stages:
             )
         else:
             if ((cmd is None) and ("--mpi" in sys.argv)) or ("--mpi" in cmd):
-                raise ValueError(f"Error: you used the --mpi flag (or set MPI parallelism options) for the stage {cls.name}, but that stage cannot be run in parallel.")
-
+                raise ValueError(
+                    f"Error: you used the --mpi flag (or set MPI parallelism options) for the stage {cls.name}, but that stage cannot be run in parallel."
+                )
 
         parser.add_argument(
             "--pdb", action="store_true", help="Run under the python debugger"
