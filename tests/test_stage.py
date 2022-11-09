@@ -512,6 +512,7 @@ def test_unknown_stage():
 
 
 def test_wrong_mpi_flag():
+
     class LimaParallel(PipelineStage):
         name = f"LimaParallel"
         inputs = []
@@ -520,6 +521,7 @@ def test_wrong_mpi_flag():
 
         def run(self):
             pass
+
     class LimaSerial(LimaParallel):
         name = f"LimaSerial"
         parallel = False
