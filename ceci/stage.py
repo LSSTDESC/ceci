@@ -542,6 +542,11 @@ I currently know about these stages:
             parser.add_argument(
                 "--mpi", action="store_true", help="Set up MPI parallelism"
             )
+        else:
+            if ((cmd is None) and ("--mpi" in sys.argv)) or ("--mpi" in cmd):
+                raise ValueError(f"Error: you used the --mpi flag (or set MPI parallelism options) for the stage {cls.name}, but that stage cannot be run in parallel.")
+
+
         parser.add_argument(
             "--pdb", action="store_true", help="Run under the python debugger"
         )

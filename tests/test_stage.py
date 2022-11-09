@@ -511,8 +511,29 @@ def test_unknown_stage():
         PipelineStage.get_stage("ThisStageIsDeliberatelyLeftBlank")
 
 
+def test_wrong_mpi_flag():
+    class LimaParallel(PipelineStage):
+        name = f"LimaParallel"
+        inputs = []
+        outputs = []
+        config_options = {}
+
+        def run(self):
+            pass
+    class LimaSerial(LimaParallel):
+        name = f"LimaSerial"
+        parallel = False
+
+    assert LimaParallel.parse_command_line(["LimaParallel", "--mpi"]).mpi
+    assert not LimaParallel.parse_command_line(["LimaParallel"]).mpi
+
+    with pytest.raises(ValueError):
+        assert LimaSerial.parse_command_line(["LimaParallel", "--mpi"]).mpi
+
+
 # could add more tests here for constructor, but the regression tests here and in TXPipe are
 # pretty thorough.
 
 if __name__ == "__main__":
     test_construct()
+    test_wrong_mpi_flag()
