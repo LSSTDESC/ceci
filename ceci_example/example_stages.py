@@ -32,6 +32,7 @@ class PZEstimationPipe(PipelineStage):
     name = "PZEstimationPipe"
     inputs = [("DM", TextFile), ("fiducial_cosmology", TextFile)]
     outputs = [("photoz_pdfs", TextFile)]
+    parallel = False
 
     def run(self):
         for inp, _ in self.inputs:

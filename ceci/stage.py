@@ -559,9 +559,20 @@ I currently know about these stages:
             help="Report memory use. Argument gives interval in seconds between reports",
         )
 
+        # Error message we will return if --mpi used on a non-supported
+        # stage.
+        mpi_err = (
+            "Error: you used the --mpi flag (or set MPI parallelism options) "
+            f"for the stage {cls.name}, but that stage cannot be run in parallel."
+        )
+
         if cmd is None:
+            if ("--mpi" in sys.argv) and not cls.parallel:
+                raise ValueError(mpi_err)
             ret_args = parser.parse_args()
         else:
+            if ("--mpi" in cmd) and not cls.parallel:
+                raise ValueError(mpi_err)
             ret_args = parser.parse_args(cmd)
 
         return ret_args
