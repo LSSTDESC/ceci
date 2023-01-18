@@ -1151,7 +1151,6 @@ Standard error:
 
         # Construct the command line call
         core = sec.generate_full_command(inputs, outputs, config)
-        cmd1 = sec.site.command(core, sec)
         log_dir = run_config["log_dir"]
 
         # We will be exec'ing this here.  We can't just define it inline
@@ -1160,7 +1159,7 @@ Standard error:
         template = f"""
 @parsl.app.app.bash_app(executors=[executor])
 def {stage.instance_name}(inputs, outputs, stdout='{log_dir}/{stage.instance_name}.out', stderr='{log_dir}/{stage.instance_name}.err'):
-    cmd = '{cmd1}'.format(inputs=inputs, outputs=outputs)
+    cmd = '{core}'.format(inputs=inputs, outputs=outputs)
     print("Launching command:")
     print(cmd, " 2> {log_dir}/{stage.instance_name}.err 1> {log_dir}/{stage.instance_name}.out")
     return cmd
@@ -1168,7 +1167,7 @@ def {stage.instance_name}(inputs, outputs, stdout='{log_dir}/{stage.instance_nam
         print(template)
 
         # local variables for creating this function.
-        d = {"executor": executor.label, "cmd1": cmd1}
+        d = {"executor": executor.label, "core": core}
         exec(template, {"parsl": parsl}, d)  # pylint: disable=exec-used
 
         # Return the function itself.
