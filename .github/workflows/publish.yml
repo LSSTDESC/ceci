@@ -17,8 +17,8 @@ jobs:
 
     - name: Build wheel and source tarball
       run: |
-        pip install build
-        python -m build
+        pip install setuptools_scm
+        python setup.py sdist
 
 
     - name: Publish to PyPI
