@@ -17,6 +17,7 @@ jobs:
 
     - name: Build wheel and source tarball
       run: |
+        pip install build
         python -m build
 
 
