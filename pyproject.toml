@@ -2,7 +2,7 @@
 requires = [
     "setuptools>=61.0",
     "wheel",
-    "setuptools-scm",
+    "setuptools_scm[toml]>=6.2",
 ]
 
 build-backend = "setuptools.build_meta"
@@ -35,6 +35,7 @@ dependencies =[
 
 [tool.setuptools_scm]
 # This activates use_scm_version to get the version number from git tags.
+write_to = "ceci/_version.py"
 
 [tool.setuptools]
 packages = [

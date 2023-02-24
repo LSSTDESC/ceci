@@ -17,7 +17,7 @@ jobs:
 
     - name: Build wheel and source tarball
       run: |
-        python setup.py sdist
+        python -m build
 
 
     - name: Publish to PyPI
