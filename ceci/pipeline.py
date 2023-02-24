@@ -177,7 +177,9 @@ class StageExecutionConfig:
             The newly constructed object
         """
         if self.stage_class is None:  # pragma: no cover
-            self.stage_class = PipelineStage.get_stage(self.class_name, self.module_name)
+            self.stage_class = PipelineStage.get_stage(
+                self.class_name, self.module_name
+            )
         self.stage_obj = self.stage_class(args)
         return self.stage_obj
 
@@ -391,7 +393,9 @@ class Pipeline:
         return MiniPipeline([], launcher_config)
 
     @staticmethod
-    def build_config(pipeline_config_filename, extra_config=None, dry_run=False, flow_chart=None):
+    def build_config(
+        pipeline_config_filename, extra_config=None, dry_run=False, flow_chart=None
+    ):
         """Build a configuration dictionary from a yaml file and extra optional parameters
 
         Parameters
@@ -890,7 +894,10 @@ Some required inputs to the pipeline could not be found,
             if site is None:
                 site = val.site.config
             pipe_stage_info = dict(
-                name=val.name, classname=val.class_name, nprocess=val.nprocess, module_name=val.module_name,
+                name=val.name,
+                classname=val.class_name,
+                nprocess=val.nprocess,
+                module_name=val.module_name,
             )
             if val.threads_per_process != 1:
                 pipe_stage_info["threads_per_process"] = val.threads_per_process
@@ -939,33 +946,34 @@ Some required inputs to the pipeline could not be found,
 
         # Add overall pipeline inputs
         for inp in self.overall_inputs.keys():
-            graph.add_node(inp, shape='box', color='gold', style='filled')
+            graph.add_node(inp, shape="box", color="gold", style="filled")
             seen.add(inp)
 
         for stage in self.stages:
             # add the stage itself
-            graph.add_node(stage.instance_name, shape='ellipse', color='orangered', style='filled')
+            graph.add_node(
+                stage.instance_name, shape="ellipse", color="orangered", style="filled"
+            )
             # connect that stage to its inputs
             for inp, _ in stage.inputs:
                 inp = stage.get_aliased_tag(inp)
-                if inp not in seen: # pragma: no cover
-                    graph.add_node(inp, shape='box', color='skyblue', style='filled')
+                if inp not in seen:  # pragma: no cover
+                    graph.add_node(inp, shape="box", color="skyblue", style="filled")
                     seen.add(inp)
-                graph.add_edge(inp, stage.instance_name, color='black')
+                graph.add_edge(inp, stage.instance_name, color="black")
             # and to its outputs
             for out, _ in stage.outputs:
                 out = stage.get_aliased_tag(out)
                 if out not in seen:
-                    graph.add_node(out, shape='box', color='skyblue', style='filled')
+                    graph.add_node(out, shape="box", color="skyblue", style="filled")
                     seen.add(out)
-                graph.add_edge(stage.instance_name, out, color='black')
+                graph.add_edge(stage.instance_name, out, color="black")
 
         # finally, output the stage to file
-        if filename.endswith('.dot'):
+        if filename.endswith(".dot"):
             graph.write(filename)
         else:
-            graph.draw(filename, prog='dot')
-
+            graph.draw(filename, prog="dot")
 
 
 class DryRunPipeline(Pipeline):
@@ -1006,6 +1014,7 @@ class DryRunPipeline(Pipeline):
 
     def find_all_outputs(self):
         return {}
+
 
 class FlowChartPipeline(DryRunPipeline):
     def run_jobs(self):
@@ -1242,7 +1251,10 @@ class MiniPipeline(Pipeline):
                     # if that stage is supplied by another pipeline stage
                     if potential_parent.instance_name not in jobs:  # pragma: no cover
                         continue
-                    potential_parent_tags = [potential_parent.get_aliased_tag(tag_) for tag_ in potential_parent.output_tags()]
+                    potential_parent_tags = [
+                        potential_parent.get_aliased_tag(tag_)
+                        for tag_ in potential_parent.output_tags()
+                    ]
                     if aliased_tag in potential_parent_tags:
                         depend[job].append(jobs[potential_parent.instance_name])
         return depend
@@ -1491,7 +1503,6 @@ class CWLPipeline(Pipeline):
 
         with open(f"{cwl_dir}/pipeline.cwl", "w") as f:
             yaml.dump(workflow.save(), f)
-
 
         # If 'launcher' is defined, use that
         launcher = self.launcher_config.get(

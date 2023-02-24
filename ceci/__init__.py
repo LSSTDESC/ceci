@@ -1,7 +1,13 @@
 """Ceci n'est pas une pipeline"""
 
 from .stage import PipelineStage
-from .pipeline import Pipeline, MiniPipeline, ParslPipeline, DryRunPipeline, FlowChartPipeline
+from .pipeline import (
+    Pipeline,
+    MiniPipeline,
+    ParslPipeline,
+    DryRunPipeline,
+    FlowChartPipeline,
+)
 from .main import prepare_for_pipeline, run_pipeline
 from pkg_resources import DistributionNotFound
 from pkg_resources import get_distribution

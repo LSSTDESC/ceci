@@ -60,7 +60,9 @@ def cast_to_streamable(value):
 class StageParameter:
     """A small class to manage a single parameter with basic type checking"""
 
-    def __init__(self, dtype=None, default=None, fmt="%s", required=None, msg="A parameter"):
+    def __init__(
+        self, dtype=None, default=None, fmt="%s", required=None, msg="A parameter"
+    ):
         """Build from keywords
 
         Parameters
@@ -109,7 +111,11 @@ class StageParameter:
     def copy(self):
         """Return a copy of self"""
         return StageParameter(
-            dtype=self._dtype, default=self._default, fmt=self._format, required=self._required, msg=self._help
+            dtype=self._dtype,
+            default=self._default,
+            fmt=self._format,
+            required=self._required,
+            msg=self._help,
         )
 
     def set(self, value):

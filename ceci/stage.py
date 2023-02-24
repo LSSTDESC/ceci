@@ -457,9 +457,9 @@ I currently know about these stages:
         if stage_name in ["--help", "-h"] and len(sys.argv) == 2:  # pragma: no cover
             cls.usage()
             return 1
-        if stage_name.find('.') >= 0:
-            tokens = stage_name.split('.')
-            module_name = '.'.join(tokens[:-1])
+        if stage_name.find(".") >= 0:
+            tokens = stage_name.split(".")
+            module_name = ".".join(tokens[:-1])
             stage_name = tokens[-1]
         else:
             module_name = None
@@ -879,8 +879,6 @@ I currently know about these stages:
 
         return results
 
-
-
     def data_ranges_by_rank(self, n_rows, chunk_rows, parallel=True):
         """Split a number of rows by process.
 
@@ -1176,8 +1174,8 @@ I currently know about these stages:
         ret_dict = {}
         for tag, ftype in self.outputs_():
             aliased_tag = self.get_aliased_tag(tag)
-            if not aliased_tag in self._outputs.keys(): # pragma: no cover
-                self._outputs[aliased_tag]=ftype.make_name(aliased_tag)
+            if not aliased_tag in self._outputs.keys():  # pragma: no cover
+                self._outputs[aliased_tag] = ftype.make_name(aliased_tag)
             ret_dict[aliased_tag] = f"{outdir}/{self._outputs[aliased_tag]}"
         return ret_dict
 
@@ -1322,7 +1320,7 @@ I currently know about these stages:
             # Namescape module, use 'ceci' to the get main
             # and specify the full path
             flags = [f"{cls.get_module()}.{cls.name}"]
-            module = 'ceci'
+            module = "ceci"
 
         aliases = aliases or {}
 
@@ -1369,7 +1367,9 @@ I currently know about these stages:
         module = module.split(".")[0]
 
         # Basic definition of the tool
-        cwl_tool =  cwlgen.CommandLineTool([], [],
+        cwl_tool = cwlgen.CommandLineTool(
+            [],
+            [],
             id=cls.name,
             label=cls.name,
             baseCommand="python3",

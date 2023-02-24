@@ -36,7 +36,6 @@ parser.add_argument(
 )
 
 
-
 def run_pipeline(pipe_config):
     """Run a pipeline as defined by a particular configuration
 
