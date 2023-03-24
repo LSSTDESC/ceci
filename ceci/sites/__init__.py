@@ -1,6 +1,6 @@
 """Classes and functions to manage site-specific configuration"""
 
-from .cori import CoriBatchSite, CoriInteractiveSite
+from .cori import NerscBatchSite, NerscInteractiveSite
 from .local import LocalSite, Site
 from .ccin2p3 import CCParallel
 import os
@@ -60,7 +60,7 @@ def load(launcher_config, site_configs):
         Configuration information on launchers (parsl, minirunner, CWL).
 
     site_configs: list[dict]
-        list of configs for different sites (local, cori-batch, cori-interactive).
+        list of configs for different sites (local, nersc-batch, nersc-interactive).
 
     """
     sites = []
@@ -72,7 +72,7 @@ def load(launcher_config, site_configs):
     for site_config in site_configs:
         site_name = site_config["name"]
         # Also tell the sites whether this is a dry-run.
-        # for example, the cori site checks you're not
+        # for example, the nersc site checks you're not
         # trying to run srun on a login node, but we skip
         # that test if we are not actually running the command,
         # just printing it.
