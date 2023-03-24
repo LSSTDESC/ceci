@@ -9,8 +9,10 @@ import os
 # Maps names from config files to classes.
 site_classes = {
     "local": LocalSite,
-    "cori-interactive": CoriInteractiveSite,
-    "cori-batch": CoriBatchSite,
+    "cori-interactive": NerscInteractiveSite,
+    "cori-batch": NerscBatchSite,
+    "nersc-interactive": NerscInteractiveSite,
+    "nersc-batch": NerscBatchSite,
     "cc-parallel": CCParallel,
 }
 
