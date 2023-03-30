@@ -1,6 +1,6 @@
 from ceci.pipeline import StageExecutionConfig
 from ceci.sites.local import LocalSite
-from ceci.sites.cori import NerscBatchSite
+from ceci.sites.nersc import NerscBatchSite
 import os
 import pytest
 
