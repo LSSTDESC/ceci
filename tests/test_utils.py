@@ -1,7 +1,7 @@
 
 from collections import OrderedDict
 
-from ceci.sites.cori import parse_int_set
+from ceci.sites.nersc import parse_int_set
 from ceci.pipeline import override_config
 from ceci.utils import embolden
 from ceci.config import cast_value, cast_to_streamable

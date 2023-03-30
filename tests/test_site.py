@@ -3,9 +3,9 @@ from ceci.pipeline import StageExecutionConfig
 import pytest
 import os
 
-def test_cori_error():
+def test_nersc_error():
     # check that errors when trying to run multi-process
-    # jobs on cori login nodes are handled correctly.
+    # jobs on nersc login nodes are handled correctly.
     # should fail unless dry-run is set.
 
     launcher_config = {
@@ -13,7 +13,7 @@ def test_cori_error():
         "interval": 1.0,
     }
     site_config = {
-        "name": "cori-interactive",
+        "name": "nersc-interactive",
     }
 
     stage_config = {
@@ -37,9 +37,6 @@ def test_cori_error():
 
 
 def test_in2p3():
-    # check that errors when trying to run multi-process
-    # jobs on cori login nodes are handled correctly.
-    # should fail unless dry-run is set.
     os.environ["NSLOTS"] = "8"
 
     launcher_config = {

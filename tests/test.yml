@@ -30,12 +30,12 @@ site:
 
 
 #site:
-#    name: cori-interactive
+#    name: nersc-interactive
 #    # Put the log for the overall pipeline infrastructure in this file:
 #    pipeline_log: log.txt
 
 # site:
-#     name: cori-batch
+#     name: nersc-batch
 #     cpu_type: haswell
 #     queue: debug
 #     max_jobs: 2
