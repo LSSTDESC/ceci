@@ -1,6 +1,6 @@
 """Classes and functions to manage site-specific configuration"""
 
-from .cori import NerscBatchSite, NerscInteractiveSite
+from .nersc import NerscBatchSite, NerscInteractiveSite
 from .local import LocalSite, Site
 from .ccin2p3 import CCParallel
 import os
