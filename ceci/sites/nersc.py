@@ -1,4 +1,4 @@
-"""Utility class to interface to workflow managers when using CORI at NERSC"""
+"""Utility class to interface to workflow managers when at NERSC"""
 
 import os
 from ..minirunner import Node
@@ -6,8 +6,8 @@ from ..minirunner import Node
 from .site import Site
 
 
-class CoriSite(Site):
-    """Object representing execution on the CORI"""
+class NerscSite(Site):
+    """Object representing execution on at NERSC"""
 
     default_mpi_command = "srun -u -n"
 
@@ -31,7 +31,7 @@ class CoriSite(Site):
             The complete decorated command to be executed.
         """
 
-        # on cori we always use srun, even if the command is a single process
+        # on NERSC we always use srun, even if the command is a single process
         mpi1 = f"{self.mpi_command} {sec.nprocess} --cpus-per-task={sec.threads_per_process}"
         mpi2 = "--mpi" if sec.nprocess > 1 else ""
         volume_flag = f"-V {sec.volume} " if sec.volume else ""
@@ -47,7 +47,7 @@ class CoriSite(Site):
         ):
             raise ValueError(
                 "You cannot use MPI (by setting nprocess > 1) "
-                "on Cori login nodes, only inside jobs."
+                "on NERSC login nodes, only inside jobs."
             )
 
         if sec.image:
@@ -110,6 +110,8 @@ class CoriSite(Site):
             slurm_cpus_on_node = os.environ.get("SLURM_CPUS_ON_NODE")
             if slurm_cpus_on_node == "64":
                 cpus_per_node = 32
+            elif slurm_cpus_on_node == "256":
+                cpus_per_node = 128
             elif slurm_cpus_on_node == "272":
                 cpus_per_node = 68
             else:
@@ -121,7 +123,7 @@ class CoriSite(Site):
         else:
             # running on login node
             # use at most 4 procs to avoid annoying people
-            nodes = [Node("cori", 4)]
+            nodes = [Node("nersc-login", 4)]
 
         self.info["nodes"] = nodes
 
@@ -129,8 +131,8 @@ class CoriSite(Site):
         """Utility function to set CWL configuration parameters"""
 
 
-class CoriBatchSite(CoriSite):
-    """Object representing execution on the CORI batch system"""
+class NerscBatchSite(NerscSite):
+    """Object representing execution on the NERSC batch systems"""
 
     def configure_for_parsl(self):
         """Utility function to set parsl configuration parameters"""
@@ -166,15 +168,15 @@ class CoriBatchSite(CoriSite):
         )
 
         executor = IPyParallelExecutor(  # pylint: disable=abstract-class-instantiated
-            label="cori-batch",
+            label="nersc-batch",
             provider=provider,
         )
 
         self.info["executor"] = executor
 
 
-class CoriInteractiveSite(CoriSite):
-    """Object representing execution on the CORI interactive system"""
+class NerscInteractiveSite(NerscSite):
+    """Object representing execution on the NERSC interactive systems"""
 
     def configure_for_parsl(self):
         """Utility function to set parsl configuration parameters"""
