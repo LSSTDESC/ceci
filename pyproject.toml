@@ -70,7 +70,6 @@ dask = [
 
 test = [
     "pytest",
-    "codecov",
     "pytest-cov",
     "pytest-mock",
     "mockmpi",
@@ -85,7 +84,6 @@ all = [
     "cwl-utils",
     "pygraphviz",
     "pytest",
-    "codecov",
     "pytest-cov",
     "pytest-mock",
     "mockmpi",
