@@ -430,11 +430,16 @@ def test_open_input():
 
     print(ii.get_aliases())
 
-    # This currently works
+    # These should work with or without the alias
     assert os.path.exists(ii.get_input("my_alias"))
+    assert os.path.exists(ii.get_input("my_input"))
 
     # This works now
     f = ii.open_input("my_input")
+    print(f.keys())
+    f.close()
+
+    f = ii.open_input("my_alias")
     print(f.keys())
     f.close()
 
@@ -453,13 +458,36 @@ def test_open_output():
     print(f.keys())
     f.close()
 
-    # Testing with an alias - config.yml defines an alias for my_input, my_alias
-    jj = Juliett.make_stage(name="JuliettCopy", aliases=dict(my_output='my_alias'))
+    # Testing with an alias
+    jj = Juliett.make_stage(aliases=dict(my_output='my_alias'))
 
     print(jj.get_aliases())
 
+    assert jj.get_output("my_output") == jj.get_output("my_alias")
+
     # This works now
     f = jj.open_output("my_output")
+    print(f.keys())
+    f.close()
+
+    f = jj.open_output("my_alias")
+    print(f.keys())
+    f.close()
+
+    # Testing with a new name
+    jj = Juliett.make_stage(name="JuliettCopy")
+
+    print(jj.get_aliases())
+
+    assert jj.get_output("my_output") == jj.get_output("my_output_JuliettCopy")
+
+    # Check we can open using the original name
+    f = jj.open_output("my_output")
+    print(f.keys())
+    f.close()
+
+    # Check with an alias specified for the output name
+    f = jj.open_output("my_output_JuliettCopy")
     print(f.keys())
     f.close()
 
