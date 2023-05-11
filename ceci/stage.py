@@ -914,15 +914,25 @@ I currently know about these stages:
     ##################################################
 
     def get_input(self, tag):
-        """Return the path of an input file with the given tag"""
+        """
+        Return the path of an input file with the given tag,
+        which can be aliased.
+        """
+        tag = self.get_aliased_tag(tag)
         return self._inputs[tag]
 
+
+
     def get_output(self, tag, final_name=False):
-        """Return the path of an output file with the given tag
+        """
+        Return the path of an output file with the given tag,
+        which can be aliased already.
 
         If final_name is False then use a temporary name - file will
         be moved to its final name at the end
         """
+
+        tag = self.get_aliased_tag(tag)
         path = self._outputs[tag]
 
         # If not the final version, add a tag at the start of the filename
@@ -943,8 +953,7 @@ I currently know about these stages:
         a more specific object - see the types.py file for more info.
 
         """
-        aliased_tag = self.get_aliased_tag(tag)
-        path = self.get_input(aliased_tag)
+        path = self.get_input(tag)
         input_class = self.get_input_type(tag)
         obj = input_class(path, "r", **kwargs)
 
@@ -984,8 +993,7 @@ I currently know about these stages:
             Extra args are passed on to the file's class constructor.
 
         """
-        aliased_tag = self.get_aliased_tag(tag)
-        path = self.get_output(aliased_tag, final_name=final_name)
+        path = self.get_output(tag, final_name=final_name)
         output_class = self.get_output_type(tag)
 
         # HDF files can be opened for parallel writing
@@ -1055,14 +1063,18 @@ I currently know about these stages:
 
     def get_input_type(self, tag):
         """Return the file type class of an input file with the given tag."""
+        tag = self.get_aliased_tag(tag)
         for t, dt in self.inputs_():
+            t = self.get_aliased_tag(t)
             if t == tag:
                 return dt
         raise ValueError(f"Tag {tag} is not a known input")  # pragma: no cover
 
     def get_output_type(self, tag):
         """Return the file type class of an output file with the given tag."""
+        tag = self.get_aliased_tag(tag)
         for t, dt in self.outputs_():
+            t = self.get_aliased_tag(t)
             if t == tag:
                 return dt
         raise ValueError(f"Tag {tag} is not a known output")  # pragma: no cover
