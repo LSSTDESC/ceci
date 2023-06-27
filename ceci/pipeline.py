@@ -578,29 +578,6 @@ class Pipeline:
         self.stage_names.remove(name)
         del self.stage_execution_config[name]
 
-    def get_stage_aliases(self, stage_name, stages_config=None):
-        """Get the aliases for a particular stage
-
-        Parameters
-        ----------
-        stage_name : str
-            The name of the stage in question
-        stages_config : Mapping or None
-            Configurtion dictionary, used if stages have not been created yet
-
-        Returns
-        -------
-        aliases : Mapping
-            The aliases
-        """
-        stage = None
-        sec = self.stage_execution_config.get(stage_name)
-        if sec is not None:
-            stage = sec.stage_obj
-        if stage is not None:
-            return stage.config.get("aliases", {})
-        return stages_config.get(stage_name, {}).get("aliases", {})
-
     def ordered_stages(self, overall_inputs):
         """Produce a linear ordering for the stages.
 

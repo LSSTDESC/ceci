@@ -138,8 +138,6 @@ class PipelineStage:
             The aliases version of the tag
         """
         aliases = self.get_aliases()
-        if aliases is None:
-            return tag
         return aliases.get(tag, tag)
 
     @abstractmethod
