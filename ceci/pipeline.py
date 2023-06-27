@@ -2,7 +2,7 @@
 
 import os
 import sys
-import collections
+import graphlib
 import yaml
 import shutil
 from abc import abstractmethod
@@ -99,6 +99,9 @@ class StageExecutionConfig:
         self.threads_per_process = info.get("threads_per_process", 1)  #
         self.mem_per_process = info.get("mem_per_process", 2)
 
+        # Alias attributes - optional
+        self.aliases = info.get("aliases", {})
+
         # Container attributes - optional.
         # There may be a default container for the entire site the
         # stage is run on, in which case use that if it is not overridden.
@@ -133,6 +136,7 @@ class StageExecutionConfig:
         info["name"] = stage.instance_name
         info["classname"] = stage.name
         info["module_name"] = stage.get_module()
+        info["aliases"] = stage.get_aliases()
         sec = cls(info)
         sec.set_stage_obj(stage)
         return sec
@@ -180,7 +184,7 @@ class StageExecutionConfig:
             self.stage_class = PipelineStage.get_stage(
                 self.class_name, self.module_name
             )
-        self.stage_obj = self.stage_class(args)
+        self.stage_obj = self.stage_class(args, aliases=self.aliases)
         return self.stage_obj
 
     def generate_full_command(self, inputs, outputs, config):
@@ -200,14 +204,10 @@ class StageExecutionConfig:
         command : str
             The command in question
         """
-        if self.stage_obj is not None:
-            aliases = self.stage_obj.get_aliases()
-        else:
-            aliases = None  # pragma: no cover
         if self.stage_class is None:
             self.build_stage_class()  # pragma: no cover
         core = self.stage_class.generate_command(
-            inputs, config, outputs, aliases, self.name
+            inputs, config, outputs, self.aliases, self.name
         )
         return self.site.command(core, self)
 
@@ -517,6 +517,8 @@ class Pipeline:
                 (default 1) The number of (usually OpenMP) threads to use per process.
             mem_per_process: float
                 (defaut 2GB) The amount of memory in GB required for the job
+            aliases: dict
+                (default {}) A dictionary of aliases mapping tags to new tags
             image: str
                 (default is the site default) A docker image name to use for this task
             volume: str
@@ -560,7 +562,8 @@ class Pipeline:
         """
         kwcopy = kwargs.copy()
         kwcopy.update(**self.pipeline_files)
-        stage = stage_class(kwcopy)
+        aliases = kwcopy.pop("aliases", None)
+        stage = stage_class(kwcopy, aliases=aliases)
         return self.add_stage(stage)
 
     def remove_stage(self, name):
@@ -598,7 +601,7 @@ class Pipeline:
             return stage.config.get("aliases", {})
         return stages_config.get(stage_name, {}).get("aliases", {})
 
-    def ordered_stages(self, overall_inputs, stages_config=None):
+    def ordered_stages(self, overall_inputs):
         """Produce a linear ordering for the stages.
 
         Some stages within the pipeline might be runnable in parallel; this
@@ -627,12 +630,6 @@ class Pipeline:
         """
         stage_names = self.stage_names[:]
 
-        if stages_config:
-            with open(stages_config) as fconfig:
-                stage_config_data = yaml.safe_load(fconfig)
-        else:
-            stage_config_data = {}
-
         # First pass, get the classes for all the stages
         stage_classes = []
         for stage_name in stage_names:
@@ -643,8 +640,9 @@ class Pipeline:
 
         # Check for a pipeline output that is already given as an input
         for stage_name in stage_names:
-            stage_class = self.stage_execution_config[stage_name].stage_class
-            stage_aliases = self.get_stage_aliases(stage_name, stage_config_data)
+            sec = self.stage_execution_config[stage_name]
+            stage_aliases = sec.aliases
+            stage_class = sec.stage_class
             for tag in stage_class.output_tags():
                 aliased_tag = stage_aliases.get(tag, tag)
                 if aliased_tag in overall_inputs:
@@ -659,107 +657,107 @@ class Pipeline:
         if len(stage_set) < len(stage_classes):
             raise ValueError("Some stages are included twice in your pipeline")
 
-        # make a dict mapping each tag to the stages that need it
-        # as an input. This is the equivalent of the adjacency matrix
-        # in graph-speak
-        dependencies = collections.defaultdict(list)
+        # Make a dict finding which stage makes each tag
+        creators = {}
         for stage_name in stage_names:
             stage_class = self.stage_execution_config[stage_name].stage_class
-            stage_aliases = self.get_stage_aliases(stage_name, stage_config_data)
+            stage_aliases = self.stage_execution_config[stage_name].aliases
+            for tag in stage_class.output_tags():
+                aliased_tag = stage_aliases.get(tag, tag)
+                if aliased_tag in creators:
+                    creator1 = creators[aliased_tag]
+                    raise ValueError(f"Tag {aliased_tag} is created by both {creator1} and {stage_name}")
+                creators[aliased_tag] = stage_name
+
+        # graphlib is new in python3.9 but available in backports for older versions.
+        # it provides a topological sort class that we use here.
+        graph = graphlib.TopologicalSorter()
+
+        # Go through all the stages and add them to the graph with any stages
+        # that they depend on
+        for stage_name in stage_names:
+            stage_class = self.stage_execution_config[stage_name].stage_class
+            stage_aliases = self.stage_execution_config[stage_name].aliases
+
+            # All stages can be added to the graph, then calling add
+            # again below will add the dependencies
+            graph.add(stage_name)
+
             for tag in stage_class.input_tags():
                 aliased_tag = stage_aliases.get(tag, tag)
-                dependencies[aliased_tag].append(stage_name)
+                creator = creators.get(aliased_tag)
 
-        # count the number of inputs required by each stage
-        missing_input_counts = {}
-        for stage_name in stage_names:
-            stage_class = self.stage_execution_config[stage_name].stage_class
-            missing_input_counts[stage_name] = len(stage_class.inputs)
+                # If the tag is in the overall inputs then there is no dependency
+                if aliased_tag in overall_inputs:
+                    pass
+                # If nothing creates the tag then it is an error
+                elif creator is None:
+                    raise ValueError(f"Tag {aliased_tag} is not created by any stage and is needed by stage {stage_name}")
+                # If the tag is created by another stage then add that as a dependency
+                else:
+                    graph.add(stage_name, creator)
 
-        found_inputs = set()
-        # record the stages which are receiving overall inputs
-        for tag in overall_inputs:
-            found_inputs.add(tag)
-            for stage_name in dependencies[tag]:
-                missing_input_counts[stage_name] -= 1
+        return list(graph.static_order())
 
-        # find all the stages that are ready because they have no missing inputs
-        queue = [
-            stage_name
-            for stage_name in stage_names
-            if missing_input_counts[stage_name] == 0
-        ]
-        ordered_stages = []
+    def initialize_stages(self, stage_names, overall_inputs, stages_config):
+        """Initialize the stages in the pipeline
 
+        Parameters
+        ----------
+        stage_names : list[str]
+            The ordered names of the stages to initialize
+        overall_inputs : dict{str: str}
+            Any inputs that do not need to be generated by the pipeline but are
+            instead already supplied at the start.  Mapping is from tag -> path.
+        stages_config: str, dict, or None
+            The configuration file for the stages, or the configuration dictionary
+
+        Returns
+        -------
+        stages : list[PipelineStage]
+        """
+        if isinstance(stages_config, str):
+            with open(stages_config) as f:
+                stages_config_data = yaml.safe_load(f)
+        elif isinstance(stages_config, dict):
+            stages_config_data = stages_config
+        elif stages_config is None:
+            stages_config_data = {}
+        else:
+            raise ValueError("stages_config must be a filename, a dict, or None")
+
+        stages = []
         all_inputs = overall_inputs.copy()
-
-        # make the ordering
-        while queue:
-            # get the next stage that has no inputs missing
-            stage_name = queue.pop()
+        for stage_name in stage_names:
+            # Find the stage class and execution config
             sec = self.stage_execution_config[stage_name]
+            stage_aliases = sec.aliases
             stage_class = sec.stage_class
-            stage_config = stage_config_data.get(stage_name, {})
-            stage_aliases = self.get_stage_aliases(stage_name, stage_config_data)
-            stage_inputs = {}
-            for tag in stage_class.input_tags():
-                aliased_tag = stage_aliases.get(tag, tag)
-                stage_inputs[aliased_tag] = all_inputs[aliased_tag]
-            stage_config.update(stage_inputs)
-            stage_config["config"] = stages_config
-            if sec.stage_obj is None:
-                stage = sec.build_stage_object(stage_config)
-            else:
+
+            # In interactive use the stage object might already be created
+            # otherwise we need to create it
+            if sec.stage_obj is not None:
                 stage = sec.stage_obj
-
-            # for file that stage produces,
-            stage_outputs = stage.find_outputs(".")
-            for tag in stage.output_tags():
-                # find all the next_stages that depend on that file
-                aliased_tag = stage.get_aliased_tag(tag)
-                found_inputs.add(aliased_tag)
-                all_inputs[aliased_tag] = stage_outputs[aliased_tag]
-                for next_stage in dependencies[aliased_tag]:
-                    # record that the next stage now has one less
-                    # missing dependency
-                    missing_input_counts[next_stage] -= 1
-                    # if that stage now has no missing stages
-                    # then enqueue it
-                    if missing_input_counts[next_stage] == 0:
-                        queue.append(next_stage)
-            ordered_stages.append(stage)
-
-        # If any stages are still not in the list then there is a problem.
-        # Try to diagnose it here.
-        if len(ordered_stages) != n:
-            stages_missing_inputs = [
-                stage_name
-                for (stage_name, count) in missing_input_counts.items()
-                if count > 0
-            ]
-            msg1 = []
-            for stage_name in stages_missing_inputs:
-                stage_aliases = self.get_stage_aliases(stage_name, stage_config_data)
-                stage_class = self.stage_execution_config[stage_name].stage_class
-                missing_inputs = []
+            else:
+                # Find the inputs for this stage and set up the arguments
+                # to the stage init method
+                args = stages_config_data.get(stage_name, {})
                 for tag in stage_class.input_tags():
                     aliased_tag = stage_aliases.get(tag, tag)
-                    if aliased_tag not in found_inputs:
-                        missing_inputs.append(aliased_tag)
-                missing_inputs = ", ".join(missing_inputs)
-                msg1.append(f"Stage {stage_name} is missing input(s): {missing_inputs}")
+                    args[aliased_tag] = all_inputs[aliased_tag]
+                args["config"] = stages_config
 
-            msg1 = "\n".join(msg1)
-            raise ValueError(
-                f"""
-Some required inputs to the pipeline could not be found,
-(or possibly your pipeline is cyclic):
+                # Make the stage object and find the outputs,
+                # keeping track of them for the next stages
+                stage = sec.build_stage_object(args)
+                stage_outputs = stage.find_outputs(".")
+                for tag in stage_class.output_tags():
+                    aliased_tag = stage_aliases.get(tag, tag)
+                    all_inputs[aliased_tag] = stage_outputs[aliased_tag]
 
-{msg1}
-"""
-            )
+            stages.append(stage)
+        return stages
 
-        return ordered_stages
 
     def initialize(self, overall_inputs, run_config, stages_config):
         """Load the configuation for this pipeline
@@ -795,7 +793,8 @@ Some required inputs to the pipeline could not be found,
             v.update(self.global_config)
 
         # Get the stages in the order we need.
-        self.stages = self.ordered_stages(self.overall_inputs, self.stages_config)
+        ordered_stages = self.ordered_stages(self.overall_inputs)
+        self.stages = self.initialize_stages(ordered_stages, self.overall_inputs, self.stages_config)
 
         # Initiate the run.
         # This is an implementation detail for the different subclasses to store

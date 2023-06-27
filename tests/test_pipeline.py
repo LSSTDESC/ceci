@@ -65,11 +65,11 @@ def test_orderings():
     # order should be A then C
     pipeline = Pipeline([C, B], launcher_config)
     order = pipeline.ordered_stages({"a": "a.txt"})
-    assert [s.name for s in order] == ["BBB", "CCC"]
+    assert order == ["BBB", "CCC"]
 
     pipeline = Pipeline([C, D, B], launcher_config)
     order = pipeline.ordered_stages({"a": "a.txt"})
-    assert [s.name for s in order] == ["BBB", "CCC", "DDD"]
+    assert order == ["BBB", "CCC", "DDD"]
 
     # Should fail - missing an input, 'a'
     with pytest.raises(ValueError):
