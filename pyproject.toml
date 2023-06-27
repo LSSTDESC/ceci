@@ -29,7 +29,7 @@ dynamic = ["version"]
 dependencies =[
     "pyyaml > 3",
     "psutil",
-    "graphlib_backport",
+    "graphlib_backport ; python_version < "3.9",
 ]
 
 
