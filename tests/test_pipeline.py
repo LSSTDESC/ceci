@@ -49,6 +49,24 @@ class DDD(PipelineStage):
     def run(self):
         pass
 
+class EEE1(PipelineStage):
+    name = "EEE1"
+    inputs = []
+    outputs = [("e", TextFile)]
+    config_options = {}
+
+    def run(self):
+        pass
+
+class EEE2(PipelineStage):
+    name = "EEE2"
+    inputs = []
+    outputs = [("e", TextFile)]
+    config_options = {}
+
+    def run(self):
+        pass
+
 
 def test_orderings():
 
@@ -59,6 +77,8 @@ def test_orderings():
     B = {"name": "BBB"}
     C = {"name": "CCC"}
     D = {"name": "DDD"}
+    E1= {"name": "EEE1"}
+    E2 = {"name": "EEE2"}
 
     # This one should work - basic pipeline
     # as long as we supply input 'a'.
@@ -91,6 +111,12 @@ def test_orderings():
     with pytest.raises(ValueError):
         pipeline = Pipeline([A, A], launcher_config)
         order = pipeline.ordered_stages({"b": "b.txt"})
+
+    # Should fail - two outputs with same name
+    with pytest.raises(ValueError):
+        pipeline = Pipeline([E1, E2], launcher_config)
+        order = pipeline.ordered_stages({})
+
 
 
 class FailingStage(PipelineStage):
@@ -232,6 +258,39 @@ MyStage:
             log = open(dirname + "/MyStage.out").read()
             print(log)
             assert status == 0
+
+
+def test_init_stages():
+    B = {"name": "BBB"}
+    C = {"name": "CCC"}
+    launcher_config = {"interval": 0.5, "name": "mini"}
+
+    # This one should work - basic pipeline
+    # as long as we supply input 'a'.
+    # order should be A then C
+    inputs = {"a": "a.txt"}
+
+    # Test initializing stages with a file name
+    pipeline = Pipeline([C, B], launcher_config)
+    order = pipeline.ordered_stages(inputs)
+    pipeline.initialize_stages(order, inputs, "tests/config.yml")
+
+    # Test initializing stages with dict
+    pipeline = Pipeline([C, B], launcher_config)
+    order = pipeline.ordered_stages(inputs)
+    pipeline.initialize_stages(order, inputs, {})
+
+    # Test initializing stages with nothing
+    pipeline = Pipeline([C, B], launcher_config)
+    order = pipeline.ordered_stages(inputs)
+    pipeline.initialize_stages(order, inputs, None)
+
+
+    # should fail - wrong type
+    p = MiniPipeline({}, [])
+    with pytest.raises(ValueError):
+        p.initialize_stages([], [], [])
+
 
 
 # this has to be here because we test running the pipeline

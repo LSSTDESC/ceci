@@ -1123,7 +1123,9 @@ I currently know about these stages:
 
         # This is all the config information in the file, including
         # things for other stages
-        if config_file is not None:
+        if isinstance(config_file, dict):
+            overall_config = config_file
+        elif config_file is not None:
             with open(config_file) as _config_file:
                 overall_config = yaml.safe_load(_config_file)
         else:
