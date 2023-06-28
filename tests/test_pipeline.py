@@ -130,7 +130,7 @@ class FailingStage(PipelineStage):
 
 
 def _return_value_test_(resume):
-    expected_status = 0 if resume else 1
+    expected_status = 0 if ((resume == "resume") or (resume is True)) else 1
     # Mini pipeline should not run
     launcher_config = {"interval": 0.5, "name": "mini"}
     run_config = {
@@ -159,10 +159,28 @@ def _return_value_test_(resume):
 
 def test_resume():
     _return_value_test_(True)
+    _return_value_test_("resume")
 
 
 def test_fail():
     _return_value_test_(False)
+    _return_value_test_("restart")
+
+def test_refuse():
+    launcher_config = {"interval": 0.5, "name": "mini"}
+    run_config = {
+        "log_dir": "./tests/logs",
+        "output_dir": "./tests/inputs",
+        "resume": "refuse",
+    }
+
+    pipeline = MiniPipeline([{"name": "FailingStage"}], launcher_config)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        pipeline.initialize({}, run_config, "tests/config.yml")
+        pipeline.run()
+
+    assert "Output files already exist for stage" in str(excinfo.value)
 
 
 def test_dry_run(mocker):
