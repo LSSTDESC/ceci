@@ -74,16 +74,10 @@ class CCParallel(Site):
 
     def configure_for_mini(self):
         """Utility function to setup self for local execution"""
-        total_cores = int(os.environ["NSLOTS"])
-        cores_per_node = 16  # seems to be the case
-        nodes = total_cores // cores_per_node
-        last_node_codes = total_cores % cores_per_node
+        nodes = int(os.environ["SLURM_JOB_NUM_NODES"])
+        cores_per_node = int(os.environ["SLURM_CPUS_ON_NODE"])
 
         nodes = [Node(f"Node_{i}", cores_per_node) for i in range(nodes)]
-
-        if last_node_codes:
-            i = len(nodes)
-            nodes.append(Node(f"Node_{i}", last_node_codes))
 
         self.info["nodes"] = nodes
 
