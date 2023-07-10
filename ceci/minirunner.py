@@ -9,6 +9,7 @@ It launches only local jobs, so is designed for debugging or for use on NERSC in
 import subprocess
 import time
 from timeit import default_timer
+import sys
 
 # Constant indicators
 COMPLETE = 0
@@ -279,6 +280,7 @@ class Runner:
                 EVENT_LAUNCH,
                 {"job": job, "stdout": stdout_file, "process": p, "nodes": alloc},
             )
+        sys.stdout.flush()
 
     def _ready_jobs(self):
         # Find jobs ready to be run now
@@ -366,7 +368,7 @@ class Runner:
                 completed_jobs.append(job)
                 for node in alloc:
                     node.free()
-
+        sys.stdout.flush()
         self.running = continuing_jobs
 
         for job in completed_jobs:
