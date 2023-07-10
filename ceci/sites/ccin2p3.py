@@ -7,6 +7,7 @@ from ..minirunner import Node
 
 class CCParallel(Site):
     """Object representing execution in the local environment, e.g. a laptop."""
+    default_mpi_command = "srun -u -n"
 
     def command(self, cmd, sec):
         """Generate a complete command line to be run with the specified execution variables.
