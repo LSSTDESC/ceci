@@ -28,7 +28,7 @@ class CCParallel(Site):
             The complete decorated command to be executed.
         """
 
-        mpi1 = f"{self.mpi_command} {sec.nprocess} "
+        mpi1 = f"{self.mpi_command} {sec.nprocess} -c {sec.threads_per_process} "
         mpi2 = "--mpi" if sec.nprocess > 1 else ""
         volume_flag = f"--bind {sec.volume} " if sec.volume else ""
         paths = self.config.get("python_paths", [])
