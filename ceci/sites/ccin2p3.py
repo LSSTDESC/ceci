@@ -75,8 +75,8 @@ class CCParallel(Site):
 
     def configure_for_mini(self):
         """Utility function to setup self for local execution"""
-        nodes = int(os.environ["SLURM_JOB_NUM_NODES"])
-        cores_per_node = int(os.environ["SLURM_CPUS_ON_NODE"])
+        nodes = int(os.environ.get("SLURM_JOB_NUM_NODES", "1"))
+        cores_per_node = int(os.environ.get("SLURM_CPUS_ON_NODE", "1"))
 
         nodes = [Node(f"Node_{i}", cores_per_node) for i in range(nodes)]
 
