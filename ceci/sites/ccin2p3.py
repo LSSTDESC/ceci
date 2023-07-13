@@ -7,7 +7,7 @@ from ..minirunner import Node
 
 class CCParallel(Site):
     """Object representing execution in the local environment, e.g. a laptop."""
-    default_mpi_command = "srun -u -n"
+    default_mpi_command = "mpirun -n"
 
     def command(self, cmd, sec):
         """Generate a complete command line to be run with the specified execution variables.
@@ -29,7 +29,7 @@ class CCParallel(Site):
             The complete decorated command to be executed.
         """
 
-        mpi1 = f"{self.mpi_command} {sec.nprocess} -c {sec.threads_per_process} "
+        mpi1 = f"{self.mpi_command} {sec.nprocess} "
         mpi2 = "--mpi" if sec.nprocess > 1 else ""
         volume_flag = f"--bind {sec.volume} " if sec.volume else ""
         paths = self.config.get("python_paths", [])
