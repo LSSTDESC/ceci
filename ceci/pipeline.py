@@ -471,7 +471,7 @@ class Pipeline:
 
         config_file = registry_config.get("config")
         if config_file is None:
-            config_file = "$~/.config_reg_access"
+            config_file = "~/.config_reg_access"
         config_file = os.path.expanduser(config_file)
         config_file = os.path.expandvars(config_file)
 
@@ -487,8 +487,6 @@ class Pipeline:
             "query": query,
             "config": registry_config,
             "root_dir": reg.root_dir,
-            "owner": reg._owner,
-            "owner_type": reg._owner_type
         }
 
 
@@ -508,8 +506,6 @@ class Pipeline:
 
         root_dir = self.data_registry["root_dir"]
         query = self.data_registry["query"]
-        owner = self.data_registry["owner"]
-        owner_type = self.data_registry["owner_type"]
 
         # We have various ways of looking up a dataset
         # 1. By id
@@ -526,7 +522,7 @@ class Pipeline:
 
         # Main finder method
         results = query.find_datasets(
-            ["dataset.dataset_id", "dataset.name", "dataset.relative_path"],
+            ["dataset.dataset_id", "dataset.name", "dataset.relative_path",  "dataset.owner_type", "dataset.owner"],
             [filter],
         )
         # Check that we find exactly one dataset matching the query
@@ -535,9 +531,10 @@ class Pipeline:
             raise ValueError(f"Could not find dataset matching {info} in registry")
         elif len(results) > 1:
             raise ValueError(f"Found multiple datasets matching {info} in registry")
-        else:
-            relative_path = results[0].relative_path
-        full_path = os.path.join(root_dir, owner_type, owner, relative_path)
+
+        # Get the absolute path
+        r = results[0]
+        full_path = os.path.join(root_dir, r.owner_type, r.owner, r.relative_path)
         return full_path
 
 
