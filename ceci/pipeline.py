@@ -563,8 +563,6 @@ class Pipeline:
                     raise ValueError(f"Missing lookup method for input {tag}")
                 if value["lookup"] == "registry":
                     paths[tag] = self.data_registry_lookup(value)
-                    print(f"Located input {tag} at {paths[tag]} using data registry")
-
                 else:
                     raise ValueError(f"Unknown lookup method {value['lookup']}")
             elif value is None:
