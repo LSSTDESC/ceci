@@ -556,15 +556,9 @@ class Pipeline:
                 paths[tag] = value
             # Case 2, dictionary with lookup method
             elif isinstance(value, dict):
-                # For now the only lookup method is registry,
-                # but we might add others in the future, e.g.
-                # for remote lookup by URL.
-                if "lookup" not in value:
-                    raise ValueError(f"Missing lookup method for input {tag}")
-                if value["lookup"] == "registry":
-                    paths[tag] = self.data_registry_lookup(value)
-                else:
-                    raise ValueError(f"Unknown lookup method {value['lookup']}")
+                # This means that we will look up a path
+                # using the data registry
+                paths[tag] = self.data_registry_lookup(value)
             elif value is None:
                 paths[tag] = None
             else:
