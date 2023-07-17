@@ -457,6 +457,8 @@ class Pipeline:
         """
         Set up the data registry.
 
+        # TODO: interactive version
+
         Parameters
         ----------
         registry_config : dict
@@ -466,14 +468,15 @@ class Pipeline:
 
         # Use the default config file recommended by the data registry docs
         # if none is specified.
-
-        # TODO: interactive version
-
         config_file = registry_config.get("config")
         if config_file is None:
             config_file = "~/.config_reg_access"
         config_file = os.path.expanduser(config_file)
         config_file = os.path.expandvars(config_file)
+
+        if not os.environ.get("NERSC_HOST"):
+            warnings.warn("The Data Registry is only available on NERSC: not setting it up now.")
+            return None
 
         # Make the database connection and the two main objects
         # we use to connect with it.
