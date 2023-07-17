@@ -319,7 +319,7 @@ class Pipeline:
         """
         self.launcher_config = launcher_config
 
-        self.overall_inputs = kwargs.get("overall_inputs", {}).copy()
+        self.overall_inputs = self.process_overall_inputs(kwargs.get("overall_inputs", {}))
         self.modules = kwargs.get("modules", "")
 
         # These are populated as we add stages below
@@ -333,6 +333,7 @@ class Pipeline:
         self.pipeline_outputs = None
         self.stages_config = None
         self.stage_config_data = None
+        self.data_registry = None
         self.global_config = {}
 
         # Store the individual stage informaton
@@ -364,6 +365,7 @@ class Pipeline:
             "log_dir": pipe_config.get("log_dir", "."),
             "resume": pipe_config.get("resume", False),
             "flow_chart": pipe_config.get("flow_chart", ""),
+            "registrar": pipe_config.get("registrar", None),
         }
 
         launcher_dict = dict(cwl=CWLPipeline, parsl=ParslPipeline, mini=MiniPipeline)
@@ -450,6 +452,118 @@ class Pipeline:
         for stage in self.stages:
             stream.write(f"{stage.instance_name:20}: {str(stage)}")
             stream.write("\n")
+
+    def setup_data_registry(self, registry_config):
+        """
+        Set up the data registry.
+
+        Parameters
+        ----------
+        registry_config : dict
+            A dictionary with information about the data registry to use
+        """
+        from dataregistry import Registrar, Query, create_db_engine, SCHEMA_VERSION
+
+        # Use the default config file recommended by the data registry docs
+        # if none is specified.
+        config_file = registry_config.get("config")
+        if config_file is None:
+            config_file = "~/.config_reg_access"
+        config_file = os.path.expandvars(config_file)
+
+        # Make the database connection and the two main objects
+        # we use to connect with it.
+        engine, dialect = create_db_engine(config_file=config)
+        reg = Registrar(db_engine=engine, dialect=dialect, schema_version=SCHEMA_VERSION)
+        query = Query(engine, dialect, schema_version=SCHEMA_VERSION)
+
+        # Save the things that may be useful.
+        return data_registry = {
+            "registrar": reg,
+            "query": query,
+            "config": registry_config,
+            "root_dir": reg.root_dir,
+        }
+
+
+    def data_registry_lookup(self, info):
+        """
+        Look up a dataset in the data registry
+
+        Parameters
+        ----------
+        info : dict
+            A dictionary with information about the dataset to look up. Must contain
+            either an id, and alias, or a name
+        """
+        from dataregistry.query import Filter
+
+        if self.data_registry is None:
+            raise ValueError("No data registry configured")
+
+        root_dir = self.data_registry["root_dir"]
+        query = self.data_registry["query"]
+
+        # We have various ways of looking up a dataset
+        # 1. By id
+        # 2. By name
+        # 3. By alias
+        if "id" in info:
+            filter = Filter("dataset.dataset_id", "==", info["id"])
+        elif "name" in info:
+            filter = Filter("dataset.name", "==", info["name"])
+        elif "alias" in info:
+            raise NotImplementedError("Alias lookup not yet implemented")
+        else:
+            raise ValueError("Must specify either id or name in registry lookup")
+
+        # Main finder method
+        results = query.find_datasets(
+            ["dataset.dataset_id", "dataset.name", "dataset.relative_path"],
+            [filter],
+        )
+        # Check that we find exactly one dataset matching the query
+        results = list(results)
+        if len(results) == 0:
+            raise ValueError(f"Could not find dataset matching {info} in registry")
+        elif len(results) > 1:
+            raise ValueError(f"Found multiple datasets matching {info} in registry")
+        else:
+            relative_path = results[0]["dataset"]["relative_path"]
+
+        return os.path.join(root_dir, relative_path)
+
+
+    def process_overall_inputs(self, inputs):
+        """
+        Find the correct paths for the overall inputs to the pipeline.
+
+        Paths may be explicit strings, or may be looked up in the data registry.
+
+        Parameters
+        ----------
+        inputs : dict
+            A dictionary of inputs to the pipeline
+        """
+        paths = {}
+        for tag, value in inputs.items():
+            # Case 1, explicit lookup (the original version)
+            if isinstance(value, str):
+                paths[tag] = value
+            # Case 2, dictionary with lookup method
+            elif isinstance(value, dict):
+                # For now the only lookup method is registry,
+                # but we might add others in the future, e.g.
+                # for remote lookup by URL.
+                if "lookup" not in value:
+                    raise ValueError(f"Missing lookup method for input {tag}")
+                if paths["lookup"] == "registry":
+                    paths[tag] = self.data_registry_lookup(value)
+                else:
+                    raise ValueError(f"Unknown lookup method {value['lookup']}")
+            else:
+                raise ValueError(f"Unknown input type {type(value)}")
+        return paths
 
     @classmethod
     def read(cls, pipeline_config_filename, extra_config=None, dry_run=False):
@@ -779,9 +893,13 @@ Some required inputs to the pipeline could not be found,
         self.run_config : copy of configuration parameters on how to run the pipeline
         """
 
-        # Make a copy, since we maybe be modifying these
-        self.overall_inputs = overall_inputs.copy()
+        # Set up paths to our overall input files
+        if run_config.get("registry") is not None:
+            self.data_registry = self.setup_data_registry(run_config["registry"])
+        self.overall_inputs = self.process_overall_inputs(overall_inputs)
         self.pipeline_files.insert_paths(self.overall_inputs)
+
+        # Make a copy, since we maybe be modifying these
         self.run_config = run_config.copy()
 
         self.stages_config = stages_config
