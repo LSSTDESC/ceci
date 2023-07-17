@@ -466,6 +466,9 @@ class Pipeline:
 
         # Use the default config file recommended by the data registry docs
         # if none is specified.
+
+        # TODO: interactive version
+
         config_file = registry_config.get("config")
         if config_file is None:
             config_file = "~/.config_reg_access"
@@ -473,12 +476,12 @@ class Pipeline:
 
         # Make the database connection and the two main objects
         # we use to connect with it.
-        engine, dialect = create_db_engine(config_file=config)
+        engine, dialect = create_db_engine(config_file=config_file)
         reg = Registrar(db_engine=engine, dialect=dialect, schema_version=SCHEMA_VERSION)
         query = Query(engine, dialect, schema_version=SCHEMA_VERSION)
 
         # Save the things that may be useful.
-        return data_registry = {
+        return {
             "registrar": reg,
             "query": query,
             "config": registry_config,
