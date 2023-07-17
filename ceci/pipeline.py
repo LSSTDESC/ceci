@@ -318,8 +318,9 @@ class Pipeline:
             Space seperated path of modules loaded for this pipeline
         """
         self.launcher_config = launcher_config
+        self.data_registry = None
 
-        self.overall_inputs = self.process_overall_inputs(kwargs.get("overall_inputs", {}))
+        self.overall_inputs = {}
         self.modules = kwargs.get("modules", "")
 
         # These are populated as we add stages below
@@ -333,7 +334,6 @@ class Pipeline:
         self.pipeline_outputs = None
         self.stages_config = None
         self.stage_config_data = None
-        self.data_registry = None
         self.global_config = {}
 
         # Store the individual stage informaton
@@ -365,7 +365,7 @@ class Pipeline:
             "log_dir": pipe_config.get("log_dir", "."),
             "resume": pipe_config.get("resume", False),
             "flow_chart": pipe_config.get("flow_chart", ""),
-            "registrar": pipe_config.get("registrar", None),
+            "registry": pipe_config.get("registry", None),
         }
 
         launcher_dict = dict(cwl=CWLPipeline, parsl=ParslPipeline, mini=MiniPipeline)
@@ -462,7 +462,7 @@ class Pipeline:
         registry_config : dict
             A dictionary with information about the data registry to use
         """
-        from dataregistry import Registrar, Query, create_db_engine, SCHEMA_VERSION
+        from dataregistry import Registrar, Query, create_db_engine, SCHEMA_VERSION, ownertypeenum
 
         # Use the default config file recommended by the data registry docs
         # if none is specified.
@@ -471,13 +471,14 @@ class Pipeline:
 
         config_file = registry_config.get("config")
         if config_file is None:
-            config_file = "~/.config_reg_access"
+            config_file = "$~/.config_reg_access"
+        config_file = os.path.expanduser(config_file)
         config_file = os.path.expandvars(config_file)
 
         # Make the database connection and the two main objects
         # we use to connect with it.
         engine, dialect = create_db_engine(config_file=config_file)
-        reg = Registrar(db_engine=engine, dialect=dialect, schema_version=SCHEMA_VERSION)
+        reg = Registrar(engine, dialect, ownertypeenum.user, owner="user", schema_version=SCHEMA_VERSION)
         query = Query(engine, dialect, schema_version=SCHEMA_VERSION)
 
         # Save the things that may be useful.
@@ -486,6 +487,8 @@ class Pipeline:
             "query": query,
             "config": registry_config,
             "root_dir": reg.root_dir,
+            "owner": reg._owner,
+            "owner_type": reg._owner_type
         }
 
 
@@ -500,12 +503,13 @@ class Pipeline:
             either an id, and alias, or a name
         """
         from dataregistry.query import Filter
-
         if self.data_registry is None:
             raise ValueError("No data registry configured")
 
         root_dir = self.data_registry["root_dir"]
         query = self.data_registry["query"]
+        owner = self.data_registry["owner"]
+        owner_type = self.data_registry["owner_type"]
 
         # We have various ways of looking up a dataset
         # 1. By id
@@ -532,9 +536,9 @@ class Pipeline:
         elif len(results) > 1:
             raise ValueError(f"Found multiple datasets matching {info} in registry")
         else:
-            relative_path = results[0]["dataset"]["relative_path"]
-
-        return os.path.join(root_dir, relative_path)
+            relative_path = results[0].relative_path
+        full_path = os.path.join(root_dir, owner_type, owner, relative_path)
+        return full_path
 
 
     def process_overall_inputs(self, inputs):
@@ -560,10 +564,14 @@ class Pipeline:
                 # for remote lookup by URL.
                 if "lookup" not in value:
                     raise ValueError(f"Missing lookup method for input {tag}")
-                if paths["lookup"] == "registry":
+                if value["lookup"] == "registry":
                     paths[tag] = self.data_registry_lookup(value)
+                    print(f"Located input {tag} at {paths[tag]} using data registry")
+
                 else:
                     raise ValueError(f"Unknown lookup method {value['lookup']}")
+            elif value is None:
+                paths[tag] = None
             else:
                 raise ValueError(f"Unknown input type {type(value)}")
         return paths
