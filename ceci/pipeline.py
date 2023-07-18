@@ -6,6 +6,7 @@ import collections
 import yaml
 import shutil
 from abc import abstractmethod
+import warnings
 
 from .stage import PipelineStage
 from . import minirunner
@@ -453,7 +454,7 @@ class Pipeline:
             stream.write(f"{stage.instance_name:20}: {str(stage)}")
             stream.write("\n")
 
-    def setup_data_registry(self, registry_config):
+    def setup_data_registry(self, registry_config): #pragma: no cover
         """
         Set up the data registry.
 
@@ -493,7 +494,7 @@ class Pipeline:
         }
 
 
-    def data_registry_lookup(self, info):
+    def data_registry_lookup(self, info): #pragma: no cover
         """
         Look up a dataset in the data registry
 
@@ -503,7 +504,7 @@ class Pipeline:
             A dictionary with information about the dataset to look up. Must contain
             either an id, and alias, or a name
         """
-        from dataregistry.query import Filter
+        from dataregistry import Filter
         if self.data_registry is None:
             raise ValueError("No data registry configured")
 
@@ -558,7 +559,7 @@ class Pipeline:
             if isinstance(value, str):
                 paths[tag] = value
             # Case 2, dictionary with lookup method
-            elif isinstance(value, dict):
+            elif isinstance(value, dict):  #pragma: no cover
                 # This means that we will look up a path
                 # using the data registry
                 paths[tag] = self.data_registry_lookup(value)
