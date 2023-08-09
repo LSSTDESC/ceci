@@ -874,7 +874,9 @@ class Pipeline:
                 classname=val.class_name,
                 nprocess=val.nprocess,
                 module_name=val.module_name,
+                aliases=val.aliases,
             )
+
             if val.threads_per_process != 1:
                 pipe_stage_info["threads_per_process"] = val.threads_per_process
             pipe_info_list.append(pipe_stage_info)
@@ -902,12 +904,12 @@ class Pipeline:
         pipe_dict["site"] = site
         with open(pipefile, "w") as outfile:
             try:
-                yaml.dump(pipe_dict, outfile)
+                yaml.dump(pipe_dict, outfile, sort_keys=False)
             except Exception as msg:  # pragma: no cover
                 print(f"Failed to save {str(pipe_dict)} because {msg}")
         with open(stagefile, "w") as outfile:
             try:
-                yaml.dump(stage_dict, outfile)
+                yaml.dump(stage_dict, outfile, sort_keys=False)
             except Exception as msg:  # pragma: no cover
                 print(f"Failed to save {str(stage_dict)} because {msg}")
 
