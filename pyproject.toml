@@ -27,7 +27,7 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies =[
-    "pyyaml > 3",
+    "pyyaml >= 5.1",
     "psutil",
     'graphlib_backport ; python_version < "3.9"',
 ]
