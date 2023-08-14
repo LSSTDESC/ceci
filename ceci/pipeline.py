@@ -1033,7 +1033,7 @@ class ParslPipeline(Pipeline):
         # have parsl queue the app
         future = app(inputs=inputs, outputs=outputs)
         self.run_info.append((stage.instance_name, future))
-        return {tag: future.outputs[i] for i, tag in enumerate(stage.output_tags())}
+        return {stage.get_aliased_tag(tag): future.outputs[i] for i, tag in enumerate(stage.output_tags())}
 
     def run_jobs(self):
         from parsl.app.errors import BashExitFailure
@@ -1124,8 +1124,10 @@ Standard error:
         # Parsl wants our functions to take their input/output paths
         # from inputs[0], inputs[1], etc.
         for i, inp in enumerate(stage.input_tags()):
+            inp = stage.get_aliased_tag(inp)
             inputs[inp] = f"{{inputs[{i}]}}"
         for i, out in enumerate(stage.output_tags()):
+            out = stage.get_aliased_tag(out)
             outputs[out] = f"{{outputs[{i}]}}"
 
         # The last input file is always the config file

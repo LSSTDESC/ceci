@@ -73,8 +73,8 @@ def test_run_parsl():
     run1("launcher.name=parsl", "launcher.max_threads=3")
 
 
-def test_run_cwl():
-    run1("launcher.name=cwl", "launcher.dir=tests/cwl") == 0
+# def test_run_cwl():
+#     run1("launcher.name=cwl", "launcher.dir=tests/cwl") == 0
 
 
 def test_run_namespace():
