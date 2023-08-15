@@ -89,10 +89,10 @@ def test_interactive_pipeline():
     pipe2.build_stage(WLGCSelector, zbin_edges=[0.2, 0.3, 0.5], ra_range=[-5, 5])
     pipe2.build_stage(SysMapMaker)
     pipe2.build_stage(SourceSummarizer)
-    pipe2.build_stage(WLGCCov, aliases=dict(covariance='covariance_copy'))
+    pipe2.build_stage(WLGCCov, aliases=dict(covariance_1='covariance_copy'))
     pipe2.build_stage(WLGCRandoms)
     pipe2.build_stage(WLGCTwoPoint, name="WLGC2Point")
-    pipe2.build_stage(WLGCSummaryStatistic, aliases=dict(covariance='covariance_copy'))
+    pipe2.build_stage(WLGCSummaryStatistic, aliases=dict(covariance_2='covariance_copy'))
 
     assert len(pipe2.WLGCCov.outputs) == 1
 
@@ -107,7 +107,7 @@ def test_interactive_pipeline():
 
     path = pipe2.pipeline_files.get_path('covariance_copy')
     assert pipe2.pipeline_files.get_tag(path) == 'covariance_copy'
-    assert pipe2.pipeline_files.get_type('covariance_copy') == pipe2.WLGCCov.get_output_type('covariance')
+    assert pipe2.pipeline_files.get_type('covariance_copy') == pipe2.WLGCCov.get_output_type('covariance_1')
 
     pipe2.run()
 
