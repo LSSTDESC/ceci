@@ -187,10 +187,13 @@ class StageExecutionConfig:
         # EAC.  Ideally we would just pass the aliases into the c'tor of self.stage_class(),
         # but that would requiring changing the signature of every sub-class, so we do this
         # instead.  At some point we might want to migrate to doing it the better way
-        self.stage_obj = self.stage_class(args)
-        self.stage_obj._aliases.update(**self.aliases)
-        self.stage_obj._io_checked = False
-        self.stage_obj.check_io()
+        try:
+            self.stage_obj = self.stage_class(args, aliases=self.aliases)
+        except TypeError:
+            self.stage_obj = self.stage_class(args)
+            self.stage_obj._aliases.update(**self.aliases)
+            self.stage_obj._io_checked = False
+            self.stage_obj.check_io()
         return self.stage_obj
 
     def generate_full_command(self, inputs, outputs, config):
