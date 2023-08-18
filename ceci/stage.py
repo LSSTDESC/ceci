@@ -117,7 +117,14 @@ class PipelineStage:
             for output_ in cls.outputs:  # pylint: disable=no-member
                 outtag = output_[0]
                 aliases[outtag] = f"{outtag}_{name}"
-        return cls(kwcopy, comm=comm, aliases=aliases)
+        # EAC.  Ideally we would just pass the aliases into the construction call
+        # but that would requiring changing the signature of every sub-class, so we do this
+        # instead.  At some point we might want to migrate to doing it the better way
+        stage = cls(kwcopy, comm=comm)
+        stage._aliases.update(**aliases)
+        stage._io_checked = False
+        stage.check_io()
+        return stage
 
     def get_aliases(self):
         """Returns the dictionary of aliases used to remap inputs and outputs
