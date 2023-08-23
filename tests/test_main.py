@@ -1,4 +1,5 @@
 from ceci.main import run_pipeline
+from ceci.tools.ancestors import print_ancestors
 from parsl import clear
 import tempfile
 import os
@@ -54,6 +55,19 @@ def test_run_cwl():
 def test_run_namespace():
     run1(config_yaml="tests/test_namespace.yml", expect_outputs=False) == 0
   
+def test_ancestors_stage(capsys):
+    print_ancestors("tests/test.yml", "WLGCRandoms")
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "SysMapMaker"
+
+def test_ancestors_output(capsys):
+    print_ancestors("tests/test.yml", "tomography_catalog")
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "shearMeasurementPipe\nPZEstimationPipe"
+
+def test_ancestors_broken(capsys):
+    with pytest.raises(ValueError):
+        print_ancestors("tests/test.yml", "not-a-real-stage-or-output")
 
 
 
