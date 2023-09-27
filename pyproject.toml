@@ -47,6 +47,7 @@ packages = [
 
 [project.scripts]
 ceci = "ceci.main:main"
+ceci-update-for-version-2 = "ceci.update_pipelines_for_ceci_2:main"
 
 [project.optional-dependencies]
 

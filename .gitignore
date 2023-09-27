@@ -18,3 +18,4 @@ nb/Untitled.ipynb
 out/
 test/
 dask-worker-space/
+ceci/_version.py
