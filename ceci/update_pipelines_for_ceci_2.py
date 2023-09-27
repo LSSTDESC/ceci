@@ -26,7 +26,7 @@ def update_pipeline_file(pipeline_info, config_info):
 
 def update_config_file(config_info):
     for stage_info in config_info.values():
-        stage_info.pop("aliases", None)
+        r = stage_info.pop("aliases", None)
 
 
 def update_pipeline_file_group(pipeline_files):
@@ -74,8 +74,9 @@ def update_pipeline_file_group(pipeline_files):
         yaml.dump(config_info, f)
 
 
-def main(base_dir):
+def scan_directory_and_update(base_dir):
     groups = collections.defaultdict(list)
+    yaml = ruamel.yaml.YAML()
     for dirpath, subdirs, filenames in os.walk(base_dir):
         # just process yaml files
         for filename in filenames:
@@ -84,14 +85,14 @@ def main(base_dir):
             filepath = os.path.join(dirpath, filename)
             with open(filepath) as f:
                 yaml_str = f.read()
-            info = ruamel.yaml.safe_load(yaml_str)
+            info = yaml.load(yaml_str)
 
             if is_pipeline_file(info):
                 config = info["config"]
                 groups[config].append(filepath)
 
-
     for config_filename, group in groups.items():
+        print("Updating group:", group)
         try:
             with open(config_filename) as f:
                 yaml_str = f.read()
@@ -103,7 +104,11 @@ def main(base_dir):
 
         update_pipeline_file_group(group)
 
-if __name__ == "__main__":
+
+def main():
     if len(sys.argv) != 2:
         raise ValueError("Please supply a base directory to work on")
-    main(sys.argv[1])
+    scan_directory_and_update(sys.argv[1])
+
+if __name__ == "__main__":
+    main()
