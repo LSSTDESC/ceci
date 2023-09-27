@@ -1,5 +1,6 @@
 config: tests/update_test_files/config.yml
-site:
+site: {}
+stages:
   - name: AAA
     nodes: 1
   - name: BBB
