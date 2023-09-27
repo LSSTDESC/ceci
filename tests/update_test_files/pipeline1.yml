@@ -1,8 +1,8 @@
 config: tests/update_test_files/config.yml
 site:
-  - AAA
+  - name: AAA
     nodes: 1
-  - BBB
+  - name: BBB
     processes_per_node: 2
 launcher: {}
 inputs: {}
