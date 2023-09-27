@@ -1,0 +1,8 @@
+config: tests/update_test_files/config.yml
+site:
+  - AAA
+    nodes: 1
+  - BBB
+    processes_per_node: 2
+launcher: {}
+inputs: {}

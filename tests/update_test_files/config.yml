@@ -1,0 +1,13 @@
+AAA:
+  aliases:
+    aaa: aaa1
+    bbb: bbb1
+  x: 1.0
+  y: "potato"
+
+BBB:
+  aliases:
+    ccc: aaa1
+    ddd: bbb1
+  x: 1.0
+  y: "spoon"
