@@ -333,6 +333,16 @@ class PipelineStage:
         # Find the absolute path to the class defining the file
         path = pathlib.Path(filename).resolve()
 
+        # Add a description of the parameters to the end of the docstring
+        if stage_is_complete:
+            config_text = cls._describe_configuration_text()
+            if cls.__doc__ is None:
+                cls.__doc__ = f"Stage {cls.name}\n\nConfiguration Parameters:\n{config_text}"
+            else:
+                # strip any existing configuration text from parent classes that is at the end of the doctring
+                cls.__doc__ = cls.__doc__.split("Configuration Parameters:")[0]
+                cls.__doc__ += f"\n\nConfiguration Parameters:\n{config_text}"
+
         # Register the class
         if stage_is_complete:
             cls.pipeline_stages[cls.name] = (cls, path)
@@ -397,6 +407,26 @@ class PipelineStage:
             The module containing this class.
         """
         return cls.pipeline_stages[cls.name][0].__module__
+
+    @classmethod
+    def describe_configuration(cls):
+        print(cls._describe_configuration_text())
+
+    @classmethod
+    def _describe_configuration_text(cls):
+        s = []
+        for name, val in cls.config_options.items():
+            if isinstance(val, StageParameter):
+                if val.required:
+                    txt = f"[{val.dtype.__name__}]: {val._help}  (required)"
+                else:
+                    txt = f"[{val.dtype.__name__}]: {val._help} (default={val.default})"
+            elif isinstance(val, type):
+                txt = f"[{val.__name__}]: (required)"
+            else:
+                txt = f"[{type(val).__name__}]: (default={val})"
+            s.append(f"{name} {txt} ")
+        return '\n'.join(s)
 
     @classmethod
     def usage(cls):  # pragma: no cover
