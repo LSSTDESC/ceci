@@ -424,9 +424,9 @@ class PipelineStage:
                         txt = f"[{val.dtype.__name__}]: {val._help}  (required)"
                 else:
                     if val.dtype is None:
-                        txt = f"[{val.dtype.__name__}]: {val._help} (default={val.default})"
-                    else:
                         txt = f"[type not specified]: {val._help} (default={val.default})"
+                    else:
+                        txt = f"[{val.dtype.__name__}]: {val._help} (default={val.default})"
             elif isinstance(val, type):
                 txt = f"[{val.__name__}]: (required)"
             else:
