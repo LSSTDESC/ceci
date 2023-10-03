@@ -418,9 +418,15 @@ class PipelineStage:
         for name, val in cls.config_options.items():
             if isinstance(val, StageParameter):
                 if val.required:
-                    txt = f"[{val.dtype.__name__}]: {val._help}  (required)"
+                    if val.dtype is None:
+                        txt = f"[type not specified]: {val._help} (required)"
+                    else:
+                        txt = f"[{val.dtype.__name__}]: {val._help}  (required)"
                 else:
-                    txt = f"[{val.dtype.__name__}]: {val._help} (default={val.default})"
+                    if val.dtype is None:
+                        txt = f"[{val.dtype.__name__}]: {val._help} (default={val.default})"
+                    else:
+                        txt = f"[type not specified]: {val._help} (default={val.default})"
             elif isinstance(val, type):
                 txt = f"[{val.__name__}]: (required)"
             else:
