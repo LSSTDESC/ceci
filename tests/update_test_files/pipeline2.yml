@@ -1,0 +1,11 @@
+config: config.yml
+site: {}
+stages:
+  - name: AAA
+    nodes: 1
+  - name: BBB  # This comment should be preserved
+    processes_per_node: 2
+  - name: CCC  # So should this
+    processes_per_node: 2
+launcher: {}
+inputs: {}

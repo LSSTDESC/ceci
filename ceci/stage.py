@@ -42,7 +42,7 @@ class PipelineStage:
     doc = ""
     allow_reload = False
 
-    def __init__(self, args, comm=None):
+    def __init__(self, args, comm=None, aliases=None):
         """Construct a pipeline stage, specifying the inputs, outputs, and configuration for it.
 
         The constructor needs a dict or namespace. It should include:
@@ -82,6 +82,8 @@ class PipelineStage:
             Specification of input and output paths and any missing config options
         comm: MPI communicator
             (default is None) An MPI comm object to use in preference to COMM_WORLD
+        aliases: dict
+            Mapping of tags to new tags
         """
         self._configs = StageConfig(**self.config_options)
         self._inputs = None
@@ -92,10 +94,14 @@ class PipelineStage:
         self._rank = 0
         self._io_checked = False
         self.dask_client = None
+        if aliases is None:
+            aliases = {}
+        self._aliases = aliases
 
         self.load_configs(args)
         if comm is not None:
             self.setup_mpi(comm)
+
 
     @classmethod
     def make_stage(cls, **kwargs):
@@ -111,13 +117,19 @@ class PipelineStage:
             for output_ in cls.outputs:  # pylint: disable=no-member
                 outtag = output_[0]
                 aliases[outtag] = f"{outtag}_{name}"
-        kwcopy["aliases"] = aliases
-        return cls(kwcopy, comm=comm)
+        # EAC.  Ideally we would just pass the aliases into the construction call
+        # but that would requiring changing the signature of every sub-class, so we do this
+        # instead.  At some point we might want to migrate to doing it the better way
+        stage = cls(kwcopy, comm=comm)
+        stage._aliases.update(**aliases)
+        stage._io_checked = False
+        stage.check_io()
+        return stage
 
     def get_aliases(self):
         """Returns the dictionary of aliases used to remap inputs and outputs
         in the case that we want to have multiple instance of this class in the pipeline"""
-        return self.config.get("aliases", None)
+        return self._aliases
 
     def get_aliased_tag(self, tag):
         """Returns the possibly remapped value for an input or output tag
@@ -133,8 +145,6 @@ class PipelineStage:
             The aliases version of the tag
         """
         aliases = self.get_aliases()
-        if aliases is None:
-            return tag
         return aliases.get(tag, tag)
 
     @abstractmethod
@@ -1154,7 +1164,9 @@ I currently know about these stages:
 
         # This is all the config information in the file, including
         # things for other stages
-        if config_file is not None:
+        if isinstance(config_file, dict):
+            overall_config = config_file
+        elif config_file is not None:
             with open(config_file) as _config_file:
                 overall_config = yaml.safe_load(_config_file)
         else:

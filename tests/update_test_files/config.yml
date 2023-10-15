@@ -1,0 +1,15 @@
+AAA:
+    name: "AAA" # for debugging
+    x: 1.0
+    y: potato
+    aliases:
+        aaa: aaa1
+        bbb: bbb1
+
+BBB:
+    name: "BBB" # for debugging
+    x: 1.0
+    y: spoon
+    aliases:
+      bbb: bbb1
+      ccc: ccc1
