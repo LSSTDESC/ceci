@@ -258,8 +258,8 @@ class StageConfig(dict):
             self[key] = val
 
         for key, val in args.items():
-            if key in self:
-                continue
+            #if key in self:
+            #    continue
             self[key] = val
 
     def reset(self):
