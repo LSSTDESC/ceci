@@ -465,32 +465,23 @@ class Pipeline:
         registry_config : dict
             A dictionary with information about the data registry to use
         """
-        from dataregistry import Registrar, Query, create_db_engine, SCHEMA_VERSION, ownertypeenum
+        from dataregistry import DataRegistry
 
-        # Use the default config file recommended by the data registry docs
-        # if none is specified.
-        config_file = registry_config.get("config")
-        if config_file is None:
-            config_file = "~/.config_reg_access"
-        config_file = os.path.expanduser(config_file)
-        config_file = os.path.expandvars(config_file)
+        # Establish a connection to the data registry. If the config_file is
+        # None the dataregistry will assume the users config file is in the
+        # default location (~/.config_reg_access).
+        registry = DataRegistry(config_file=registry_config.get("config", None),
+                owner_type=registry_config.get("config", "user"),
+                owner=registry_config.get("owner", None))
 
         if not os.environ.get("NERSC_HOST"):
             warnings.warn("The Data Registry is only available on NERSC: not setting it up now.")
             return None
 
-        # Make the database connection and the two main objects
-        # we use to connect with it.
-        engine, dialect = create_db_engine(config_file=config_file)
-        reg = Registrar(engine, dialect, ownertypeenum.user, owner="user", schema_version=SCHEMA_VERSION)
-        query = Query(engine, dialect, schema_version=SCHEMA_VERSION)
-
         # Save the things that may be useful.
         return {
-            "registrar": reg,
-            "query": query,
+            "registry": registry,
             "config": registry_config,
-            "root_dir": reg.root_dir,
         }
 
 
@@ -504,42 +495,36 @@ class Pipeline:
             A dictionary with information about the dataset to look up. Must contain
             either an id, and alias, or a name
         """
-        from dataregistry import Filter
         if self.data_registry is None:
             raise ValueError("No data registry configured")
 
-        root_dir = self.data_registry["root_dir"]
-        query = self.data_registry["query"]
+        registry = self.data_registry["registry"]
 
         # We have various ways of looking up a dataset
-        # 1. By id
-        # 2. By name
-        # 3. By alias
+        # 1. By the `dataset_id`
+        # 2. By the dataset `name`
+        # 3. By a dataset alias `name`
         if "id" in info:
-            filter = Filter("dataset.dataset_id", "==", info["id"])
+            return registry.Query.get_dataset_absolute_path(info["id"])
         elif "name" in info:
-            filter = Filter("dataset.name", "==", info["name"])
+            filter = registry.Query.gen_filter("dataset.name", "==", info["name"])
         elif "alias" in info:
             raise NotImplementedError("Alias lookup not yet implemented")
         else:
             raise ValueError("Must specify either id or name in registry lookup")
 
         # Main finder method
-        results = query.find_datasets(
-            ["dataset.dataset_id", "dataset.name", "dataset.relative_path",  "dataset.owner_type", "dataset.owner"],
-            [filter],
-        )
+        results = registry.Query.find_datasets(["dataset.dataset_id"], [filter])
+
         # Check that we find exactly one dataset matching the query
         results = list(results)
         if len(results) == 0:
-            raise ValueError(f"Could not find dataset matching {info} in registry")
+            raise ValueError(f"Could not find any dataset matching {info} in registry")
         elif len(results) > 1:
             raise ValueError(f"Found multiple datasets matching {info} in registry")
 
         # Get the absolute path
-        r = results[0]
-        full_path = os.path.join(root_dir, r.owner_type, r.owner, r.relative_path)
-        return full_path
+        return registry.Query.get_dataset_absolute_path(results[0].dataset_id)
 
 
     def process_overall_inputs(self, inputs):
