@@ -41,11 +41,13 @@ write_to = "ceci/_version.py"
 packages = [
     "ceci",
     "ceci.sites",
+    "ceci.tools",
 ]
 
 
 [project.scripts]
 ceci = "ceci.main:main"
+ceci-ancestors = "ceci.tools.ancestors:main"
 
 [project.optional-dependencies]
 
