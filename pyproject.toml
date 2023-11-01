@@ -66,7 +66,7 @@ viz = [
 ]
 
 dask = [
-    "dask[distributed] >= 2023.10.1",
+    "dask[distributed] >= 2023.5.0",
     "dask_mpi >= 2022.4.0",
 ]
 
