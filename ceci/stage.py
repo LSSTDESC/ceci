@@ -415,6 +415,8 @@ class PipelineStage:
     @classmethod
     def _describe_configuration_text(cls):
         s = []
+        if cls.config_options is None:
+            return "<This class has no configuration options>"
         for name, val in cls.config_options.items():
             if isinstance(val, StageParameter):
                 if val.required:
@@ -831,14 +833,12 @@ I currently know about these stages:
 
         return is_client
 
-    @staticmethod
-    def stop_dask():
+    def stop_dask(self):
         """
         End the dask event loop
         """
-        from dask_mpi import send_close_signal
-
-        send_close_signal()
+        self.dask_client.retire_workers()
+        self.dask_client.shutdown()
 
     def split_tasks_by_rank(self, tasks):
         """Iterate through a list of items, yielding ones this process is responsible for/

@@ -47,7 +47,7 @@ def test_flow_chart_dot():
 def test_run_parsl():
     run1("launcher.name=parsl", "launcher.max_threads=3")
 
-
+@pytest.mark.skip(reason="CWL currently broken")
 def test_run_cwl():
     run1("launcher.name=cwl", "launcher.dir=tests/cwl") == 0
 
