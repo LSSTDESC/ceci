@@ -156,11 +156,8 @@ def test_parameter():
     class AbstractStage(PipelineStage):
         name="AbstractStage"
         config_options = None
-        inputs = []
-        outputs = []
 
-    abstract_stage = AbstractStage.make_stage()
-    abstract_stage.describe_configuration()
+    AbstractStage.describe_configuration()
 
 
     # This one should not work
