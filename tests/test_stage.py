@@ -153,6 +153,13 @@ def test_parameter():
     assert stage_1_cmd.config.a == 6.
     assert stage_1_cmd.config.b == 'puffins are not extinct?'
 
+    class AbstractStage(PipelineStage):
+        name="AbstractStage"
+        config_options = None
+
+    abstract_stage = AbstractStage.make_stage()
+    abstract_stage.describe_configuration()
+
 
     # This one should not work
     class TestStage_2(PipelineStage):

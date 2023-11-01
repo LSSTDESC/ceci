@@ -66,8 +66,8 @@ viz = [
 ]
 
 dask = [
-    "dask",
-    "dask_mpi @ git+https://github.com/joezuntz/dask-mpi",
+    "dask[distributed] >= 2023.10.1",
+    "dask_mpi >= 2022.4.0",
 ]
 
 test = [
@@ -90,6 +90,6 @@ all = [
     "pytest-mock",
     "mockmpi",
     "h5py",
-    "dask[distributed]",
-    "dask_mpi @ git+https://github.com/joezuntz/dask-mpi",
+    "dask[distributed] >= 2023.10.1",
+    "dask_mpi >= 2022.4.0",
 ]
