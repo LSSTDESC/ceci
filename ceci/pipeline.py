@@ -471,12 +471,13 @@ class Pipeline:
         # None the dataregistry will assume the users config file is in the
         # default location (~/.config_reg_access).
         registry = DataRegistry(config_file=registry_config.get("config", None),
-                owner_type=registry_config.get("config", "user"),
-                owner=registry_config.get("owner", None))
+                owner_type=registry_config.get("owner_type", "user"),
+                owner=registry_config.get("owner", None),
+                root_dir=registry_config.get("root_dir", None))
 
-        if not os.environ.get("NERSC_HOST"):
-            warnings.warn("The Data Registry is only available on NERSC: not setting it up now.")
-            return None
+        #if not os.environ.get("NERSC_HOST"):
+        #    warnings.warn("The Data Registry is only available on NERSC: not setting it up now.")
+        #    return None
 
         # Save the things that may be useful.
         return {

@@ -5,7 +5,7 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, data-registry ]
   pull_request:
     branches: [ master ]
 
@@ -41,3 +41,32 @@ jobs:
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
 
+  test_data_registry:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    steps:
+    - name: Checkout dataregistry repository
+      uses: actions/checkout@v2
+      with:
+        repository: LSSTDESC/dataregistry
+        path: './dataregistry'
+
+    - name: Install
+      run: |
+        sudo apt-get update && sudo apt-get -y install libopenmpi-dev openmpi-bin graphviz graphviz-dev
+        pip install .[all]

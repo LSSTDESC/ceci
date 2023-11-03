@@ -77,6 +77,12 @@ test = [
     "dask[distributed]",
 ]
 
+test_dataregistry = [
+    "pyyaml > 3",
+    "psutil",
+    "dataregistry @ git+https://github.com/LSSTDESC/dataregistry",
+]
+
 all = [
     "parsl >= 1.0.0",
     "flask",
