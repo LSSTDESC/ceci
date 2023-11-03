@@ -145,11 +145,19 @@ def test_parameter():
     assert stage_1.config.b == 'puffins are not extinct?'
     assert 1 in stage_1.config.c
     assert len(stage_1.config.d) == 0
+    assert "c [list]: a list (default=[1, 2, 3])" in stage_1.__doc__
+    stage_1.describe_configuration()
     
     cmd = "TestStage", "--a", "6", "--b", "puffins are not extinct?", "--inp", "dummy"
     stage_1_cmd = TestStage(TestStage.parse_command_line(cmd))
     assert stage_1_cmd.config.a == 6.
     assert stage_1_cmd.config.b == 'puffins are not extinct?'
+
+    class AbstractStage(PipelineStage):
+        name="AbstractStage"
+        config_options = None
+
+    AbstractStage.describe_configuration()
 
 
     # This one should not work
