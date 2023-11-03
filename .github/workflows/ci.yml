@@ -81,7 +81,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    steps:
     - name: Checkout dataregistry repository
       uses: actions/checkout@v2
       with:
