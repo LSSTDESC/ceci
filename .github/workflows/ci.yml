@@ -10,40 +10,62 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.7, 3.8, 3.9, "3.10"]
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-      with:
-        submodules: true
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Install
-      run: |
-        sudo apt-get update && sudo apt-get -y install libopenmpi-dev openmpi-bin graphviz graphviz-dev
-        pip install .[all]
-
-    - name: Tests
-      run: |
-        pytest --cov=ceci
-
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v1
+  #  build:
+  #
+  #    runs-on: ubuntu-latest
+  #    strategy:
+  #      matrix:
+  #        python-version: [3.7, 3.8, 3.9, "3.10"]
+  #
+  #    steps:
+  #    - name: Checkout repository
+  #      uses: actions/checkout@v2
+  #      with:
+  #        submodules: true
+  #
+  #    - name: Set up Python ${{ matrix.python-version }}
+  #      uses: actions/setup-python@v2
+  #      with:
+  #        python-version: ${{ matrix.python-version }}
+  #
+  #    - name: Install
+  #      run: |
+  #        sudo apt-get update && sudo apt-get -y install libopenmpi-dev openmpi-bin graphviz graphviz-dev
+  #        pip install .[all]
+  #
+  #    - name: Tests
+  #      run: |
+  #        pytest --cov=ceci
+  #
+  #
+  #    - name: Upload coverage to Codecov
+  #      uses: codecov/codecov-action@v1
 
   test_data_registry:
 
     runs-on: ubuntu-latest
+
+    env:
+      DATAREG_CONFIG: "${{ github.workspace }}/config.txt"
+
+    # Service containers to run with `runner-job`
+    services:
+      # Label used to access the service container
+      postgres:
+        # Docker Hub image
+        image: postgres
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: desc_data_registry
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     strategy:
       matrix:
         python-version: [3.9]
@@ -70,3 +92,11 @@ jobs:
       run: |
         sudo apt-get update && sudo apt-get -y install libopenmpi-dev openmpi-bin graphviz graphviz-dev
         pip install .[all]
+
+    - name: Set up dataregistry
+      run: |
+        echo "sqlalchemy.url : postgresql://postgres:postgres@localhost:5432/desc_data_registry" > $DATAREG_CONFIG
+        cd dataregistry
+        python3 -m pip install .
+        python scripts/create_registry_db.py --config $DATAREG_CONFIG
+
