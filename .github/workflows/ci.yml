@@ -98,6 +98,6 @@ jobs:
         cd dataregistry
         python3 -m pip install .
         python3 scripts/create_registry_db.py --config $DATAREG_CONFIG
-        cd ..
-        python3 tests/create_registry_entries.py
-        ceci tests/test_dataregistry.yml
+        cd ../tests
+        python3 create_registry_entries.py
+        ceci test_dataregistry.yml
