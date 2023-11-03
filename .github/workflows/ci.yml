@@ -100,4 +100,5 @@ jobs:
         python3 scripts/create_registry_db.py --config $DATAREG_CONFIG
         cd ../tests
         python3 create_registry_entries.py
-        ceci test_dataregistry.yml
+        cd ..
+        ceci tests/test_dataregistry.yml
