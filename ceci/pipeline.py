@@ -865,7 +865,7 @@ Some required inputs to the pipeline could not be found,
         """Return true if we should skip a stage because it is finished and we are in resume mode"""
         return stage.should_skip(self.run_config)
 
-    def save(self, pipefile, stagefile=None, reduce_config=False):
+    def save(self, pipefile, stagefile=None, reduce_config=False, **kwargs):
         """Save this pipeline state to a yaml file
 
         Paramaeters
@@ -876,6 +876,12 @@ Some required inputs to the pipeline could not be found,
             Optional path to where we save the configuration file
         reduce_config: bool
             If true, reduce the configuration by parsing out the inputs, outputs and global params
+
+        
+        Keywords
+        --------
+        site_name: str
+            Used to override site name
         """
         pipe_dict = {}
         stage_dict = {}
@@ -924,6 +930,7 @@ Some required inputs to the pipeline could not be found,
         pipe_dict["inputs"] = self.overall_inputs
         pipe_dict["stages"] = pipe_info_list
         pipe_dict["site"] = site
+        pipe_dict["site"]["name"] = kwargs.get('site_name', local)
         with open(pipefile, "w") as outfile:
             try:
                 yaml.dump(pipe_dict, outfile)
