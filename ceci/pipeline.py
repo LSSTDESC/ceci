@@ -930,7 +930,7 @@ Some required inputs to the pipeline could not be found,
         pipe_dict["inputs"] = self.overall_inputs
         pipe_dict["stages"] = pipe_info_list
         pipe_dict["site"] = site
-        pipe_dict["site"]["name"] = kwargs.get('site_name', local)
+        pipe_dict["site"]["name"] = kwargs.get('site_name', 'local')
         with open(pipefile, "w") as outfile:
             try:
                 yaml.dump(pipe_dict, outfile)
