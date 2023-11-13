@@ -9,7 +9,7 @@ import cProfile
 import pdb
 import datetime
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from . import errors
 from .monitor import MemoryMonitor
 from .config import StageParameter, StageConfig, cast_to_streamable
@@ -21,7 +21,7 @@ DASK_PARALLEL = "dask"
 IN_PROGRESS_PREFIX = "inprogress_"
 
 
-class PipelineStage:
+class PipelineStage(ABC):
     """A PipelineStage implements a single calculation step within a wider pipeline.
 
     Each different type of analysis stage is represented by a subclass of this

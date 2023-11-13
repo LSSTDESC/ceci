@@ -5,7 +5,7 @@ import sys
 import collections
 import yaml
 import shutil
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 from .stage import PipelineStage
 from . import minirunner
@@ -286,7 +286,7 @@ class FileManager(dict):
         return stage_outputs
 
 
-class Pipeline:
+class Pipeline(ABC):
     """
     The Pipeline base class models the shared information and behaviour
     that pipelines need, no matter which workflow manager runs them.
