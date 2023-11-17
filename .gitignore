@@ -18,3 +18,7 @@ nb/Untitled.ipynb
 out/
 test/
 dask-worker-space/
+ceci.code-workspace
+dask-scratch-space
+inprogress*
+ceci/_version.py
