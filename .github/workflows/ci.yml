@@ -103,7 +103,8 @@ jobs:
         # Create the data registry schema
         python3 scripts/create_registry_db.py --config $DATAREG_CONFIG
         # Create some dummy data registry entries
-        cd ..
-        python3 tests/create_registry_entries.py
+        cd ../tests
+        python3 create_registry_entries.py
         # Test ceci with the data registry
+        cd ..
         ceci tests/test_dataregistry.yml
