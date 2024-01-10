@@ -86,19 +86,25 @@ jobs:
       with:
         repository: LSSTDESC/dataregistry
         path: './dataregistry'
+        ref: 'v0.3.0'
 
-    - name: Install
+    - name: Install ceci
       run: |
         sudo apt-get update && sudo apt-get -y install libopenmpi-dev openmpi-bin graphviz graphviz-dev
         pip install .[all]
 
     - name: Set up dataregistry
       run: |
+        # Create data registry config file
         echo "sqlalchemy.url : postgresql://postgres:postgres@localhost:5432/desc_data_registry" > $DATAREG_CONFIG
+        # Install the data registry
         cd dataregistry
         python3 -m pip install .
+        # Create the data registry schema
         python3 scripts/create_registry_db.py --config $DATAREG_CONFIG
+        # Create some dummy data registry entries
         cd ../tests
         python3 create_registry_entries.py
+        # Test ceci with the data registry
         cd ..
         ceci tests/test_dataregistry.yml

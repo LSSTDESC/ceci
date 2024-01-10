@@ -1,3 +1,13 @@
+"""
+This script creates some test database entries to emulate the DESC data
+registry.
+
+Uses the `datareg.Registrar.register_dataset` function to ingest the `dm.txt`
+and `fiducial_cosmology.txt` files into the registry.
+
+More details of the data registry at https://github.com/LSSTDESC/dataregistry.
+"""
+
 import os
 import sys
 
