@@ -108,6 +108,11 @@ class StageParameter:
         """Return the required flag"""
         return self._required
 
+    @property
+    def msg(self):
+        """Return the help or docstring"""
+        return self._help
+
     def copy(self):
         """Return a copy of self"""
         return StageParameter(
