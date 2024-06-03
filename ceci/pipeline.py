@@ -1090,6 +1090,38 @@ Some required inputs to the pipeline could not be found,
         else:
             graph.draw(filename, prog="dot")
 
+    def generate_stage_command(self, stage_name, **kwargs):
+        """Generate the command to run one stage in this pipeline
+
+        Paramaeters
+        -----------
+        stage_name: str
+            The name of the stage
+        kwargs: dict        
+            Used to override pipeline inputs
+        """
+        try:
+            sec = self.stage_execution_config[stage_name]
+        except KeyError as msg:
+            raise KeyError(f'Failed to find stage named {stage_name} in {list(self.stage_execution_config.keys())}') from msg
+
+        if sec.stage_obj is not None:
+            the_stage = sec.stage_obj
+        else:            
+            for i, stage_name_ in self.stage_names:
+                if stage_name == stage_name_:
+                    idx = i
+                    break
+            if idx is None:
+                raise KeyError(f'Failed to find stage named {stage_name} in {self.stage_names}')
+            the_stage = self.stages[idx]
+
+        all_inputs = self.pipeline_files.copy()
+        all_inputs.update(**kwargs)
+
+        outputs = the_stage.find_outputs(self.run_config["output_dir"])
+        return sec.generate_full_command(all_inputs, outputs, self.stages_config)
+    
 
 class DryRunPipeline(Pipeline):
     """A pipeline subclass which just does a dry-run, showing which commands
