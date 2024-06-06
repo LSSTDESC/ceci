@@ -7,6 +7,7 @@ import subprocess
 from .pipeline import Pipeline
 from .sites import load, set_default_site, get_default_site
 from .utils import extra_paths
+from ._version import __version__
 import contextlib
 
 # Add the current dir to the path - often very useful
@@ -34,6 +35,15 @@ parser.add_argument(
     nargs="*",
     help="Over-ride the main pipeline yaml file e.g. launcher.name=cwl",
 )
+
+parser.add_argument(
+    "-v",
+    "--version",
+    action="version",
+    version=__version__,
+    help="Print the ceci version instead of running anything",
+)
+
 
 
 def run_pipeline(pipe_config):
