@@ -1200,6 +1200,8 @@ I currently know about these stages:
                         continue
                 if key in ignore_keys:
                     continue
+            if key in self.input_tags() and val in [None, 'None']:
+                continue
             out_dict[key] = cast_to_streamable(val)
         return out_dict
 
