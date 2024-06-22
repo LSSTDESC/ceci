@@ -804,6 +804,7 @@ class Pipeline:
             sec = self.stage_execution_config[stage_name]
             stage_class = sec.stage_class
             stage_config = stage_config_data.get(stage_name, {})
+            orig_stage_config = stage_config.copy()
             stage_aliases = self.get_stage_aliases(stage_name, stage_config_data)
             stage_inputs = {}
             for tag in stage_class.input_tags():
@@ -815,6 +816,7 @@ class Pipeline:
                 stage = sec.build_stage_object(stage_config)
             else:
                 stage = sec.stage_obj
+                stage.config.update(**orig_stage_config)
 
             # for file that stage produces,
             stage_outputs = stage.find_outputs(".")
