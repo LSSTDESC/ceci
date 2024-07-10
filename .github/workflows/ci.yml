@@ -32,6 +32,10 @@ jobs:
       run: |
         sudo apt-get update && sudo apt-get -y install libopenmpi-dev openmpi-bin graphviz graphviz-dev
         pip install .[all]
+
+    - name: Version
+      run: |
+        ceci --version
   
     - name: Tests
       run: |
