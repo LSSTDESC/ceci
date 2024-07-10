@@ -27,8 +27,9 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies =[
-    "pyyaml > 3",
+    "pyyaml >= 5.1",
     "psutil",
+    'graphlib_backport ; python_version < "3.9"',
 ]
 
 
@@ -47,6 +48,7 @@ packages = [
 
 [project.scripts]
 ceci = "ceci.main:main"
+ceci-update-for-version-2 = "ceci.update_pipelines_for_ceci_2:main"
 ceci-ancestors = "ceci.tools.ancestors:main"
 
 [project.optional-dependencies]

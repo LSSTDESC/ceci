@@ -433,8 +433,8 @@ def test_open_input():
     print(f.keys())
     f.close()
 
-    # Testing with an alias - config.yml defines an alias for my_input, my_alias
-    ii = India.make_stage(name="IndiaCopy", my_input="tests/test.hdf5", config="tests/config.yml")
+    # Testing with an alias
+    ii = India.make_stage(name="IndiaCopy", my_input="tests/test.hdf5", config="tests/config.yml", aliases={"my_alias": "my_input"})
 
     print(ii.get_aliases())
 

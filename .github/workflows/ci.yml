@@ -69,6 +69,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.9]
+>>>>>>> master
 
     steps:
     - name: Checkout repository
