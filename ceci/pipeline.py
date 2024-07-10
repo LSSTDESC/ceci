@@ -6,6 +6,7 @@ import graphlib
 import yaml
 import shutil
 from abc import abstractmethod
+import warnings
 
 from .stage import PipelineStage
 from . import minirunner
@@ -327,8 +328,9 @@ class Pipeline:
             Space seperated path of modules loaded for this pipeline
         """
         self.launcher_config = launcher_config
+        self.data_registry = None
 
-        self.overall_inputs = kwargs.get("overall_inputs", {}).copy()
+        self.overall_inputs = {}
         self.modules = kwargs.get("modules", "")
 
         # These are populated as we add stages below
@@ -373,6 +375,7 @@ class Pipeline:
             "log_dir": pipe_config.get("log_dir", "."),
             "resume": pipe_config.get("resume", False),
             "flow_chart": pipe_config.get("flow_chart", ""),
+            "registry": pipe_config.get("registry", None),
         }
 
         launcher_dict = dict(cwl=CWLPipeline, parsl=ParslPipeline, mini=MiniPipeline)
@@ -459,6 +462,107 @@ class Pipeline:
         for stage in self.stages:
             stream.write(f"{stage.instance_name:20}: {str(stage)}")
             stream.write("\n")
+
+    def setup_data_registry(self, registry_config): #pragma: no cover
+        """
+        Set up the data registry.
+
+        # TODO: interactive version
+
+        Parameters
+        ----------
+        registry_config : dict
+            A dictionary with information about the data registry to use
+        """
+        from dataregistry import DataRegistry
+
+        # Establish a connection to the data registry. If the config_file is
+        # None the dataregistry will assume the users config file is in the
+        # default location (~/.config_reg_access).
+        registry = DataRegistry(config_file=registry_config.get("config", None),
+                owner_type=registry_config.get("owner_type", "user"),
+                owner=registry_config.get("owner", None),
+                root_dir=registry_config.get("root_dir", None))
+
+        #if not os.environ.get("NERSC_HOST"):
+        #    warnings.warn("The Data Registry is only available on NERSC: not setting it up now.")
+        #    return None
+
+        # Save the things that may be useful.
+        return {
+            "registry": registry,
+            "config": registry_config,
+        }
+
+
+    def data_registry_lookup(self, info): #pragma: no cover
+        """
+        Look up a dataset in the data registry
+
+        Parameters
+        ----------
+        info : dict
+            A dictionary with information about the dataset to look up. Must contain
+            either an id, and alias, or a name
+        """
+        if self.data_registry is None:
+            raise ValueError("No data registry configured")
+
+        registry = self.data_registry["registry"]
+
+        # We have various ways of looking up a dataset
+        # 1. By the `dataset_id`
+        # 2. By the dataset `name`
+        # 3. By a dataset alias `name`
+        if "id" in info:
+            return registry.Query.get_dataset_absolute_path(info["id"])
+        elif "name" in info:
+            filter = registry.Query.gen_filter("dataset.name", "==", info["name"])
+        elif "alias" in info:
+            raise NotImplementedError("Alias lookup not yet implemented")
+        else:
+            raise ValueError("Must specify either id or name in registry lookup")
+
+        # Main finder method
+        results = registry.Query.find_datasets(["dataset.dataset_id"], [filter])
+
+        # Check that we find exactly one dataset matching the query
+        results = list(results)
+        if len(results) == 0:
+            raise ValueError(f"Could not find any dataset matching {info} in registry")
+        elif len(results) > 1:
+            raise ValueError(f"Found multiple datasets matching {info} in registry")
+
+        # Get the absolute path
+        return registry.Query.get_dataset_absolute_path(results[0].dataset_id)
+
+
+    def process_overall_inputs(self, inputs):
+        """
+        Find the correct paths for the overall inputs to the pipeline.
+
+        Paths may be explicit strings, or may be looked up in the data registry.
+
+        Parameters
+        ----------
+        inputs : dict
+            A dictionary of inputs to the pipeline
+        """
+        paths = {}
+        for tag, value in inputs.items():
+            # Case 1, explicit lookup (the original version)
+            if isinstance(value, str):
+                paths[tag] = value
+            # Case 2, dictionary with lookup method
+            elif isinstance(value, dict):  #pragma: no cover
+                # This means that we will look up a path
+                # using the data registry
+                paths[tag] = self.data_registry_lookup(value)
+            elif value is None:
+                paths[tag] = None
+            else:
+                raise ValueError(f"Unknown input type {type(value)}")
+        return paths
 
     @classmethod
     def read(cls, pipeline_config_filename, extra_config=None, dry_run=False):
@@ -763,9 +867,13 @@ class Pipeline:
         self.run_config : copy of configuration parameters on how to run the pipeline
         """
 
-        # Make a copy, since we maybe be modifying these
-        self.overall_inputs = overall_inputs.copy()
+        # Set up paths to our overall input files
+        if run_config.get("registry") is not None:
+            self.data_registry = self.setup_data_registry(run_config["registry"])
+        self.overall_inputs = self.process_overall_inputs(overall_inputs)
         self.pipeline_files.insert_paths(self.overall_inputs)
+
+        # Make a copy, since we maybe be modifying these
         self.run_config = run_config.copy()
 
         self.stages_config = stages_config
@@ -850,7 +958,7 @@ class Pipeline:
         """Return true if we should skip a stage because it is finished and we are in resume mode"""
         return stage.should_skip(self.run_config)
 
-    def save(self, pipefile, stagefile=None, reduce_config=False):
+    def save(self, pipefile, stagefile=None, reduce_config=False, **kwargs):
         """Save this pipeline state to a yaml file
 
         Paramaeters
@@ -861,6 +969,12 @@ class Pipeline:
             Optional path to where we save the configuration file
         reduce_config: bool
             If true, reduce the configuration by parsing out the inputs, outputs and global params
+
+        
+        Keywords
+        --------
+        site_name: str
+            Used to override site name
         """
         pipe_dict = {}
         stage_dict = {}
@@ -911,6 +1025,7 @@ class Pipeline:
         pipe_dict["inputs"] = self.overall_inputs
         pipe_dict["stages"] = pipe_info_list
         pipe_dict["site"] = site
+        pipe_dict["site"]["name"] = kwargs.get('site_name', 'local')
         with open(pipefile, "w") as outfile:
             try:
                 yaml.dump(pipe_dict, outfile, sort_keys=False)
@@ -962,6 +1077,38 @@ class Pipeline:
         else:
             graph.draw(filename, prog="dot")
 
+    def generate_stage_command(self, stage_name, **kwargs):
+        """Generate the command to run one stage in this pipeline
+
+        Paramaeters
+        -----------
+        stage_name: str
+            The name of the stage
+        kwargs: dict        
+            Used to override pipeline inputs
+        """
+        try:
+            sec = self.stage_execution_config[stage_name]
+        except KeyError as msg:
+            raise KeyError(f'Failed to find stage named {stage_name} in {list(self.stage_execution_config.keys())}') from msg
+
+        if sec.stage_obj is not None:
+            the_stage = sec.stage_obj
+        else:            
+            for i, stage_name_ in self.stage_names:
+                if stage_name == stage_name_:
+                    idx = i
+                    break
+            if idx is None:
+                raise KeyError(f'Failed to find stage named {stage_name} in {self.stage_names}')
+            the_stage = self.stages[idx]
+
+        all_inputs = self.pipeline_files.copy()
+        all_inputs.update(**kwargs)
+
+        outputs = the_stage.find_outputs(self.run_config["output_dir"])
+        return sec.generate_full_command(all_inputs, outputs, self.stages_config)
+    
 
 class DryRunPipeline(Pipeline):
     """A pipeline subclass which just does a dry-run, showing which commands

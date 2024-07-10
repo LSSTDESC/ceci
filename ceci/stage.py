@@ -343,6 +343,16 @@ class PipelineStage:
         # Find the absolute path to the class defining the file
         path = pathlib.Path(filename).resolve()
 
+        # Add a description of the parameters to the end of the docstring
+        if stage_is_complete:
+            config_text = cls._describe_configuration_text()
+            if cls.__doc__ is None:
+                cls.__doc__ = f"Stage {cls.name}\n\nConfiguration Parameters:\n{config_text}"
+            else:
+                # strip any existing configuration text from parent classes that is at the end of the doctring
+                cls.__doc__ = cls.__doc__.split("Configuration Parameters:")[0]
+                cls.__doc__ += f"\n\nConfiguration Parameters:\n{config_text}"
+
         # Register the class
         if stage_is_complete:
             cls.pipeline_stages[cls.name] = (cls, path)
@@ -407,6 +417,34 @@ class PipelineStage:
             The module containing this class.
         """
         return cls.pipeline_stages[cls.name][0].__module__
+
+    @classmethod
+    def describe_configuration(cls):
+        print(cls._describe_configuration_text())
+
+    @classmethod
+    def _describe_configuration_text(cls):
+        s = []
+        if cls.config_options is None:
+            return "<This class has no configuration options>"
+        for name, val in cls.config_options.items():
+            if isinstance(val, StageParameter):
+                if val.required:
+                    if val.dtype is None:
+                        txt = f"[type not specified]: {val._help} (required)"
+                    else:
+                        txt = f"[{val.dtype.__name__}]: {val._help}  (required)"
+                else:
+                    if val.dtype is None:
+                        txt = f"[type not specified]: {val._help} (default={val.default})"
+                    else:
+                        txt = f"[{val.dtype.__name__}]: {val._help} (default={val.default})"
+            elif isinstance(val, type):
+                txt = f"[{val.__name__}]: (required)"
+            else:
+                txt = f"[{type(val).__name__}]: (default={val})"
+            s.append(f"{name} {txt} ")
+        return '\n'.join(s)
 
     @classmethod
     def usage(cls):  # pragma: no cover
@@ -805,14 +843,12 @@ I currently know about these stages:
 
         return is_client
 
-    @staticmethod
-    def stop_dask():
+    def stop_dask(self):
         """
         End the dask event loop
         """
-        from dask_mpi import send_close_signal
-
-        send_close_signal()
+        self.dask_client.retire_workers()
+        self.dask_client.shutdown()
 
     def split_tasks_by_rank(self, tasks):
         """Iterate through a list of items, yielding ones this process is responsible for/
@@ -1176,6 +1212,8 @@ I currently know about these stages:
                         continue
                 if key in ignore_keys:
                     continue
+            if key in self.input_tags() and val in [None, 'None']:
+                continue
             out_dict[key] = cast_to_streamable(val)
         return out_dict
 

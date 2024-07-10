@@ -42,12 +42,14 @@ write_to = "ceci/_version.py"
 packages = [
     "ceci",
     "ceci.sites",
+    "ceci.tools",
 ]
 
 
 [project.scripts]
 ceci = "ceci.main:main"
 ceci-update-for-version-2 = "ceci.update_pipelines_for_ceci_2:main"
+ceci-ancestors = "ceci.tools.ancestors:main"
 
 [project.optional-dependencies]
 
@@ -66,8 +68,8 @@ viz = [
 ]
 
 dask = [
-    "dask",
-    "dask_mpi @ git+https://github.com/joezuntz/dask-mpi",
+    "dask[distributed] >= 2023.5.0",
+    "dask_mpi >= 2022.4.0",
 ]
 
 test = [
@@ -90,6 +92,6 @@ all = [
     "pytest-mock",
     "mockmpi",
     "h5py",
-    "dask[distributed]",
-    "dask_mpi @ git+https://github.com/joezuntz/dask-mpi",
+    "dask[distributed] >= 2023.5.0",
+    "dask_mpi >= 2022.4.0",
 ]
