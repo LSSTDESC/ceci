@@ -77,7 +77,7 @@ def update_pipeline_file_group(pipeline_files):
 def scan_directory_and_update(base_dir):
     groups = collections.defaultdict(list)
     yaml = ruamel.yaml.YAML()
-    yaml.allow_duplicate_keys
+    yaml.allow_duplicate_keys = True
     for dirpath, _, filenames in os.walk(base_dir):
         # just process yaml files
         for filename in filenames:
