@@ -103,6 +103,8 @@ class PipelineStage:
         if comm is not None:
             self.setup_mpi(comm)
 
+        self.check_io()
+
 
     @classmethod
     def make_stage(cls, **kwargs):
@@ -118,17 +120,7 @@ class PipelineStage:
             for output_ in cls.outputs:  # pylint: disable=no-member
                 outtag = output_[0]
                 aliases[outtag] = f"{outtag}_{name}"
-        # EAC.  Ideally we would just pass the aliases into the construction call
-        # but that would requiring changing the signature of every sub-class, so we do this
-        # instead.  At some point we might want to migrate to doing it the better way
-        try:
-            stage = cls(kwcopy, comm=comm, aliases=aliases)
-        except TypeError as error:
-            warnings.warn("Pipeline stage subclasses should accept aliases as a keyword argument")
-            stage = cls(kwcopy, comm=comm)
-            stage._aliases.update(**aliases)
-            stage._io_checked = False
-            stage.check_io()
+        stage = cls(kwcopy, comm=comm, aliases=aliases)
         return stage
 
     def get_aliases(self):

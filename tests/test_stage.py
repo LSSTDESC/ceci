@@ -569,8 +569,6 @@ def test_wrong_mpi_flag():
         assert LimaSerial.parse_command_line(["LimaSerial", "--mpi"]).mpi
 
 
-# could add more tests here for constructor, but the regression tests here and in TXPipe are
-# pretty thorough.
 
 if __name__ == "__main__":
     test_construct()

@@ -185,16 +185,7 @@ class StageExecutionConfig:
             self.stage_class = PipelineStage.get_stage(
                 self.class_name, self.module_name
             )
-        # EAC.  Ideally we would just pass the aliases into the c'tor of self.stage_class(),
-        # but that would requiring changing the signature of every sub-class, so we do this
-        # instead.  At some point we might want to migrate to doing it the better way
-        try:
-            self.stage_obj = self.stage_class(args, aliases=self.aliases)
-        except TypeError:
-            self.stage_obj = self.stage_class(args)
-            self.stage_obj._aliases.update(**self.aliases)
-            self.stage_obj._io_checked = False
-        self.stage_obj.check_io()
+        self.stage_obj = self.stage_class(args, aliases=self.aliases)
         return self.stage_obj
 
     def generate_full_command(self, inputs, outputs, config):
@@ -678,14 +669,7 @@ class Pipeline:
         comm = kwcopy.pop("comm", None)
         kwcopy.update(**self.pipeline_files)
 
-        try:
-            stage = stage_class(kwcopy, comm=comm, aliases=aliases)
-        except TypeError as error:
-            warnings.warn("Pipeline stage subclasses should accept aliases as a keyword argument.")
-            stage = stage_class(kwcopy, comm=comm)
-            stage._aliases.update(**aliases)
-            stage._io_checked = False
-        stage.check_io()
+        stage = stage_class(kwcopy, comm=comm, aliases=aliases)
         return self.add_stage(stage)
 
     def remove_stage(self, name):
