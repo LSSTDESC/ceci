@@ -674,9 +674,18 @@ class Pipeline:
         `Pipeline.pipeline_files` data member, so that they are available to later stages
         """
         kwcopy = kwargs.copy()
+        aliases = kwcopy.pop("aliases", {})
+        comm = kwcopy.pop("comm", None)
         kwcopy.update(**self.pipeline_files)
-        aliases = kwcopy.pop("aliases", None)
-        stage = stage_class(kwcopy, aliases=aliases)
+
+        try:
+            stage = stage_class(kwcopy, comm=comm, aliases=aliases)
+        except TypeError as error:
+            warnings.warn("Pipeline stage subclasses should accept aliases as a keyword argument.")
+            stage = stage_class(kwcopy, comm=comm)
+            stage._aliases.update(**aliases)
+            stage._io_checked = False
+        stage.check_io()
         return self.add_stage(stage)
 
     def remove_stage(self, name):

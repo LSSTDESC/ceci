@@ -8,6 +8,7 @@ import shutil
 import cProfile
 import pdb
 import datetime
+import warnings
 
 from abc import abstractmethod
 from . import errors
@@ -120,10 +121,14 @@ class PipelineStage:
         # EAC.  Ideally we would just pass the aliases into the construction call
         # but that would requiring changing the signature of every sub-class, so we do this
         # instead.  At some point we might want to migrate to doing it the better way
-        stage = cls(kwcopy, comm=comm)
-        stage._aliases.update(**aliases)
-        stage._io_checked = False
-        stage.check_io()
+        try:
+            stage = cls(kwcopy, comm=comm, aliases=aliases)
+        except TypeError as error:
+            warnings.warn("Pipeline stage subclasses should accept aliases as a keyword argument")
+            stage = cls(kwcopy, comm=comm)
+            stage._aliases.update(**aliases)
+            stage._io_checked = False
+            stage.check_io()
         return stage
 
     def get_aliases(self):
