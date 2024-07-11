@@ -137,4 +137,3 @@ def test_inter_pipe():
 
 if __name__ == "__main__":
     test_config()
-    test_interactive()
