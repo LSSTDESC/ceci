@@ -194,7 +194,7 @@ class StageExecutionConfig:
             self.stage_obj = self.stage_class(args)
             self.stage_obj._aliases.update(**self.aliases)
             self.stage_obj._io_checked = False
-            self.stage_obj.check_io()
+        self.stage_obj.check_io()
         return self.stage_obj
 
     def generate_full_command(self, inputs, outputs, config):

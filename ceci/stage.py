@@ -181,7 +181,6 @@ class PipelineStage:
             error_class = type(error)
             msg = str(error)
             raise error_class(f"Error configuring {self.instance_name}: {msg}")
-        self.check_io(args)
 
     def check_io(self, args=None):
         """
