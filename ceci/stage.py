@@ -150,7 +150,10 @@ class PipelineStage:
         raise NotImplementedError("run")
     
     def validate(self):
-        """Check that the inputs actually have the data needed for execution"""
+        """Check that the inputs actually have the data needed for execution,
+        This is called before the run method. It is an optional stage, meant
+        for checking that the input to the stage is actual in the form and
+        shape needed before an expensive run is executed."""
         pass 
 
     def load_configs(self, args):
@@ -670,8 +673,10 @@ I currently know about these stages:
         try:
             stage.validate()
         except Exception as error:
-            print(f"Looks like there is an validation error in: {cls.name}")
-            print(error)
+            if stage.rank==0:
+                print(f"Looks like there is an validation error in: {cls.name}",
+                        "the input data for this stage did not pass the checks implemented on it.")
+                print(error)
             raise
 
 
