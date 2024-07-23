@@ -148,6 +148,13 @@ class PipelineStage:
     def run(self):  # pragma: no cover
         """Run the stage and return the execution status"""
         raise NotImplementedError("run")
+    
+    def validate(self):
+        """Check that the inputs actually have the data needed for execution,
+        This is called before the run method. It is an optional stage, meant
+        for checking that the input to the stage is actual in the form and
+        shape needed before an expensive run is executed."""
+        pass 
 
     def load_configs(self, args):
         """
@@ -660,6 +667,18 @@ I currently know about these stages:
 
         if args.memmon:  # pragma: no cover
             monitor = MemoryMonitor.start_in_thread(interval=args.memmon)
+
+        # Now we try to see if the validation step has been changed,
+        # if it has then we will run the validation step, and raise any errors
+        try:
+            stage.validate()
+        except Exception as error:
+            if stage.rank==0:
+                print(f"Looks like there is an validation error in: {cls.name}",
+                        "the input data for this stage did not pass the checks implemented on it.")
+                print(error)
+            raise
+
 
         try:
             stage.run()
