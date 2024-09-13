@@ -151,10 +151,10 @@ class WLGCCov(PipelineStage):
         ("source_summary_data", TextFile),
         ("diagnostic_maps", TextFile),
     ]
-    outputs = [("covariance", TextFile)]
+    outputs = [("covariance_1", TextFile)]
 
     def rank_filename(self, rank, size):
-        filename = self.get_output("covariance")
+        filename = self.get_output("covariance_1")
         if size == 1:
             fname = filename
         else:
@@ -173,7 +173,7 @@ class WLGCCov(PipelineStage):
             print(f"    WLGCCov rank {rank}/{size} reading from {filename}")
             open(filename)
 
-        filename = self.get_output("covariance")
+        filename = self.get_output("covariance_1")
         my_filename = self.rank_filename(rank, size)
         print(f"    WLGCCov rank {rank}/{size} writing to {my_filename}")
         open(my_filename, "w").write(f"WLGCCov rank {rank} was here \n")
@@ -198,7 +198,7 @@ class WLGCSummaryStatistic(PipelineStage):
     name = "WLGCSummaryStatistic"
     inputs = [
         ("twopoint_data", TextFile),
-        ("covariance", TextFile),
+        ("covariance_2", TextFile),
         ("source_summary_data", TextFile),
     ]
     outputs = [("wlgc_summary_data", TextFile)]

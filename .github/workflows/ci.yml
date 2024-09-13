@@ -5,17 +5,74 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, data-registry ]
   pull_request:
     branches: [ master ]
 
 jobs:
   build:
-
+  
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9, "3.10", 3.11]
+        python-version: [3.8, 3.9, "3.10", "3.11", "3.12"]
+  
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+  
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+  
+    - name: Install
+      run: |
+        sudo apt-get update && sudo apt-get -y install libopenmpi-dev openmpi-bin graphviz graphviz-dev
+        pip install .[all]
+
+    - name: Version
+      run: |
+        ceci --version
+  
+    - name: Tests
+      run: |
+        pytest --cov=ceci
+  
+  
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
+
+  test_data_registry:
+
+    runs-on: ubuntu-latest
+
+    env:
+      DATAREG_CONFIG: "${{ github.workspace }}/config.txt"
+
+    # Service containers to run with `runner-job`
+    services:
+      # Label used to access the service container
+      postgres:
+        # Docker Hub image
+        image: postgres
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: desc_data_registry
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    strategy:
+      matrix:
+        python-version: [3.9]
 
     steps:
     - name: Checkout repository
@@ -28,16 +85,30 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install
+    - name: Checkout dataregistry repository
+      uses: actions/checkout@v2
+      with:
+        repository: LSSTDESC/dataregistry
+        path: './dataregistry'
+        ref: 'v0.3.0'
+
+    - name: Install ceci
       run: |
         sudo apt-get update && sudo apt-get -y install libopenmpi-dev openmpi-bin graphviz graphviz-dev
         pip install .[all]
 
-    - name: Tests
+    - name: Set up dataregistry
       run: |
-        pytest --cov=ceci
-
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v1
-
+        # Create data registry config file
+        echo "sqlalchemy.url : postgresql://postgres:postgres@localhost:5432/desc_data_registry" > $DATAREG_CONFIG
+        # Install the data registry
+        cd dataregistry
+        python3 -m pip install .
+        # Create the data registry schema
+        python3 scripts/create_registry_db.py --config $DATAREG_CONFIG
+        # Create some dummy data registry entries
+        cd ../tests
+        python3 create_registry_entries.py
+        # Test ceci with the data registry
+        cd ..
+        ceci tests/test_dataregistry.yml

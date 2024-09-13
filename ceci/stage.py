@@ -8,6 +8,7 @@ import shutil
 import cProfile
 import pdb
 import datetime
+import warnings
 
 from abc import abstractmethod
 from . import errors
@@ -102,6 +103,8 @@ class PipelineStage:
         if comm is not None:
             self.setup_mpi(comm)
 
+        self.check_io()
+
 
     @classmethod
     def make_stage(cls, **kwargs):
@@ -117,7 +120,8 @@ class PipelineStage:
             for output_ in cls.outputs:  # pylint: disable=no-member
                 outtag = output_[0]
                 aliases[outtag] = f"{outtag}_{name}"
-        return cls(kwcopy, comm=comm, aliases=aliases)
+        stage = cls(kwcopy, comm=comm, aliases=aliases)
+        return stage
 
     def get_aliases(self):
         """Returns the dictionary of aliases used to remap inputs and outputs
@@ -144,6 +148,13 @@ class PipelineStage:
     def run(self):  # pragma: no cover
         """Run the stage and return the execution status"""
         raise NotImplementedError("run")
+    
+    def validate(self):
+        """Check that the inputs actually have the data needed for execution,
+        This is called before the run method. It is an optional stage, meant
+        for checking that the input to the stage is actual in the form and
+        shape needed before an expensive run is executed."""
+        pass 
 
     def load_configs(self, args):
         """
@@ -174,7 +185,6 @@ class PipelineStage:
             error_class = type(error)
             msg = str(error)
             raise error_class(f"Error configuring {self.instance_name}: {msg}")
-        self.check_io(args)
 
     def check_io(self, args=None):
         """
@@ -336,6 +346,16 @@ class PipelineStage:
         # Find the absolute path to the class defining the file
         path = pathlib.Path(filename).resolve()
 
+        # Add a description of the parameters to the end of the docstring
+        if stage_is_complete:
+            config_text = cls._describe_configuration_text()
+            if cls.__doc__ is None:
+                cls.__doc__ = f"Stage {cls.name}\n\nConfiguration Parameters:\n{config_text}"
+            else:
+                # strip any existing configuration text from parent classes that is at the end of the doctring
+                cls.__doc__ = cls.__doc__.split("Configuration Parameters:")[0]
+                cls.__doc__ += f"\n\nConfiguration Parameters:\n{config_text}"
+
         # Register the class
         if stage_is_complete:
             cls.pipeline_stages[cls.name] = (cls, path)
@@ -400,6 +420,34 @@ class PipelineStage:
             The module containing this class.
         """
         return cls.pipeline_stages[cls.name][0].__module__
+
+    @classmethod
+    def describe_configuration(cls):
+        print(cls._describe_configuration_text())
+
+    @classmethod
+    def _describe_configuration_text(cls):
+        s = []
+        if cls.config_options is None:
+            return "<This class has no configuration options>"
+        for name, val in cls.config_options.items():
+            if isinstance(val, StageParameter):
+                if val.required:
+                    if val.dtype is None:
+                        txt = f"[type not specified]: {val._help} (required)"
+                    else:
+                        txt = f"[{val.dtype.__name__}]: {val._help}  (required)"
+                else:
+                    if val.dtype is None:
+                        txt = f"[type not specified]: {val._help} (default={val.default})"
+                    else:
+                        txt = f"[{val.dtype.__name__}]: {val._help} (default={val.default})"
+            elif isinstance(val, type):
+                txt = f"[{val.__name__}]: (required)"
+            else:
+                txt = f"[{type(val).__name__}]: (default={val})"
+            s.append(f"{name} {txt} ")
+        return '\n'.join(s)
 
     @classmethod
     def usage(cls):  # pragma: no cover
@@ -620,6 +668,18 @@ I currently know about these stages:
         if args.memmon:  # pragma: no cover
             monitor = MemoryMonitor.start_in_thread(interval=args.memmon)
 
+        # Now we try to see if the validation step has been changed,
+        # if it has then we will run the validation step, and raise any errors
+        try:
+            stage.validate()
+        except Exception as error:
+            if stage.rank==0:
+                print(f"Looks like there is an validation error in: {cls.name}",
+                        "the input data for this stage did not pass the checks implemented on it.")
+                print(error)
+            raise
+
+
         try:
             stage.run()
         except Exception as error:  # pragma: no cover
@@ -798,14 +858,12 @@ I currently know about these stages:
 
         return is_client
 
-    @staticmethod
-    def stop_dask():
+    def stop_dask(self):
         """
         End the dask event loop
         """
-        from dask_mpi import send_close_signal
-
-        send_close_signal()
+        self.dask_client.retire_workers()
+        self.dask_client.shutdown()
 
     def split_tasks_by_rank(self, tasks):
         """Iterate through a list of items, yielding ones this process is responsible for/
@@ -1169,6 +1227,8 @@ I currently know about these stages:
                         continue
                 if key in ignore_keys:
                     continue
+            if key in self.input_tags() and val in [None, 'None']:
+                continue
             out_dict[key] = cast_to_streamable(val)
         return out_dict
 
