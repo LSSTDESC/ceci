@@ -960,6 +960,11 @@ class Pipeline:
     def should_skip_stage(self, stage):
         """Return true if we should skip a stage because it is finished and we are in resume mode"""
         resume_mode = self.run_config["resume"]
+        if resume_mode is True:
+            resume_mode = "resume"
+        elif resume_mode is False:
+            resume_mode = "restart"
+
         if resume_mode == "restart":
             return False
 
