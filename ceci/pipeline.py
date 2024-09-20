@@ -1432,6 +1432,7 @@ class MiniPipeline(Pipeline):
                 f"""
 *************************************************
 Error running pipeline stage {error.job_name}.
+Failed after {error.run_time}.
 
 Standard output and error streams in {log_dir}/{error.job_name}.out
 *************************************************
