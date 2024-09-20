@@ -572,7 +572,7 @@ def test_wrong_mpi_flag():
     with pytest.raises(ValueError):
         assert LimaSerial.parse_command_line(["LimaSerial", "--mpi"]).mpi
 
-
+@pytest.mark.skipif(os.environ.get("GITHUB_ACTIONS") == "true", reason="Doesn't work on github actions")
 def test_tracing():
     with open("mike_stage.py", "w") as f:
         f.write("""
