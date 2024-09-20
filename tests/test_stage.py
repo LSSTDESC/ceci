@@ -599,10 +599,9 @@ if __name__ == "__main__":
         cmd = f"{sys.executable} mike_stage.py Mike --config config.yml --trace"
         p1 = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         time.sleep(1)
-        cmd2 = f"kill -n {signal.SIGUSR1} {p1.pid}"
-        subprocess.check_call(cmd2, shell=True)
+        p1.send_signal(signal.SIGUSR1)
         try:
-            outs, _ = p1.communicate(timeout=6)
+            outs, _ = p1.communicate(timeout=5)
         except subprocess.TimeoutExpired:
             p1.kill()
             outs, _ = p1.communicate()
