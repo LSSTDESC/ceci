@@ -585,7 +585,7 @@ class Mike(ceci.PipelineStage):
     config_options = {}
 
     def run(self):
-        time.sleep(3)
+        time.sleep(6)
         print("Mike complete")
 
 if __name__ == "__main__":
@@ -599,7 +599,7 @@ if __name__ == "__main__":
     time.sleep(1)
     p1.send_signal(signal.SIGUSR1)
     try:
-        outs, _ = p1.communicate(timeout=5)
+        outs, _ = p1.communicate(timeout=15)
     except subprocess.TimeoutExpired:
         p1.kill()
         outs, _ = p1.communicate()
