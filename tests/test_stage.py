@@ -572,12 +572,10 @@ def test_wrong_mpi_flag():
     with pytest.raises(ValueError):
         assert LimaSerial.parse_command_line(["LimaSerial", "--mpi"]).mpi
 
-def test_tracing():
-    with tempfile.TemporaryDirectory() as dirname:
-        os.chdir(dirname)
 
-        with open("mike_stage.py", "w") as f:
-            f.write("""
+def test_tracing():
+    with open("mike_stage.py", "w") as f:
+        f.write("""
 import ceci
 import time
 class Mike(ceci.PipelineStage):
@@ -593,20 +591,20 @@ class Mike(ceci.PipelineStage):
 if __name__ == "__main__":
     ceci.PipelineStage.main()
 """)
-        with open("config.yml", "w") as f:
-            f.write("{}")
+    with open("config.yml", "w") as f:
+        f.write("{}")
 
-        cmd = f"{sys.executable} mike_stage.py Mike --config config.yml --trace"
-        p1 = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        time.sleep(1)
-        p1.send_signal(signal.SIGUSR1)
-        try:
-            outs, _ = p1.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            p1.kill()
-            outs, _ = p1.communicate()
-            raise ValueError("Timeout expired in Mike test with outs =" + outs.decode())
-        assert 'mike_stage.py", line 15' in outs.decode()
+    cmd = f"{sys.executable} mike_stage.py Mike --config config.yml --trace"
+    p1 = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    time.sleep(1)
+    p1.send_signal(signal.SIGUSR1)
+    try:
+        outs, _ = p1.communicate(timeout=5)
+    except subprocess.TimeoutExpired:
+        p1.kill()
+        outs, _ = p1.communicate()
+        raise ValueError("Timeout expired in Mike test with outs =" + outs.decode())
+    assert 'mike_stage.py", line 15' in outs.decode()
 
 
 if __name__ == "__main__":
