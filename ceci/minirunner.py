@@ -358,7 +358,7 @@ class Runner:
             status = process.poll()
             # None indicates job is still running
             if status is None:  # pragma: no cover
-                continuing_jobs.append((process, job, alloc))
+                continuing_jobs.append((process, job, alloc, start_time))
             # status !=0 indicates error in job.
             # kill everything
             elif status:
