@@ -1281,12 +1281,6 @@ I currently know about these stages:
                 f"{tag:20} : {aliased_tag:20} :{str(ftype):20} : {self._outputs[aliased_tag]}\n"
             )
 
-    def should_skip(self, run_config):
-        """Return true if we should skip a stage b/c it's outputs already exist and we are in resume mode"""
-        outputs = self.find_outputs(run_config["output_dir"]).values()
-        already_run_stage = all(os.path.exists(output) for output in outputs)
-        return already_run_stage and run_config["resume"]
-
     def already_finished(self):
         """Print a warning that a stage is being skipped"""
         print(f"Skipping stage {self.instance_name} because its outputs exist already")

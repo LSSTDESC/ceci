@@ -13,6 +13,11 @@ from . import minirunner
 from .sites import load, get_default_site
 from .utils import embolden, extra_paths
 
+RESUME_MODE_RESUME = "resume"
+RESUME_MODE_RESTART = "restart"
+RESUME_MODE_REFUSE = "refuse"
+
+
 
 def override_config(config, extra):
     """Override configuration parameters with extra parameters provided on command line
@@ -364,10 +369,15 @@ class Pipeline:
         run_config = {
             "output_dir": pipe_config.get("output_dir", "."),
             "log_dir": pipe_config.get("log_dir", "."),
-            "resume": pipe_config.get("resume", False),
+            "resume": pipe_config.get("resume", RESUME_MODE_RESUME),
             "flow_chart": pipe_config.get("flow_chart", ""),
             "registry": pipe_config.get("registry", None),
         }
+
+        if run_config["resume"] is True:
+            run_config["resume"] = RESUME_MODE_RESUME
+        elif run_config["resume"] is False:
+            run_config["resume"] = RESUME_MODE_RESTART
 
         launcher_dict = dict(cwl=CWLPipeline, parsl=ParslPipeline, mini=MiniPipeline)
 
@@ -949,7 +959,24 @@ class Pipeline:
 
     def should_skip_stage(self, stage):
         """Return true if we should skip a stage because it is finished and we are in resume mode"""
-        return stage.should_skip(self.run_config)
+        resume_mode = self.run_config["resume"]
+        if resume_mode is True:
+            resume_mode = "resume"
+        elif resume_mode is False:
+            resume_mode = "restart"
+
+        if resume_mode == "restart":
+            return False
+
+        outputs = stage.find_outputs(self.run_config["output_dir"]).values()
+
+        if resume_mode == "resume":
+            return all(os.path.exists(output) for output in outputs)
+        elif resume_mode == "refuse":
+            if any(os.path.exists(output) for output in outputs):
+                raise RuntimeError(f"Output files already exist for stage {stage} and resume mode is 'refuse'")
+        else:
+            raise ValueError(f"Unknown resume mode: {resume_mode}")
 
     def save(self, pipefile, stagefile=None, reduce_config=False, **kwargs):
         """Save this pipeline state to a yaml file
