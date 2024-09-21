@@ -5,8 +5,12 @@ import numpy as np
 from ceci.errors import *
 import pytest
 import h5py
+import sys
 import os
-
+import tempfile
+import time
+import subprocess
+import signal
 # TODO: test MPI facilities properly with:
 # https://github.com/rmjarvis/TreeCorr/blob/releases/4.1/tests/mock_mpi.py
 
@@ -568,6 +572,39 @@ def test_wrong_mpi_flag():
     with pytest.raises(ValueError):
         assert LimaSerial.parse_command_line(["LimaSerial", "--mpi"]).mpi
 
+@pytest.mark.skipif(os.environ.get("GITHUB_ACTIONS") == "true", reason="Doesn't work on github actions")
+def test_tracing():
+    with open("mike_stage.py", "w") as f:
+        f.write("""
+import ceci
+import time
+class Mike(ceci.PipelineStage):
+    name = "Mike"
+    inputs = []
+    outputs = []
+    config_options = {}
+
+    def run(self):
+        time.sleep(6)
+        print("Mike complete")
+
+if __name__ == "__main__":
+    ceci.PipelineStage.main()
+""")
+    with open("config.yml", "w") as f:
+        f.write("{}")
+
+    cmd = f"{sys.executable} mike_stage.py Mike --config config.yml --trace"
+    p1 = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    time.sleep(1)
+    p1.send_signal(signal.SIGUSR1)
+    try:
+        outs, _ = p1.communicate(timeout=15)
+    except subprocess.TimeoutExpired:
+        p1.kill()
+        outs, _ = p1.communicate()
+        raise ValueError("Timeout expired in Mike test with outs =" + outs.decode())
+    assert 'mike_stage.py", line 15' in outs.decode()
 
 
 if __name__ == "__main__":

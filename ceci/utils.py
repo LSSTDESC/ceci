@@ -3,6 +3,8 @@
 from contextlib import contextmanager
 import sys
 import os
+import signal
+import faulthandler
 
 
 def add_python_path(path, start):
@@ -107,3 +109,9 @@ def embolden(text):
         Emboldened text
     """
     return "\033[1m" + text + "\033[0m"
+
+
+def activate_tracing(rank):
+    pid = os.getpid()
+    print(f"Activating trace mode for process {rank}. Trigger trace using command: kill -s {signal.SIGUSR1} {pid}")
+    faulthandler.register(signal.SIGUSR1)

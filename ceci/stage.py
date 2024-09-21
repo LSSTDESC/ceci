@@ -14,6 +14,7 @@ from abc import abstractmethod
 from . import errors
 from .monitor import MemoryMonitor
 from .config import StageParameter, StageConfig, cast_to_streamable
+from .utils import activate_tracing
 
 SERIAL = "serial"
 MPI_PARALLEL = "mpi"
@@ -610,6 +611,12 @@ I currently know about these stages:
             help="Report memory use. Argument gives interval in seconds between reports",
         )
 
+        parser.add_argument(
+            "--trace",
+            action="store_true",
+            help="Enable sending a signal to the process that prints a trace wherever it is",
+        )
+
         # Error message we will return if --mpi used on a non-supported
         # stage.
         mpi_err = (
@@ -667,6 +674,9 @@ I currently know about these stages:
 
         if args.memmon:  # pragma: no cover
             monitor = MemoryMonitor.start_in_thread(interval=args.memmon)
+
+        if args.trace:
+            activate_tracing(stage._rank)
 
         # Now we try to see if the validation step has been changed,
         # if it has then we will run the validation step, and raise any errors
