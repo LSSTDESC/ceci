@@ -528,14 +528,16 @@ class Pipeline:
         results = registry.Query.find_datasets(["dataset.dataset_id"], [filter])
 
         # Check that we find exactly one dataset matching the query
-        results = list(results)
-        if len(results) == 0:
+        if not results:
             raise ValueError(f"Could not find any dataset matching {info} in registry")
-        elif len(results) > 1:
+
+        results = results['dataset.dataset_id']
+
+        if len(results) > 1:
             raise ValueError(f"Found multiple datasets matching {info} in registry")
 
         # Get the absolute path
-        return registry.Query.get_dataset_absolute_path(results[0].dataset_id)
+        return registry.Query.get_dataset_absolute_path(results[0])
 
 
     def process_overall_inputs(self, inputs):
