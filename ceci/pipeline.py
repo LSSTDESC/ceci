@@ -524,8 +524,11 @@ class Pipeline:
         else:
             raise ValueError("Must specify either id or name in registry lookup")
 
+        # Whatever the lookup, we always require a dataset which has not beed deleted or replaced
+        status_filter = registry.Query.gen_filter("dataset.status", "==", 1)
+
         # Main finder method
-        results = registry.Query.find_datasets(["dataset.dataset_id"], [filter])
+        results = registry.Query.find_datasets(["dataset.dataset_id"], [filter, status_filter])
 
         # Check that we find exactly one dataset matching the query
         if not results:
