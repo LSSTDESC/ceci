@@ -1694,3 +1694,16 @@ class CWLPipeline(Pipeline):
                 shutil.move(f"{output_dir}/{step.id}.err", f"{log_dir}/{step.id}.err")
 
         return status
+
+class SnakeMakePipeline(Pipeline):
+    def initiate_run(self, overall_inputs):
+        """Setup the run and return any global information about how to run the pipeline"""
+        
+        
+    def enqueue_job(self, stage, pipeline_files):
+        """Setup the job for a single stage, and return stage specific information"""
+        
+
+    def run_jobs(self):
+        """Actually run all the jobs and return the execution status"""
+        
