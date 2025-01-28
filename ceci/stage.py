@@ -1033,7 +1033,7 @@ I currently know about these stages:
 
         If final_name is False then use a temporary name - file will
         be moved to its final name at the end. The temporary name
-        is prefixed with "inprogress_".
+        is prefixed with `inprogress_`.
 
         Parameters
         ----------
@@ -1100,7 +1100,7 @@ I currently know about these stages:
         Find and open an output file with the given tag, in write mode.
 
         If final_name is True then they will be opened using their final
-        target output name.  Otherwise we will prepend "inprogress_" to their
+        target output name.  Otherwise we will prepend `inprogress_` to their
         file name. This means we know that if the final file exists then it
         is completed.
 
