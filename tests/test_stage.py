@@ -648,5 +648,4 @@ def test_memory_and_time_reports(capsys):
 
 if __name__ == "__main__":
     test_construct()
-    test_combined_iterators()
-    test_memory_and_time_reports()
+    test_wrong_mpi_flag()
