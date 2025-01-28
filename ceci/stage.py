@@ -1229,7 +1229,7 @@ I currently know about these stages:
             The file type class
         """
         tag = self.get_aliased_tag(tag)
-        for t, dt in self.inputs_().items():
+        for t, dt in self.inputs_():
             t = self.get_aliased_tag(t)
             if t == tag:
                 return dt

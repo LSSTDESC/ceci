@@ -613,7 +613,6 @@ def test_combined_iterators():
         outputs = []
         config_options = {}
         def run(self):
-            self.combined_iterators()
             it = self.combined_iterators(
                 10,
                 "inp1", "group1", ["x"], 
