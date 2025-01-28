@@ -149,7 +149,7 @@ class PipelineStage:
     @abstractmethod
     def run(self):  # pragma: no cover
         """Run the stage and return the execution status.
-        
+
         Subclasses must implemented this method.
         """
         raise NotImplementedError("run")
