@@ -1075,7 +1075,7 @@ I currently know about these stages:
             Tag as listed in self.inputs
 
         wrapper: bool
-            Whether to return an underlying file object (False) or a data type instange (True)
+            Whether to return an underlying file object (False) or a data type instance (True)
 
         **kwargs: dict
             Extra arguments to pass to the file class constructor
@@ -1115,7 +1115,7 @@ I currently know about these stages:
             Tag as listed in self.outputs
 
         wrapper: bool
-            Whether to return an underlying file object (False) or a data type instange (True)
+            Whether to return an underlying file object (False) or a data type instance (True)
 
         final_name: bool
             Default=False. Whether to save to
