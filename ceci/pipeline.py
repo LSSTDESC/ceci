@@ -6,7 +6,7 @@ import graphlib
 import yaml
 import shutil
 from abc import abstractmethod
-import warnings
+import collections
 
 from .stage import PipelineStage
 from . import minirunner
@@ -1066,6 +1066,10 @@ class Pipeline:
         # Nodes we have already added
         seen = set()
 
+        # Dictionary to track nodes by their inputs and outputs
+        node_groups = {}
+
+
         # Add overall pipeline inputs
         for inp in self.overall_inputs.keys():
             graph.add_node(inp, shape="box", color="gold", style="filled")
@@ -1090,6 +1094,43 @@ class Pipeline:
                     graph.add_node(out, shape="box", color="skyblue", style="filled")
                     seen.add(out)
                 graph.add_edge(stage.instance_name, out, color="black")
+
+        # We want to group together all the files that all created
+        # by the same stage and also all used by the same stages, to
+        # reduce the number of nodes in the graph and make it more readable.
+        # First we find that grouping.
+        node_groups = collections.defaultdict(list)
+        for node in graph.nodes_iter():
+            # only affect the nodes representing files
+            if node.attr['color'] != "skyblue":
+                continue
+            # Find the stage node that created this file,
+            # and all the stage nodes that make use of it
+            edge_in = graph.in_edges(node)[0]
+            creator = edge_in[0]
+            users = []
+            for edge in graph.out_edges(node):
+                users.append(edge[1])
+            key = (creator, tuple(users))
+            node_groups[key].append(node)
+
+        # Now we remove all the groups of nodes with more than one in
+        # and replace them with a single node
+        for key, nodes in node_groups.items():
+            if len(nodes) > 1:
+                if len(nodes) > 4:
+                    # make a string with two nodes per line
+                    node_names = []
+                    for i in range(0, len(nodes), 2):
+                        node_names.append(",  ".join(nodes[i:i+2]))
+                    new_node = "\n".join(node_names)
+                else:
+                    new_node = "\n".join(nodes)
+                graph.remove_nodes_from(nodes)
+                graph.add_node(new_node, shape="box", color="skyblue", style="filled")
+                graph.add_edge(key[0], new_node, color="black")
+                for user in key[1]:
+                    graph.add_edge(new_node, user, color="black")
 
         # finally, output the stage to file
         if filename.endswith(".dot"):
