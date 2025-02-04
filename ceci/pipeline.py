@@ -830,7 +830,9 @@ class Pipeline:
             # In interactive use the stage object might already be created
             # otherwise we need to create it
             if sec.stage_obj is not None:
+                orig_stage_config = stages_config_data.get(stage_name, {}).copy()
                 stage = sec.stage_obj
+                stage.config.update(**orig_stage_config)
             else:
                 # Find the inputs for this stage and set up the arguments
                 # to the stage init method
