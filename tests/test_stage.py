@@ -607,6 +607,45 @@ if __name__ == "__main__":
     assert 'mike_stage.py", line 15' in outs.decode()
 
 
+def test_combined_iterators():
+    class Oscar(PipelineStage):
+        inputs = [("inp1", HDFFile), ("inp2", HDFFile)]
+        outputs = []
+        config_options = {}
+        def run(self):
+            it = self.combined_iterators(
+                10,
+                "inp1", "group1", ["x"], 
+                "inp2", "group1", ["y", "z"])
+            for (s, e, data) in it:
+                pass
+        
+    oo = Oscar.make_stage(inp1="tests/test.hdf5", inp2="tests/test.hdf5")
+    oo.run()
+
+
+def test_memory_and_time_reports(capsys):
+    class November(PipelineStage):
+        name = f"November"
+        parallel = False
+        inputs = []
+        outputs = []
+        config_options = {}
+
+        def run(self):
+            self.memory_report()
+            self.memory_report("TAGTAG")
+            self.time_stamp("Hello")
+
+    
+    nn = November.make_stage()
+    nn.run()
+    captured = capsys.readouterr()
+    assert "Remaining memory on" in captured.out
+    assert "TAGTAG" in captured.out
+    assert "Process 0: Hello" in captured.out
+    
+
 if __name__ == "__main__":
     test_construct()
     test_wrong_mpi_flag()
