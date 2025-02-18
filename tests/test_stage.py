@@ -149,7 +149,7 @@ def test_parameter():
     assert stage_1.config.b == 'puffins are not extinct?'
     assert 1 in stage_1.config.c
     assert len(stage_1.config.d) == 0
-    assert "c [list]: a list (default=[1, 2, 3])" in stage_1.__doc__
+    assert "[list] default=[1, 2, 3]" in stage_1.__doc__
     stage_1.describe_configuration()
     
     cmd = "TestStage", "--a", "6", "--b", "puffins are not extinct?", "--inp", "dummy"
