@@ -153,13 +153,13 @@ class PipelineStage:
         Subclasses must implemented this method.
         """
         raise NotImplementedError("run")
-    
+
     def validate(self):
         """Check that the inputs actually have the data needed for execution,
         This is called before the run method. It is an optional stage, meant
         for checking that the input to the stage is actual in the form and
         shape needed before an expensive run is executed."""
-        pass 
+        pass
 
     def load_configs(self, args):
         """
@@ -356,11 +356,11 @@ class PipelineStage:
         if stage_is_complete and cls.config_options:
             config_text = cls._describe_configuration_text()
             if cls.__doc__ is None:
-                cls.__doc__ = f"Stage {cls.name}\n\nConfiguration Parameters:\n{config_text}"
+                cls.__doc__ = f"Stage {cls.name}\n\nParameters\n----------\n{config_text}"
             else:
                 # strip any existing configuration text from parent classes that is at the end of the doctring
-                cls.__doc__ = cls.__doc__.split("Configuration Parameters:")[0]
-                cls.__doc__ += f"\n\nConfiguration Parameters:\n{config_text}"
+                cls.__doc__ = cls.__doc__.split("Parameters")[0]
+                cls.__doc__ += f"\n\nParameters\n----------\n{config_text}"
 
         # Register the class
         if stage_is_complete:
@@ -436,24 +436,24 @@ class PipelineStage:
         s = []
         if cls.config_options is None:
             return "<This class has no configuration options>"
+
         for name, val in cls.config_options.items():
+            if isinstance(val, StageConfig):
+                val = val[name]
             if isinstance(val, StageParameter):
-                if val.required:
-                    if val.dtype is None:
-                        txt = f"[type not specified]: {val._help} (required)"
-                    else:
-                        txt = f"[{val.dtype.__name__}]: {val._help}  (required)"
-                else:
-                    if val.dtype is None:
-                        txt = f"[type not specified]: {val._help} (default={val.default})"
-                    else:
-                        txt = f"[{val.dtype.__name__}]: {val._help} (default={val.default})"
+                s.append(f"{name}: {val.numpy_style_help_text()}")
             elif isinstance(val, type):
-                txt = f"[{val.__name__}]: (required)"
+                s.append(f"{name}: {val.__name__}] (required)")
             else:
-                txt = f"[{type(val).__name__}]: (default={val})"
-            s.append(f"{name} {txt} ")
-        return '\n'.join(s)
+                s.append(f"{name}: {type(val).__name__}] (default={val})")
+
+        for input_ in cls.inputs:
+            s.append(f"{input_[0]}: {input_[1].__name__} (INPUT)")
+        for output_ in cls.outputs:
+            s.append(f"{output_[0]}: {output_[1].__name__} (OUTPUT)")
+
+        return '\n\n'.join(s)
+
 
     @classmethod
     def usage(cls):  # pragma: no cover
