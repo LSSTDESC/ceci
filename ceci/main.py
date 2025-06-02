@@ -3,12 +3,8 @@
 import os
 import sys
 import argparse
-import subprocess
 from .pipeline import Pipeline
-from .sites import load, set_default_site, get_default_site
-from .utils import extra_paths
 from ._version import __version__
-import contextlib
 
 # Add the current dir to the path - often very useful
 sys.path.append(os.getcwd())
@@ -59,53 +55,10 @@ def run_pipeline(pipe_config):
     status : `int`
         Usual unix convention of 0 -> success, non-zero is an error code
     """
-    with prepare_for_pipeline(pipe_config):
-        p = Pipeline.create(pipe_config)
-        status = p.run()
+    p = Pipeline.create(pipe_config)
+    status = p.run()
     return status
 
-
-@contextlib.contextmanager
-def prepare_for_pipeline(pipe_config):
-    """
-    Prepare the paths and launcher needed to read and run a pipeline.
-    """
-
-    # Later we will add these paths to sys.path for running here,
-    # but we will also need to pass them to the sites below so that
-    # they can be added within any containers or other launchers
-    # that we use
-    paths = pipe_config.get("python_paths", [])
-    if isinstance(paths, str):  # pragma: no cover
-        paths = paths.split()
-
-    # Get information (maybe the default) on the launcher we may be using
-    launcher_config = pipe_config.setdefault("launcher", {"name": "mini"})
-    site_config = pipe_config.get("site", {"name": "local"})
-
-    # Pass the paths along to the site
-    site_config["python_paths"] = paths
-    load(launcher_config, [site_config])
-
-    # Python modules in which to search for pipeline stages
-    modules = pipe_config.get("modules", "").split()
-
-    # This helps with testing
-    default_site = get_default_site()
-
-    # temporarily add the paths to sys.path,
-    # but remove them at the end
-    with extra_paths(paths):
-
-        # Import modules. We have to do this because the definitions
-        # of the stages can be inside.
-        for module in modules:
-            __import__(module)
-
-        try:
-            yield
-        finally:
-            set_default_site(default_site)
 
 
 def main():  # pragma: no cover

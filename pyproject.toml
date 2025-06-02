@@ -30,6 +30,7 @@ dependencies =[
     "pyyaml >= 5.1",
     "psutil",
     'graphlib_backport ; python_version < "3.9"',
+    "networkx",
 ]
 
 
