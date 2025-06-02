@@ -397,17 +397,17 @@ class Pipeline:
                     raise KeyError(
                         f"Unknown pipeline launcher {launcher_name}, options are {list(launcher_dict.keys())}"
                     ) from msg
+
             p = pipeline_class(
                 stages, launcher_config, overall_inputs=inputs, modules=modules
             )
-
             p.initialize(inputs, run_config, stages_config)
         return p
 
     @staticmethod
     def interactive():
         """Build and return a pipeline specifically intended for interactive use"""
-        launcher_config = dict(name="mini")
+        launcher_config = dict(name="mini", interval=0.5)
         return MiniPipeline([], launcher_config)
 
     @staticmethod
@@ -609,6 +609,7 @@ class Pipeline:
         with extra_paths(paths):
             for module in modules:
                 __import__(module)
+
         pipeline = cls.create(pipe_config)
 
         return pipeline
@@ -720,7 +721,6 @@ class Pipeline:
         -------
         stages : list[PipelineStage]
         """
-
         # First read all the configuration information for the stages,
         # and do some minor pre-processing.
         self.read_stages_config(stages_config)
@@ -890,7 +890,6 @@ class Pipeline:
         # This first part sets up the pipeline structure, figuring
         # out how each stage connects to the others
         self.construct_pipeline_structure(overall_inputs, run_config)
-
         # Configure the individual stages. Reads the config information for them
         # and creates PipelineStage objects for each one.
         self.stages = self.configure_stages(stages_config)
