@@ -15,11 +15,6 @@ launcher:
 #   # max_threads only referenced for local sites
 #   #log: parsl_log.txt
 
-# launcher:
-#     name: cwl
-#     launcher: cwltool
-#     dir: ./test/cwl
-
 site:
     name: local
     max_threads: 4

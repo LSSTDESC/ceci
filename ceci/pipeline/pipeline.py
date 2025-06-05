@@ -161,7 +161,6 @@ class Pipeline:
         pipeline : `Pipeline`
             The newly created pipeline
         """
-        from .cwl import CWLPipeline
         from .parsl import ParslPipeline
         from .mini import MiniPipeline
         from .flow_chart import FlowChartPipeline
@@ -187,7 +186,7 @@ class Pipeline:
             elif run_config["resume"] is False:
                 run_config["resume"] = RESUME_MODE_RESTART
 
-            launcher_dict = dict(cwl=CWLPipeline, parsl=ParslPipeline, mini=MiniPipeline)
+            launcher_dict = dict(parsl=ParslPipeline, mini=MiniPipeline)
 
             if pipe_config.get("flow_chart", False):
                 pipeline_class = FlowChartPipeline

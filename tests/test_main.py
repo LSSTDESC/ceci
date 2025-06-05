@@ -72,10 +72,6 @@ def test_flow_chart_dot():
 def test_run_parsl():
     run1("launcher.name=parsl", "launcher.max_threads=3")
 
-@pytest.mark.skip(reason="CWL currently broken")
-def test_run_cwl():
-    run1("launcher.name=cwl", "launcher.dir=tests/cwl") == 0
-
 
 def test_run_namespace():
     run1(config_yaml="tests/test_namespace.yml", expect_outputs=False) == 0

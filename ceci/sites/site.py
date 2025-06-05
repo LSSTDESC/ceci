@@ -28,7 +28,6 @@ class Site:
         """
         requirements = {
             "parsl": ["parsl"],
-            "cwl": ["cwl_utils", "cwltool"],
             "mini": ["psutil"],
         }
         if launcher not in requirements:  # pragma: no cover
