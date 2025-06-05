@@ -28,8 +28,10 @@ dynamic = ["version"]
 
 dependencies =[
     "pyyaml >= 5.1",
+    "ruamel.yaml",
     "psutil",
     'graphlib_backport ; python_version < "3.9"',
+    "networkx",
 ]
 
 
@@ -43,6 +45,7 @@ packages = [
     "ceci",
     "ceci.sites",
     "ceci.tools",
+    "ceci.pipeline",
 ]
 
 
@@ -58,10 +61,6 @@ parsl = [
     "flask",
 ]
 
-cwl = [
-    "cwlref-runner",
-    "cwl-utils",
-]
 
 viz = [
     "pygraphviz"
@@ -84,8 +83,6 @@ test = [
 all = [
     "parsl >= 1.0.0",
     "flask",
-    "cwlref-runner",
-    "cwl-utils",
     "pygraphviz",
     "pytest",
     "pytest-cov",

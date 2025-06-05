@@ -5,7 +5,7 @@ Launchers
 
 Launchers are the system that actually runs a pipeline, launching and monitoring jobs, checking output, etc.
 
-There are currently three launchers supported by Ceci, ``mini``, ``parsl``, and ``cwl``, but it's easy for us to add more - please open an issue if you need this.
+There are currently two launchers supported by Ceci, ``mini``, and``parsl``, but it's easy for us to add more - please open an issue if you need this.
 
 See also the :ref:`sites` page for how to configure other aspects of where the pipeline is run - different launchers support different site options.
 
@@ -51,25 +51,3 @@ Parsl has one option, which is common to all sites:
         log: ""       # optional
 
 ``log`` chooses a file in which to put overall top-level parsl output, describing the monitoring of jobs and output.
-
-
-CWL
----
-
-Common Workflow Language is a general language for describing workflows, that can be imported by multiple workflow engines.  A reference implementation called ``cwltool`` can be used locally to run CWL pipelines.
-
-CWL options
-^^^^^^^^^^^
-
-CWL has one option, which is common to all sites:
-
-.. code-block:: yaml
-
-    launcher:
-        name: cwl
-        dir: <path>       # required
-        launch: cwltool   # optional
-
-``dir`` controls the directory where the CWL files describing the pipeline and the individual jobs are saved. If it does not exist it will be created.
-
-``launch`` controls the executable run on the CWL files.  The default `cwltool` is actually expanded to ``cwltool --outdir {output_dir} --preserve-environment PYTHONPATH``.

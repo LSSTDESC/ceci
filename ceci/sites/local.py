@@ -95,6 +95,3 @@ class LocalSite(Site):
         # here due to SLURM limitations
         nodes = [Node(f"{name}_{i}", cores) for i in range(procs)]
         self.info["nodes"] = nodes
-
-    def configure_for_cwl(self):
-        """Utility function to set CWL configuration parameters"""

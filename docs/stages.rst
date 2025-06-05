@@ -7,7 +7,7 @@ A PipelineStage implements a single calculation step within a wider pipeline.
 Each different type of analysis stge is represented by a subclass of PipelineStage.
 
 The base class handles the connection between different pipeline
-stages, and the execution of the stages within a workflow system (parsl or cwl),
+stages, and the execution of the stages within a workflow system (e.g. parsl),
 potentially in parallel (MPI).
 
 The subclasses must:

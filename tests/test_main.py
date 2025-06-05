@@ -1,10 +1,11 @@
-from ceci.main import run_pipeline, prepare_for_pipeline
+from ceci.main import run_pipeline
 from ceci.tools.ancestors import print_ancestors
 from parsl import clear
 import tempfile
 import os
 import pytest
 import subprocess
+import networkx
 
 from ceci.pipeline import Pipeline
 
@@ -19,9 +20,8 @@ def test_save_load():
         pipe_config = Pipeline.build_config(config_yaml, config)
 
         # Run the first time
-        with prepare_for_pipeline(pipe_config):
-            p = Pipeline.create(pipe_config)
-            p.run()
+        p = Pipeline.create(pipe_config)
+        p.run()
 
         p.save(yml_path)
 
@@ -29,9 +29,8 @@ def test_save_load():
             print(f.read())
 
         # load from the saved path and run again
-        with prepare_for_pipeline(pipe_config):
-            q = Pipeline.read(yml_path, config)
-            q.run()
+        q = Pipeline.read(yml_path, config)
+        q.run()
 
 
 
@@ -73,10 +72,6 @@ def test_flow_chart_dot():
 def test_run_parsl():
     run1("launcher.name=parsl", "launcher.max_threads=3")
 
-@pytest.mark.skip(reason="CWL currently broken")
-def test_run_cwl():
-    run1("launcher.name=cwl", "launcher.dir=tests/cwl") == 0
-
 
 def test_run_namespace():
     run1(config_yaml="tests/test_namespace.yml", expect_outputs=False) == 0
@@ -88,11 +83,13 @@ def test_ancestors_stage(capsys):
 
 def test_ancestors_output(capsys):
     print_ancestors("tests/test.yml", "tomography_catalog")
-    captured = capsys.readouterr()
-    assert captured.out.strip() == "shearMeasurementPipe\nPZEstimationPipe"
+    captured = capsys.readouterr().out
+    assert "WLGCSelector" in captured
+    assert "shearMeasurementPipe" in captured
+    assert "PZEstimationPipe" in captured
 
 def test_ancestors_broken(capsys):
-    with pytest.raises(ValueError):
+    with pytest.raises(networkx.exception.NetworkXError):
         print_ancestors("tests/test.yml", "not-a-real-stage-or-output")
 
 

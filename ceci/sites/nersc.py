@@ -127,9 +127,6 @@ class NerscSite(Site):
 
         self.info["nodes"] = nodes
 
-    def configure_for_cwl(self):
-        """Utility function to set CWL configuration parameters"""
-
 
 class NerscBatchSite(NerscSite):
     """Object representing execution on the NERSC batch systems"""
