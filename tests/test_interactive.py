@@ -97,6 +97,7 @@ def test_interactive_pipeline():
     assert len(pipe2.WLGCCov.outputs) == 1
 
     pipe2.initialize(overall_inputs, pipeline.run_config, pipeline.stages_config)
+
     pipe2.print_stages()
     pipe2.WLGCCov.print_io()
 

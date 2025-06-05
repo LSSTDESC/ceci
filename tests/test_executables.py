@@ -20,4 +20,3 @@ def test_misuse_mpi():
     cmd = "python3 -m ceci_example PZEstimationPipe --mpi"
     with pytest.raises(subprocess.CalledProcessError):
         subprocess.check_call(cmd.split())
-

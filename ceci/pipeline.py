@@ -340,6 +340,7 @@ class Pipeline:
         self.run_info = None
         self.run_config = None
         self.stages = None
+        self.graph = None
         self.pipeline_files = FileManager()
         self.pipeline_outputs = None
         self.stages_config = None
