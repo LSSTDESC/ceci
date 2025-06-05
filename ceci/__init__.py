@@ -8,7 +8,7 @@ from .pipeline import (
     DryRunPipeline,
     FlowChartPipeline,
 )
-from .main import run_pipeline
+from .main import run_pipeline, prepare_for_pipeline
 import importlib.metadata
 
 try:
