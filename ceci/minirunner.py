@@ -377,7 +377,7 @@ class Runner:
             # status==0 indicates sucess in job, so free resources
             else:
                 run_time = make_run_time_string(default_timer() - start_time)
-                print(f"Job {job.name} has completed successfully in {run_time} seconds !")
+                print(f"Job {job.name} has completed successfully in {run_time}")
                 # Call back with info about the successful job and how it ran
                 self.callback(
                     EVENT_COMPLETED,
