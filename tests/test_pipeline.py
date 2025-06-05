@@ -84,38 +84,38 @@ def test_graph():
     # as long as we supply input 'a'.
     # order should be A then C
     pipeline = Pipeline([C, B], launcher_config)
-    order = pipeline.construct_pipeline_structure({"a": "a.txt"}, launcher_config)
+    order = pipeline.construct_pipeline_graph({"a": "a.txt"}, launcher_config)
     assert order == ["BBB", "CCC"]
 
     pipeline = Pipeline([C, D, B], launcher_config)
-    order = pipeline.construct_pipeline_structure({"a": "a.txt"}, launcher_config)
+    order = pipeline.construct_pipeline_graph({"a": "a.txt"}, launcher_config)
     assert order == ["BBB", "CCC", "DDD"]
 
     # Should fail - missing an input, 'a'
     with pytest.raises(ValueError):
         pipeline = Pipeline([D, C, B], launcher_config)
-        pipeline.construct_pipeline_structure({}, launcher_config)
+        pipeline.construct_pipeline_graph({}, launcher_config)
 
     # Should fail - circular
     with pytest.raises(ValueError):
         pipeline = Pipeline([A, B], launcher_config)
-        pipeline.construct_pipeline_structure({}, launcher_config)
+        pipeline.construct_pipeline_graph({}, launcher_config)
 
     # Should fail - one output is supplied as an input
     # with pytest.raises(ValueError):
     with pytest.raises(ValueError):
         pipeline = Pipeline([A], launcher_config)
-        pipeline.construct_pipeline_structure({"a": "a.txt", "b": "b.txt"}, launcher_config)
+        pipeline.construct_pipeline_graph({"a": "a.txt", "b": "b.txt"}, launcher_config)
 
     # Should fail - repeated stage
     with pytest.raises(ValueError):
         pipeline = Pipeline([A, A], launcher_config)
-        pipeline.construct_pipeline_structure({"b": "b.txt"}, launcher_config)
+        pipeline.construct_pipeline_graph({"b": "b.txt"}, launcher_config)
 
     # Should fail - two outputs with same name
     with pytest.raises(ValueError):
         pipeline = Pipeline([E1, E2], launcher_config)
-        pipeline.construct_pipeline_structure({}, launcher_config)
+        pipeline.construct_pipeline_graph({}, launcher_config)
 
 
 
@@ -291,17 +291,17 @@ def test_init_stages():
 
     # Test initializing stages with a file name
     pipeline = Pipeline([C, B], launcher_config)
-    pipeline.construct_pipeline_structure(inputs, run_config)
+    pipeline.construct_pipeline_graph(inputs, run_config)
     pipeline.configure_stages("tests/config.yml")
 
     # Test initializing stages with dict
     pipeline = Pipeline([C, B], launcher_config)
-    pipeline.construct_pipeline_structure(inputs, run_config)
+    pipeline.construct_pipeline_graph(inputs, run_config)
     pipeline.configure_stages({})
 
     # Test initializing stages with nothing
     pipeline = Pipeline([C, B], launcher_config)
-    pipeline.construct_pipeline_structure(inputs, run_config)
+    pipeline.construct_pipeline_graph(inputs, run_config)
     pipeline.configure_stages(None)
 
 

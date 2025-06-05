@@ -760,7 +760,7 @@ class Pipeline:
         return stages
 
     
-    def construct_pipeline_structure(self, overall_inputs, run_config):
+    def construct_pipeline_graph(self, overall_inputs, run_config):
         """
         Connect together the pipeline stages, finding all the inputs
         and outputs for each. Build the graph object that encodes the
@@ -889,7 +889,8 @@ class Pipeline:
         """
         # This first part sets up the pipeline structure, figuring
         # out how each stage connects to the others
-        self.construct_pipeline_structure(overall_inputs, run_config)
+        self.construct_pipeline_graph(overall_inputs, run_config)
+
         # Configure the individual stages. Reads the config information for them
         # and creates PipelineStage objects for each one.
         self.stages = self.configure_stages(stages_config)
@@ -1041,86 +1042,44 @@ class Pipeline:
             except Exception as msg:  # pragma: no cover
                 print(f"Failed to save {str(stage_dict)} because {msg}")
 
-    def make_flow_chart(self, filename):
-        import pygraphviz
+    def make_flow_chart(self, filename=None):
+        """Make a flow chart of the pipeline stages and write it to a file
 
-        # Make a graph object
-        graph = pygraphviz.AGraph(directed=True)
+        Parameters
+        ----------
+        filename: str or None
+            The name of the file to write the flow chart to.  If it ends in .dot
+            then a dot file is written, otherwise it should be an image format.
+            If None then the flow chart is not written to a file, but the graphvix
+            object is still returned.
 
-        # Nodes we have already added
-        seen = set()
+        Returns
+        -------
+        graphviz.AGraph
+            The graphviz object representing the pipeline stages
+        """
+        # generate a graphviz object from the networkx graph
+        graph = networkx.nx_agraph.to_agraph(self.graph)
 
-        # Dictionary to track nodes by their inputs and outputs
-        node_groups = {}
-
-
-        # Add overall pipeline inputs
-        for inp in self.overall_inputs.keys():
-            graph.add_node(inp, shape="box", color="gold", style="filled")
-            seen.add(inp)
-
-        for stage in self.stages:
-            # add the stage itself
-            graph.add_node(
-                stage.instance_name, shape="ellipse", color="orangered", style="filled"
-            )
-            # connect that stage to its inputs
-            for inp, _ in stage.inputs:
-                inp = stage.get_aliased_tag(inp)
-                if inp not in seen:  # pragma: no cover
-                    graph.add_node(inp, shape="box", color="skyblue", style="filled")
-                    seen.add(inp)
-                graph.add_edge(inp, stage.instance_name, color="black")
-            # and to its outputs
-            for out, _ in stage.outputs:
-                out = stage.get_aliased_tag(out)
-                if out not in seen:
-                    graph.add_node(out, shape="box", color="skyblue", style="filled")
-                    seen.add(out)
-                graph.add_edge(stage.instance_name, out, color="black")
-
-        # We want to group together all the files that all created
-        # by the same stage and also all used by the same stages, to
-        # reduce the number of nodes in the graph and make it more readable.
-        # First we find that grouping.
-        node_groups = collections.defaultdict(list)
+        # set the colours and styles for the boxes
         for node in graph.nodes_iter():
-            # only affect the nodes representing files
-            if node.attr['color'] != "skyblue":
-                continue
-            # Find the stage node that created this file,
-            # and all the stage nodes that make use of it
-            edge_in = graph.in_edges(node)[0]
-            creator = edge_in[0]
-            users = []
-            for edge in graph.out_edges(node):
-                users.append(edge[1])
-            key = (creator, tuple(users))
-            node_groups[key].append(node)
+            node_type = node.attr['type']
+            if node_type == "input":
+                node.attr.update(shape="box", color="gold", style="filled")
+            elif node_type == "stage":
+                node.attr.update(shape="ellipse", color="orangered", style="filled")
+            elif node_type == "output":
+                node.attr.update(shape="box", color="skyblue", style="filled")
 
-        # Now we remove all the groups of nodes with more than one in
-        # and replace them with a single node
-        for key, nodes in node_groups.items():
-            if len(nodes) > 1:
-                if len(nodes) > 4:
-                    # make a string with two nodes per line
-                    node_names = []
-                    for i in range(0, len(nodes), 2):
-                        node_names.append(",  ".join(nodes[i:i+2]))
-                    new_node = "\n".join(node_names)
-                else:
-                    new_node = "\n".join(nodes)
-                graph.remove_nodes_from(nodes)
-                graph.add_node(new_node, shape="box", color="skyblue", style="filled")
-                graph.add_edge(key[0], new_node, color="black")
-                for user in key[1]:
-                    graph.add_edge(new_node, user, color="black")
-
-        # finally, output the stage to file
-        if filename.endswith(".dot"):
+        # optionally output the stage to file
+        if filename is None:
+            pass
+        elif filename.endswith(".dot"):
             graph.write(filename)
         else:
             graph.draw(filename, prog="dot")
+
+        return graph
 
     def generate_stage_command(self, stage_name, **kwargs):
         """Generate the command to run one stage in this pipeline
