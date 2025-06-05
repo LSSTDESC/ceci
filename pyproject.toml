@@ -44,6 +44,7 @@ packages = [
     "ceci",
     "ceci.sites",
     "ceci.tools",
+    "ceci.pipeline",
 ]
 
 
