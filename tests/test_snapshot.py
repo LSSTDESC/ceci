@@ -5,6 +5,12 @@ import subprocess
 
 from ceci.pipeline import Pipeline
 
+def test_save():
+
+    # Read the pipeline
+    pipeline = Pipeline.read('tests/test.yml')
+    pipeline.save('test_save.yml')
+
 
 def test_snapshot():
 

@@ -68,7 +68,7 @@ class EEE2(PipelineStage):
         pass
 
 
-def test_orderings():
+def test_graph():
 
     # TODO: make it so less boilerplate is needed here
     launcher_config = {"interval": 0.5, "name": "mini"}
@@ -84,38 +84,38 @@ def test_orderings():
     # as long as we supply input 'a'.
     # order should be A then C
     pipeline = Pipeline([C, B], launcher_config)
-    order = pipeline.ordered_stages({"a": "a.txt"})
+    order = pipeline.construct_pipeline_graph({"a": "a.txt"}, launcher_config)
     assert order == ["BBB", "CCC"]
 
     pipeline = Pipeline([C, D, B], launcher_config)
-    order = pipeline.ordered_stages({"a": "a.txt"})
+    order = pipeline.construct_pipeline_graph({"a": "a.txt"}, launcher_config)
     assert order == ["BBB", "CCC", "DDD"]
 
     # Should fail - missing an input, 'a'
     with pytest.raises(ValueError):
         pipeline = Pipeline([D, C, B], launcher_config)
-        order = pipeline.ordered_stages({})
+        pipeline.construct_pipeline_graph({}, launcher_config)
 
     # Should fail - circular
     with pytest.raises(ValueError):
         pipeline = Pipeline([A, B], launcher_config)
-        order = pipeline.ordered_stages({})
+        pipeline.construct_pipeline_graph({}, launcher_config)
 
     # Should fail - one output is supplied as an input
     # with pytest.raises(ValueError):
     with pytest.raises(ValueError):
         pipeline = Pipeline([A], launcher_config)
-        order = pipeline.ordered_stages({"a": "a.txt", "b": "b.txt"})
+        pipeline.construct_pipeline_graph({"a": "a.txt", "b": "b.txt"}, launcher_config)
 
     # Should fail - repeated stage
     with pytest.raises(ValueError):
         pipeline = Pipeline([A, A], launcher_config)
-        order = pipeline.ordered_stages({"b": "b.txt"})
+        pipeline.construct_pipeline_graph({"b": "b.txt"}, launcher_config)
 
     # Should fail - two outputs with same name
     with pytest.raises(ValueError):
         pipeline = Pipeline([E1, E2], launcher_config)
-        order = pipeline.ordered_stages({})
+        pipeline.construct_pipeline_graph({}, launcher_config)
 
 
 
@@ -287,27 +287,28 @@ def test_init_stages():
     # as long as we supply input 'a'.
     # order should be A then C
     inputs = {"a": "a.txt"}
+    run_config = {}
 
     # Test initializing stages with a file name
     pipeline = Pipeline([C, B], launcher_config)
-    order = pipeline.ordered_stages(inputs)
-    pipeline.initialize_stages(order, inputs, "tests/config.yml")
+    pipeline.construct_pipeline_graph(inputs, run_config)
+    pipeline.configure_stages("tests/config.yml")
 
     # Test initializing stages with dict
     pipeline = Pipeline([C, B], launcher_config)
-    order = pipeline.ordered_stages(inputs)
-    pipeline.initialize_stages(order, inputs, {})
+    pipeline.construct_pipeline_graph(inputs, run_config)
+    pipeline.configure_stages({})
 
     # Test initializing stages with nothing
     pipeline = Pipeline([C, B], launcher_config)
-    order = pipeline.ordered_stages(inputs)
-    pipeline.initialize_stages(order, inputs, None)
+    pipeline.construct_pipeline_graph(inputs, run_config)
+    pipeline.configure_stages(None)
 
 
     # should fail - wrong type
     p = MiniPipeline({}, [])
     with pytest.raises(ValueError):
-        p.initialize_stages([], [], [])
+        p.configure_stages([])
 
 
 
