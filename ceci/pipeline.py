@@ -173,7 +173,12 @@ class StageExecutionConfig:
         """Set the stage_class attribute by finding
         self.class_name in the dictionary of classes from `Pipeline_stage`
         """
-        self.stage_class = PipelineStage.get_stage(self.class_name, self.module_name)
+        # We probably don't actually need a stage_class if we already have a stage_obj
+        # but this doesn't hurt.
+        if self.stage_obj is None:
+            self.stage_class = PipelineStage.get_stage(self.class_name, self.module_name)
+        else:
+            self.stage_class = type(self.stage_obj)
         return self.stage_class
 
     def build_stage_object(self, args):
@@ -662,7 +667,7 @@ class Pipeline:
             sec = StageExecutionConfig.create(stage_info)
         else:
             sec = StageExecutionConfig(stage_info)
-        sec.build_stage_class()
+            sec.build_stage_class()
         self.stage_execution_config[sec.name] = sec
         self.stage_names.append(sec.name)
 
