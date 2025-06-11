@@ -188,7 +188,7 @@ def test_dry_run(mocker):
 
     # override stdout so that it thinks it's a terminal so
     # that we can test the emboldening
-    stdout_mock = mocker.patch("ceci.pipeline.sys.stdout")
+    stdout_mock = mocker.patch("ceci.pipeline.pipeline.sys.stdout")
     stdout_mock.isatty.return_value = True
 
     config = yaml.safe_load(open("tests/test.yml"))
