@@ -57,7 +57,7 @@ def load(launcher_config, site_configs):
     Parameters
     ----------
     launcher_config: dict
-        Configuration information on launchers (parsl, minirunner, CWL).
+        Configuration information on launchers (parsl, minirunner).
 
     site_configs: list[dict]
         list of configs for different sites (local, nersc-batch, nersc-interactive).

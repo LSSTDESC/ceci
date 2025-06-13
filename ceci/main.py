@@ -29,7 +29,7 @@ parser.add_argument(
 parser.add_argument(
     "extra_config",
     nargs="*",
-    help="Over-ride the main pipeline yaml file e.g. launcher.name=cwl",
+    help="Over-ride the main pipeline yaml file e.g. launcher.name=parsl",
 )
 
 parser.add_argument(

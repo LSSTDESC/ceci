@@ -81,6 +81,3 @@ class CCParallel(Site):
         nodes = [Node(f"Node_{i}", cores_per_node) for i in range(nodes)]
 
         self.info["nodes"] = nodes
-
-    def configure_for_cwl(self):
-        """Utility function to set CWL configuration parameters"""

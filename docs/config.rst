@@ -10,8 +10,8 @@ Here is an example, from ``test/test.yml``.  The different pieces are described 
 
 .. code-block:: yaml
 
-  # There are currently three defined launchers
-  # mini, parsl, and cwl
+  # There are currently two defined launchers
+  # mini and parsl
   launcher:
       name: mini
       interval: 0.5
@@ -104,7 +104,7 @@ Launcher
 
 The ``launcher`` parameter should be a dictionary that configures the workflow manager used to launch the jobs.
 
-The ``name`` item in the dictionary sets which launcher is used.  These options are currently allowed: ``mini``, ``parsl``, and ``cwl``.
+The ``name`` item in the dictionary sets which launcher is used.  These options are currently allowed: ``mini`` or ``parsl``.
 
 See the :ref:`launchers` page for information on these launchers, and the other options they take.
 

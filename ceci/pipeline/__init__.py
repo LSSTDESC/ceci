@@ -1,6 +1,5 @@
 """Module with core pipeline functionality"""
 
-from .cwl import CWLPipeline
 from .pipeline import (
     Pipeline,
     override_config,
