@@ -68,10 +68,9 @@ class EEE2(PipelineStage):
         pass
 
 
-def test_graph():
+def test_construct_graph():
 
-    # TODO: make it so less boilerplate is needed here
-    launcher_config = {"interval": 0.5, "name": "mini"}
+    launcher_config = {}
 
     A = {"name": "AAA"}
     B = {"name": "BBB"}
@@ -82,7 +81,7 @@ def test_graph():
 
     # This one should work - basic pipeline
     # as long as we supply input 'a'.
-    # order should be A then C
+    # order should be B then C
     pipeline = Pipeline([C, B], launcher_config)
     order = pipeline.construct_pipeline_graph({"a": "a.txt"}, launcher_config)
     assert order == ["BBB", "CCC"]

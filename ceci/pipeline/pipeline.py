@@ -8,7 +8,7 @@ from abc import abstractmethod
 from ..stage import PipelineStage
 from ..sites import load, set_default_site, get_default_site
 from ..utils import extra_paths
-from .graph import build_graph, get_static_ordering
+from .graph import build_graph, get_static_ordering, trim_pipeline_graph
 from .file_manager import FileManager
 from .sec import StageExecutionConfig
 
@@ -179,6 +179,8 @@ class Pipeline:
                 "resume": pipe_config.get("resume", RESUME_MODE_RESUME),
                 "flow_chart": pipe_config.get("flow_chart", ""),
                 "registry": pipe_config.get("registry", None),
+                "to": pipe_config.get("to", None),
+                "from": pipe_config.get("from", None),
             }
 
             if run_config["resume"] is True:
@@ -590,7 +592,6 @@ class Pipeline:
         if (registry_info is not None) and (self.data_registry is None):
             self.data_registry = self.setup_data_registry(registry_info)
         self.overall_inputs = self.process_overall_inputs(overall_inputs)
-        self.pipeline_files.insert_paths(self.overall_inputs)
 
         # Get the stages in the order we need.
         # First build the graph that includes both the stages and the
@@ -602,8 +603,37 @@ class Pipeline:
             self.overall_inputs
         )
 
+        if "to" in self.run_config or "from" in self.run_config:
+            to_ = self.run_config.get("to")
+            from_ = self.run_config.get("from")
+
+            self.graph, converted_inputs = trim_pipeline_graph(self.graph, from_, to_)
+
+            # converted_inputs contains the file names that were previously
+            # outputs from the pipeline but are now converted to being inputs
+            # to it. We need them to exist already if this is not a dry-run.
+            output_dir = self.run_config["output_dir"]
+            converted_inputs = {
+                tag: os.path.join(output_dir, path)
+                for tag,path in converted_inputs.items()
+            }
+            if converted_inputs:
+                print("The pipeline was trimmed using the 'to' and/or 'from' options in the " \
+                      "pipeline file.\n\nThe following files were to be generated in the full " \
+                      "pipeline but are now expected to exist already from a previous run")
+                for t, path in converted_inputs.items():
+                    print(f"    - {t}: {path}")
+                    self.overall_inputs[t] = path
+
+
         # Re-order the pipeline stages in a static order
         self.stage_names = get_static_ordering(self.graph)
+
+        # This is also a convenient place to record the location
+        # of the overall inputs in the file manager
+        self.pipeline_files.insert_paths(self.overall_inputs)
+
+
         return self.stage_names
 
     def read_stages_config(self, stages_config):
