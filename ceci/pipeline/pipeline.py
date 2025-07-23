@@ -12,6 +12,7 @@ from ..utils import extra_paths
 from .graph import build_graph, get_static_ordering
 from .file_manager import FileManager
 from .sec import StageExecutionConfig
+from .templates import read_and_apply_template
 
 
 RESUME_MODE_RESUME = "resume"
@@ -238,28 +239,8 @@ class Pipeline:
         pipe_config : dict
             The resulting configuration
         """
-
-        if template_parameters is None:
-            template_parameters = set()
-
-        # YAML input file.
-        # Load the text and then expand any environment variables
-        with open(pipeline_config_filename) as config_file:
-            raw_config_text = config_file.read()
-
-        # Determine if the configuration file contains any jinja2 template variables
-        # and check that the provided parameters match those required by the template
-        env = jinja2.Environment()
-        required_parameters = jinja2.meta.find_undeclared_variables(env.parse(raw_config_text))
-        
-        if template_parameters != required_parameters:
-            raise ValueError(
-                f"Pipeline configuration file {pipeline_config_filename} requires exactly the following parameters: {required_parameters}, "
-                f"but these were provided: {template_parameters}."
-            )
-
-        template = env.from_string(raw_config_text)
-        config_text = template.render(parameters=template_parameters)
+        # Read the configuration file, expanding any jinja2 template variables
+        config_text = read_and_apply_template(pipeline_config_filename, template_parameters)
 
         # Then parse with YAML
         pipe_config = yaml.safe_load(config_text)
@@ -401,7 +382,7 @@ class Pipeline:
         return paths
 
     @classmethod
-    def read(cls, pipeline_config_filename, extra_config=None, dry_run=False):
+    def read(cls, pipeline_config_filename, extra_config=None, dry_run=False, template_parameters=None):
         """Create a pipeline for a configuration dictionary from a yaml file and extra optional parameters
 
         Parameters
@@ -418,7 +399,7 @@ class Pipeline:
         pipeline : Pipeline
             The newly built pipeline
         """
-        pipe_config = cls.build_config(pipeline_config_filename, extra_config, dry_run)
+        pipe_config = cls.build_config(pipeline_config_filename, extra_config, dry_run, template_parameters)
         paths = pipe_config.get("python_paths", [])
         if isinstance(paths, str):  # pragma: no cover
             paths = paths.split()
@@ -938,4 +919,5 @@ class Pipeline:
         outputs = the_stage.find_outputs(self.run_config["output_dir"])
         return sec.generate_full_command(all_inputs, outputs, self.stages_config)
     
+
 

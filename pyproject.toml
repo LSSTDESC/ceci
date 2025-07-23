@@ -32,6 +32,7 @@ dependencies =[
     "psutil",
     'graphlib_backport ; python_version < "3.9"',
     "networkx",
+    "jinja2",
 ]
 
 
@@ -91,4 +92,5 @@ all = [
     "h5py",
     "dask[distributed] >= 2023.5.0",
     "dask_mpi >= 2022.4.0",
+    "jinja2",
 ]
