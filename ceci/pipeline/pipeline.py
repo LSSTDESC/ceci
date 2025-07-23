@@ -240,7 +240,7 @@ class Pipeline:
         """
 
         if template_parameters is None:
-            template_parameters = {}
+            template_parameters = set()
 
         # YAML input file.
         # Load the text and then expand any environment variables
@@ -248,6 +248,7 @@ class Pipeline:
             raw_config_text = config_file.read()
 
         # Determine if the configuration file contains any jinja2 template variables
+        # and check that the provided parameters match those required by the template
         env = jinja2.Environment()
         required_parameters = jinja2.meta.find_undeclared_variables(env.parse(raw_config_text))
         
@@ -259,7 +260,6 @@ class Pipeline:
 
         template = env.from_string(raw_config_text)
         config_text = template.render(parameters=template_parameters)
-
 
         # Then parse with YAML
         pipe_config = yaml.safe_load(config_text)
