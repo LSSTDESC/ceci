@@ -618,9 +618,10 @@ class Pipeline:
                 for tag,path in converted_inputs.items()
             }
             if converted_inputs:
-                print("The pipeline was trimmed using the 'to' and/or 'from' options in the " \
-                      "pipeline file.\n\nThe following files were to be generated in the full " \
-                      "pipeline but are now expected to exist already from a previous run")
+                print("The pipeline was trimmed using the 'to' and/or 'from' options " \
+                      "in the pipeline file.\n" \
+                      "The following files were to be generated in the full pipeline" \
+                      "but are now expected to exist already from a previous run")
                 for t, path in converted_inputs.items():
                     print(f"    - {t}: {path}")
                     self.overall_inputs[t] = path
