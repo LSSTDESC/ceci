@@ -2,6 +2,7 @@ import os
 import sys
 import contextlib
 import networkx
+import jinja2.meta
 import yaml
 from abc import abstractmethod
 
@@ -215,7 +216,8 @@ class Pipeline:
 
     @staticmethod
     def build_config(
-        pipeline_config_filename, extra_config=None, dry_run=False, flow_chart=None
+        pipeline_config_filename, extra_config=None, dry_run=False, flow_chart=None,
+        template_parameters=None,
     ):
         """Build a configuration dictionary from a yaml file and extra optional parameters
 
@@ -227,6 +229,9 @@ class Pipeline:
             A string with extra parameters in key=value pairs
         dry_run : bool
             A specfic flag to build a pipeline only from dry-runs
+        parameters: dict
+            A dictionary of parameters that are used to complete template
+            variables in the pipeline configuration file.
 
         Returns
         -------
@@ -234,11 +239,28 @@ class Pipeline:
             The resulting configuration
         """
 
+        if template_parameters is None:
+            template_parameters = {}
+
         # YAML input file.
         # Load the text and then expand any environment variables
         with open(pipeline_config_filename) as config_file:
             raw_config_text = config_file.read()
-        config_text = os.path.expandvars(raw_config_text)
+
+        # Determine if the configuration file contains any jinja2 template variables
+        env = jinja2.Environment()
+        required_parameters = jinja2.meta.find_undeclared_variables(env.parse(raw_config_text))
+        
+        if template_parameters != required_parameters:
+            raise ValueError(
+                f"Pipeline configuration file {pipeline_config_filename} requires exactly the following parameters: {required_parameters}, "
+                f"but these were provided: {template_parameters}."
+            )
+
+        template = env.from_string(raw_config_text)
+        config_text = template.render(parameters=template_parameters)
+
+
         # Then parse with YAML
         pipe_config = yaml.safe_load(config_text)
 
