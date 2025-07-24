@@ -33,6 +33,14 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "-t",
+    "--template-parameters",
+    nargs="*",
+    help="Template parameters to use in the pipeline configuration file, e.g. -t some_directory=xyz field=north",
+    default="",
+)
+
+parser.add_argument(
     "-v",
     "--version",
     action="version",
@@ -69,7 +77,8 @@ def main():  # pragma: no cover
     if args.flow_chart:
         args.dry_run = True
     pipe_config = Pipeline.build_config(
-        args.pipeline_config, args.extra_config, args.dry_run, args.flow_chart
+        args.pipeline_config, args.extra_config, args.dry_run, args.flow_chart,
+        args.template_parameters
     )
     status = run_pipeline(pipe_config)
 

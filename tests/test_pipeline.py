@@ -349,6 +349,34 @@ def test_config_template():
             template_parameters=params3
         )
 
+    params4 = object()
+    # Test that using the wrong type raises an error
+    with pytest.raises(TypeError, match="template_parameters must be a dict or a list or space"):
+        config = Pipeline.build_config(
+            "tests/template.yml",
+            template_parameters=params4
+        )
+
+    params5 = "field=north logfile=northern.txt some_directory=xyz"
+    config = Pipeline.build_config(
+        "tests/template.yml",
+        template_parameters=params5
+    )
+
+    assert config["output_dir"] == "./tests/outputs_north"
+    assert config["log_dir"] == "./tests/northern.txt"
+    assert config["inputs"]["fiducial_cosmology"] == "./tests/xyz/fiducial_cosmology.txt"
+
+    params6 = ["field=north", "logfile=northern.txt", "some_directory=xyz"]
+    config = Pipeline.build_config(
+        "tests/template.yml",
+        template_parameters=params6
+    )
+
+    assert config["output_dir"] == "./tests/outputs_north"
+    assert config["log_dir"] == "./tests/northern.txt"
+    assert config["inputs"]["fiducial_cosmology"] == "./tests/xyz/fiducial_cosmology.txt"
+
 
 # this has to be here because we test running the pipeline
 if __name__ == "__main__":
