@@ -8,6 +8,7 @@ import yaml
 import os
 import tempfile
 import sys
+import jinja2.exceptions
 
 # This one should work
 class AAA(PipelineStage):
@@ -310,6 +311,71 @@ def test_init_stages():
     with pytest.raises(ValueError):
         p.configure_stages([])
 
+def test_config_template():
+    params1 = {
+        "field": "north",
+        "logfile": "northern.txt",
+        "some_directory": "xyz",
+    }
+    config = Pipeline.build_config(
+        "tests/template.yml",
+        template_parameters=params1
+    )
+
+    assert config["output_dir"] == "./tests/outputs_north"
+    assert config["log_dir"] == "./tests/northern.txt"
+    assert config["inputs"]["fiducial_cosmology"] == "./tests/xyz/fiducial_cosmology.txt"
+
+    params2 = {
+        "field": "north",
+        "logfile": "northern.txt",
+        "some_directory": "xyz",
+        "unused_param": "not_used",
+    }
+    with pytest.raises(ValueError):
+        config = Pipeline.build_config(
+            "tests/template.yml",
+            template_parameters=params2
+        )
+
+    params3 = {
+        "field": "north",
+        "some_directory": "xyz",
+    }
+
+    with pytest.raises(jinja2.exceptions.UndefinedError):
+        config = Pipeline.build_config(
+            "tests/template.yml",
+            template_parameters=params3
+        )
+
+    params4 = object()
+    # Test that using the wrong type raises an error
+    with pytest.raises(TypeError, match="template_parameters must be a dict or a list or space"):
+        config = Pipeline.build_config(
+            "tests/template.yml",
+            template_parameters=params4
+        )
+
+    params5 = "field=north logfile=northern.txt some_directory=xyz"
+    config = Pipeline.build_config(
+        "tests/template.yml",
+        template_parameters=params5
+    )
+
+    assert config["output_dir"] == "./tests/outputs_north"
+    assert config["log_dir"] == "./tests/northern.txt"
+    assert config["inputs"]["fiducial_cosmology"] == "./tests/xyz/fiducial_cosmology.txt"
+
+    params6 = ["field=north", "logfile=northern.txt", "some_directory=xyz"]
+    config = Pipeline.build_config(
+        "tests/template.yml",
+        template_parameters=params6
+    )
+
+    assert config["output_dir"] == "./tests/outputs_north"
+    assert config["log_dir"] == "./tests/northern.txt"
+    assert config["inputs"]["fiducial_cosmology"] == "./tests/xyz/fiducial_cosmology.txt"
 
 
 # this has to be here because we test running the pipeline

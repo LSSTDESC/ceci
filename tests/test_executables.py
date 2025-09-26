@@ -1,6 +1,7 @@
 import pytest
 import subprocess
 import os
+import shutil
 
 def test_executable():
     subprocess.check_call(["ceci", "tests/test.yml"])
@@ -20,3 +21,13 @@ def test_misuse_mpi():
     cmd = "python3 -m ceci_example PZEstimationPipe --mpi"
     with pytest.raises(subprocess.CalledProcessError):
         subprocess.check_call(cmd.split())
+
+def test_run_template_parameters():
+    if os.path.exists("tests/template_test_logfile.txt"):
+        os.remove("tests/template_test_logfile.txt")
+    shutil.rmtree("tests/outputs_north", ignore_errors=True)
+
+    cmd = 'ceci tests/template.yml --template-parameters logfile=template_test_logfile.txt some_directory=inputs field=north'
+    subprocess.check_call(cmd.split())
+    assert os.path.exists("tests/template_test_logfile.txt")
+    assert os.path.isdir("tests/outputs_north")

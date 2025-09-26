@@ -2,6 +2,7 @@ import os
 import sys
 import contextlib
 import networkx
+import jinja2.meta
 import yaml
 from abc import abstractmethod
 
@@ -11,6 +12,7 @@ from ..utils import extra_paths
 from .graph import build_graph, get_static_ordering
 from .file_manager import FileManager
 from .sec import StageExecutionConfig
+from .templates import read_and_apply_template
 
 
 RESUME_MODE_RESUME = "resume"
@@ -215,7 +217,8 @@ class Pipeline:
 
     @staticmethod
     def build_config(
-        pipeline_config_filename, extra_config=None, dry_run=False, flow_chart=None
+        pipeline_config_filename, extra_config=None, dry_run=False, flow_chart=None,
+        template_parameters=None,
     ):
         """Build a configuration dictionary from a yaml file and extra optional parameters
 
@@ -227,18 +230,18 @@ class Pipeline:
             A string with extra parameters in key=value pairs
         dry_run : bool
             A specfic flag to build a pipeline only from dry-runs
+        parameters: dict
+            A dictionary of parameters that are used to complete template
+            variables in the pipeline configuration file.
 
         Returns
         -------
         pipe_config : dict
             The resulting configuration
         """
+        # Read the configuration file, expanding any jinja2 template variables
+        config_text = read_and_apply_template(pipeline_config_filename, template_parameters)
 
-        # YAML input file.
-        # Load the text and then expand any environment variables
-        with open(pipeline_config_filename) as config_file:
-            raw_config_text = config_file.read()
-        config_text = os.path.expandvars(raw_config_text)
         # Then parse with YAML
         pipe_config = yaml.safe_load(config_text)
 
@@ -379,7 +382,7 @@ class Pipeline:
         return paths
 
     @classmethod
-    def read(cls, pipeline_config_filename, extra_config=None, dry_run=False):
+    def read(cls, pipeline_config_filename, extra_config=None, dry_run=False, template_parameters=None):
         """Create a pipeline for a configuration dictionary from a yaml file and extra optional parameters
 
         Parameters
@@ -396,7 +399,7 @@ class Pipeline:
         pipeline : Pipeline
             The newly built pipeline
         """
-        pipe_config = cls.build_config(pipeline_config_filename, extra_config, dry_run)
+        pipe_config = cls.build_config(pipeline_config_filename, extra_config, dry_run, template_parameters)
         paths = pipe_config.get("python_paths", [])
         if isinstance(paths, str):  # pragma: no cover
             paths = paths.split()
@@ -916,4 +919,5 @@ class Pipeline:
         outputs = the_stage.find_outputs(self.run_config["output_dir"])
         return sec.generate_full_command(all_inputs, outputs, self.stages_config)
     
+
 
