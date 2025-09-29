@@ -5,7 +5,7 @@ Sites
 
 A site is a machine where a pipeline is to be run.  Ceci currently only supports running a pipeline at a single site, not splitting it up between them.
 
-Three sites are currently supported: ``local``, ``cori-batch``, and ``cori-interactive``.
+Three sites are currently supported: ``local``, ``nersc-batch``, and ``nersc-interactive``.
 
 See also the :ref:`launchers` page for how to configure the manager that runs the pipeline.
 

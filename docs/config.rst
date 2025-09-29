@@ -161,3 +161,25 @@ Any executable specified by ``pre_script`` will be run before the pipeline.  If 
 Any executable specified by ``post_script`` will be run after the pipeline, but only if the pipeline completes successfully.  If the post_script returns a non-zero status then it will be returned as the ceci exit code, but no exception will be raised.
 
 Both scripts are called with the same arguments as the original executable was called with.
+
+
+Templates
+---------
+
+You can use `Jinja2 <https://jinja.palletsprojects.com>`_ to allow you to use *templates* in your pipeline YML files.
+
+This allows you to set variables on the ceci command line which are then used to
+modify the pipeline text. This lets you use a single parameter file for a set of
+runs. In TXPipe we use this to have a single pipeline file that can process one of several
+different fields depending on the parameter choice.
+
+See the `Jinja2 <https://jinja.palletsprojects.com>`_ documentation for information on the
+template syntax. Then to set input variables, use the `-t` flag on the ceci command line, in the form:
+
+.. code-block:: bash
+
+  ceci -t variable1=value1 variable2=value2   pipeline.yml
+
+
+There's not much point using template in interactive code - you should probably
+just set up your pipeline files programatically.
