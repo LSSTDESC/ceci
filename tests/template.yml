@@ -42,7 +42,6 @@ site:
 #     max_jobs: 2
 #     account: m1727
 #     walltime: "00:30:00"
-#     setup: /global/projecta/projectdirs/lsst/groups/WL/users/zuntz/setup-cori
 
 
 

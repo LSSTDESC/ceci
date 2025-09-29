@@ -45,35 +45,31 @@ The local site is a general one and represents running in a straightforward loca
 ``max_threads`` is optional and controls the maximum number of stages run at the same time.  Its default depends on the launcher used.
 
 
-Cori Interactive
-----------------
+NERSC Interactive
+------------------
 
-The ``cori-interactive`` site is used to run jobs interactively on NERSC compute nodes.  You should first use the ``salloc`` command to get an interactive allocation, and then within that run ``ceci``.
+The ``nersc-interactive`` site is used to run jobs interactively on NERSC compute nodes.  You should first use the ``salloc`` command to get an interactive allocation, and then within that run ``ceci``.
 
-There are no additional options for the ``cori-interactive`` site: the number of parallel stages is given by the number of nodes that you ask for in ``salloc``.
+There are no additional options for the ``nersc-interactive`` site: the number of parallel stages is given by the number of nodes that you ask for in ``salloc``.
 
 
 
-Cori Batch
-----------
+NERSC Batch
+------------
 
-The site ``cori-batch`` runs on the Cori supercomputer at NERSC, and submits jobs to the SLURM batch system.  In this mode, you should call ceci from the login node and stay logged in while the jobs run.
+The site ``nersc-batch`` runs on the Perlmutter supercomputer at NERSC, and submits jobs to the SLURM batch system.  In this mode, you should call ceci from the login node and stay logged in while the jobs run.
 
-These options can be used for the ``cori-batch`` site:
+These options can be used for the ``nersc-batch`` site:
 
 .. code-block:: yaml
 
     launcher:
-        name: cori
-        cpu_type: haswell   # optional
+        name: nersc-interactive
         queue: debug        # optional
         max_jobs: 2         # optional
         account: m1727      # optional
         walltime: 00:30:00  # optional
-        setup:  /global/projecta/projectdirs/lsst/groups/WL/users/zuntz/setup-cori
-        # ^^ optional
 
-``cpu_type`` is optional and controls which partition of cori is used for jobs, and should be `haswell` or `KNL`.
 
 ``queue`` is optional and controls which SLURM queue jobs are launcher on. It can be ``debug``, ``regular``, or ``premium``. See `the nersc documentation <http://docs.nersc.gov/>`_
  for a description of each.

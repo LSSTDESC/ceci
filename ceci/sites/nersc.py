@@ -149,7 +149,7 @@ class NerscBatchSite(NerscSite):
         walltime = self.config.get("walltime", "00:30:00")
         setup_script = self.config.get(
             "setup",
-            "/global/projecta/projectdirs/lsst/groups/WL/users/zuntz/setup-cori",
+            "/dev/null",
         )
 
         provider = SlurmProvider(
