@@ -6,8 +6,8 @@ class MiniPipeline(Pipeline):
     """A pipeline subclass that uses Minirunner, a sub-module
     of ceci, to run.
 
-    Minirununer is a small tool I wrote suitable for interactive
-    jobs on cori.  It launches jobs locally (not through a batch system),
+    Minirunner is a small tool I wrote suitable for interactive
+    jobs on NERSC.  It launches jobs locally (not through a batch system),
     which parsl can also do, but it has a simple and clearer (to me at least)
     understanding of available nodes and cores.
 

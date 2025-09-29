@@ -16,7 +16,7 @@ Here is an example, from ``test/test.yml``.  The different pieces are described 
       name: mini
       interval: 0.5
   # and three sites:
-  # local, cori, and cori-interactive
+  # local, nersc-batch, and nersc-interactive
   site:
       name: local
       max_threads: 2
@@ -114,7 +114,7 @@ Site
 
 The ``site`` parameter should be a dictionary that configures the machine on which you are running the pipeline.
 
-The ``name`` item in the dictionary sets which site is used.  These options are currently allowed: ``local``, ``cori-batch``, and ``cori-interactive``.
+The ``name`` item in the dictionary sets which site is used.  These options are currently allowed: ``local``, ``nersc-batch``, and ``nersc-interactive``.
 
 See the :ref:`sites` page for information on these sites, and the other options they take.
 

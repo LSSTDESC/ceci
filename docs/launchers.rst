@@ -14,9 +14,9 @@ Minirunner
 
 The ``mini`` launcher is a minimal in-built launcher with only basic features, but it's useful for small to medium sized jobs.   
 
-Minirunner understands the concept of Nodes versus Cores on supercomputers, and on Cori the numbers are determined from SLURM environment variables.   If running on the login node, one node with four cores is assigned.
+Minirunner understands the concept of Nodes versus Cores on supercomputers, and on NERSC the numbers are determined from SLURM environment variables.   If running on the login node, one node with four cores is assigned.
 
-Minirunner does not launch jobs - if you want to use it in Cori batch mode you should call it from within the job submission script.
+Minirunner does not launch jobs - if you want to use it in NERSC batch mode you should call it from within the job submission script.
 
 Minirunner options
 ^^^^^^^^^^^^^^^^^^
