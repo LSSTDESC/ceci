@@ -197,3 +197,44 @@ def trim_pipeline_graph(graph, from_=None, to_=None):
                 converted_inputs[node_name] = file_name
 
     return trimmed_graph, converted_inputs
+
+def combine_output_nodes(graph):
+    """
+    Combine output nodes that share the same parent and have no
+    children into a single node.
+
+    This is useful for plotting flow charts.
+
+    Parameters
+    ----------
+    graph : networkx.DiGraph
+        The pipeline graph to modify
+    """
+    groups = collections.defaultdict(list)
+    # find groups of nodes that have no outgoing edges and all
+    # share the same incoming edge.
+    for node in graph.nodes_iter():
+        node_data = graph.get_node(node).attr
+        if node_data["type"] != "output" or len(graph.successors(node)) != 0:
+            continue
+        predecessors = list(graph.predecessors(node))
+
+        # This shouldn't happen in the default case,
+        # but might if things change later, so let's deal with it
+        # just in case.
+        if len(predecessors) != 1:
+            continue
+
+        parent = predecessors[0]
+        groups[parent].append(node)
+
+    for parent, group in groups.items():
+        if len(group) < 2:
+            continue
+        # make a new node combining all these nodes
+        new_node_name = "\n".join(group)
+        graph.add_node(new_node_name, type="output")
+        # connect the parent to the new node
+        graph.add_edge(parent, new_node_name)
+        # remove the old nodes
+        graph.remove_nodes_from(group)
