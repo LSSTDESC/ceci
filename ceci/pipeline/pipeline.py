@@ -9,7 +9,7 @@ from abc import abstractmethod
 from ..stage import PipelineStage
 from ..sites import load, set_default_site, get_default_site
 from ..utils import extra_paths
-from .graph import build_graph, get_static_ordering, trim_pipeline_graph
+from .graph import build_graph, get_static_ordering, trim_pipeline_graph, combine_output_nodes
 from .file_manager import FileManager
 from .sec import StageExecutionConfig
 from .templates import read_and_apply_template
@@ -897,6 +897,11 @@ class Pipeline:
         """
         # generate a graphviz object from the networkx graph
         graph = networkx.nx_agraph.to_agraph(self.graph)
+
+        # Some stages have long lists of output nodes like plots that
+        # are final outputs not used in the rest of the pipeline. We
+        # can combine these to make the graph more readable.
+        combine_output_nodes(graph)
 
         # set the colours and styles for the boxes
         for node in graph.nodes_iter():
