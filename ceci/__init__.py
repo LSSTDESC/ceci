@@ -9,6 +9,7 @@ from .pipeline import (
     FlowChartPipeline,
 )
 from .main import run_pipeline
+from . import file_types
 import importlib.metadata
 
 try:
