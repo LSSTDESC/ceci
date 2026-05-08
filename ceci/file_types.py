@@ -39,6 +39,11 @@ class DataFile:
         self.path = path
         self.mode = mode
 
+        # store whether we are in parallel mode
+        # for later use.
+        self.parallel = kwargs.get("parallel", False)
+        self.comm = kwargs.get("comm", None)
+
         if mode not in ["r", "w"]:
             raise ValueError(f"File 'mode' argument must be 'r' or 'w' not '{mode}'")
 
@@ -343,15 +348,24 @@ class YamlFile(DataFile):
 
 class Directory(DataFile):
     suffix = ""
+    supports_parallel_write = True
 
     @classmethod
-    def open(self, path, mode):
+    def open(self, path, mode, comm=None, parallel=False):
         p = pathlib.Path(path)
 
         if mode == "w":
-            if p.exists():
-                shutil.rmtree(p)
-            p.mkdir(parents=True)
+            # Make it so that only one process
+            # tries to create the directory if running
+            # in parallel
+            if (not parallel) or (parallel and comm.rank == 0):
+                if p.exists():
+                    shutil.rmtree(p)
+                p.mkdir(parents=True)
+            # Then once that one process as done it all the others
+            # should wait to avoid race conditions.
+            if parallel:
+                comm.Barrier()
         else:
             if not p.is_dir():
                 raise ValueError(f"Directory input {path} does not exist")
@@ -365,8 +379,13 @@ class Directory(DataFile):
         Write provenance information to a new group,
         called 'provenance'
         """
-        # This method *must* be called by all the processes in a parallel
-        # run.
+        # Directories can be opened in parallel, but only
+        # the rank 0 process should write the provenance.
+        # This is unlike HDF5 where all the processes have to
+        # cooperate to write it.
+        if (self.comm is not None) and (self.comm.rank != 0):
+            return
+
         if self.mode == "r":
             raise UnsupportedOperation(f"Cannot write provenance to a directory opened in read-only mode ({self.mode})")
 

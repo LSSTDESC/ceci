@@ -16,6 +16,7 @@ from . import errors
 from .monitor import MemoryMonitor
 from .config import StageParameter, StageConfig, cast_to_streamable
 from .utils import activate_tracing
+from . import file_types
 
 SERIAL = "serial"
 MPI_PARALLEL = "mpi"
@@ -1131,13 +1132,19 @@ I currently know about these stages:
         path = self.get_output(tag, final_name=final_name)
         output_class = self.get_output_type(tag)
 
-        # HDF files can be opened for parallel writing
+        # HDF files and directory outputs can be opened for parallel writing
         # under MPI.  This checks if:
         # - we have been told to open in parallel
         # - we are actually running under MPI
         # and adds the flags required if all these are true
         run_parallel = kwargs.pop("parallel", False) and self.is_mpi()
-        if run_parallel:
+        if run_parallel and issubclass(output_class, file_types.Directory):
+            kwargs["parallel"] = True
+            kwargs["comm"] = self.comm
+
+        # otherwise must be HDF5. Ideally we would check more carefully
+        # here, but I don't want to mess up any RAIL HDF stuff by accident.
+        elif run_parallel:
             kwargs["driver"] = "mpio"
             kwargs["comm"] = self.comm
 
