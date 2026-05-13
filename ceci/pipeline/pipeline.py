@@ -329,32 +329,36 @@ class Pipeline:
         # 2. By the dataset `name`
         # 3. By a dataset alias `name`
         if "id" in info:
-            return registry.Query.get_dataset_absolute_path(info["id"])
-        elif "name" in info:
-            filter = registry.Query.gen_filter("dataset.name", "==", info["name"])
-        elif "alias" in info:
-            raise NotImplementedError("Alias lookup not yet implemented")
-        else:
-            raise ValueError("Must specify either id or name in registry lookup")
+            return registry.query.get_dataset_absolute_path(info["id"])
 
-        # Whatever the lookup, we always require a dataset which has not beed deleted or replaced
-        status_filter = registry.Query.gen_filter("dataset.status", "==", 1)
+        # Let the user search with any choice of fields
+        # that dataregistry exposes.
+        query = info.copy()
 
-        # Main finder method
-        results = registry.Query.find_datasets(["dataset.dataset_id"], [filter, status_filter])
+        # Usually we expect to want to look up a valid current data set,
+        # but we might want to look up older replaced data sets for comparison,
+        # so allow the user to specify non-one status values if they want.
+        # check for any status-related filters specified
+        if not any(key.startswith("status") for key in info):
+            query["status"] = 1
+
+        results = registry.easy_query(**query)
 
         # Check that we find exactly one dataset matching the query
         if not results:
-            raise ValueError(f"Could not find any dataset matching {info} in registry")
-
-        results = results['dataset.dataset_id']
+            raise ValueError(f"Could not find any dataset matching {info} in registry"
+                             "If you were looking for a replaced dataset you may need" \
+                             " to specify status_ne=1 in the query"
+                             )
 
         if len(results) > 1:
             raise ValueError(f"Found multiple datasets matching {info} in registry")
 
-        # Get the absolute path
-        return registry.Query.get_dataset_absolute_path(results[0])
+        result = results[0]
+        if result["path"] is None:
+            raise ValueError(f"Dataset matching {info} in registry does not have a path")
 
+        return result["path"]
 
     def process_overall_inputs(self, inputs):
         """
