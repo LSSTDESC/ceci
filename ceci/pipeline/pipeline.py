@@ -659,6 +659,8 @@ class Pipeline:
         if isinstance(self.stages_config, str):
             with open(self.stages_config) as stage_config_file:
                 self.stage_config_data = yaml.safe_load(stage_config_file)
+            if self.stage_config_data is None:
+                self.stage_config_data = {}
         elif isinstance(self.stages_config, dict):
             # In interactive mode we may have a dictionary with the configuration
             # information for each stage pre-read.
