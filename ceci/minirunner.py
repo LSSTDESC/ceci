@@ -9,6 +9,7 @@ It launches only local jobs, so is designed for debugging or for use on NERSC in
 import subprocess
 import time
 from timeit import default_timer
+import sys
 
 # Constant indicators
 COMPLETE = 0
@@ -35,9 +36,10 @@ class TimeOut(RunnerError):
 class FailedJob(RunnerError):
     """Error for when a job has failed."""
 
-    def __init__(self, msg, job_name):
+    def __init__(self, msg, job_name, run_time):
         super().__init__(msg)
         self.job_name = job_name
+        self.run_time = run_time
 
 
 class Node:
@@ -144,6 +146,21 @@ def null_callback(
 ):  # pylint: disable=unused-argument,missing-function-docstring
     pass
 
+def make_run_time_string(seconds):
+    """Convert the time in seconds to a string of the form
+    "X days, Y hours, Z minutes, W seconds"
+    """
+    if seconds < 60:
+        return f"{seconds:.1f} seconds"
+    minutes, seconds = divmod(seconds, 60)
+    if minutes < 60:
+        return f"{minutes:.0f} minutes, {seconds:.1f} seconds"
+    hours, minutes = divmod(minutes, 60)
+    if hours < 24:
+        return f"{hours:.0f} hours, {minutes:.0f} minutes, {seconds:.1f} seconds"
+    days, hours = divmod(hours, 24)
+    return f"{days:.0f} days, {hours:.0f} hours, {minutes:.0f} minutes, {seconds:.1f} seconds"
+
 
 class Runner:
     """The main pipeline runner class.
@@ -244,7 +261,7 @@ class Runner:
 
     def abort(self):
         """End the pipeline and kill all running jobs."""
-        for process, _, _ in self.running:
+        for process, _, _, _ in self.running:
             process.kill()
 
         for node in self.nodes:
@@ -274,11 +291,12 @@ class Runner:
             p = subprocess.Popen(
                 cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT
             )  # pylint: disable=consider-using-with
-            self.running.append((p, job, alloc))
+            self.running.append((p, job, alloc, default_timer()))
             self.callback(
                 EVENT_LAUNCH,
                 {"job": job, "stdout": stdout_file, "process": p, "nodes": alloc},
             )
+        sys.stdout.flush()
 
     def _ready_jobs(self):
         # Find jobs ready to be run now
@@ -335,12 +353,12 @@ class Runner:
         completed_jobs = []
         continuing_jobs = []
         # loop through all known running ones
-        for process, job, alloc in self.running:
+        for process, job, alloc, start_time in self.running:
             # check status
             status = process.poll()
             # None indicates job is still running
             if status is None:  # pragma: no cover
-                continuing_jobs.append((process, job, alloc))
+                continuing_jobs.append((process, job, alloc, start_time))
             # status !=0 indicates error in job.
             # kill everything
             elif status:
@@ -353,11 +371,13 @@ class Runner:
                     EVENT_FAIL,
                     {"job": job, "status": status, "process": process, "nodes": alloc},
                 )
+                fail_time = make_run_time_string(default_timer() - start_time)
                 self.abort()
-                raise FailedJob(job.cmd, job.name)
+                raise FailedJob(job.cmd, job.name, fail_time)
             # status==0 indicates sucess in job, so free resources
             else:
-                print(f"Job {job.name} has completed successfully!")
+                run_time = make_run_time_string(default_timer() - start_time)
+                print(f"Job {job.name} has completed successfully in {run_time}")
                 # Call back with info about the successful job and how it ran
                 self.callback(
                     EVENT_COMPLETED,
@@ -366,7 +386,7 @@ class Runner:
                 completed_jobs.append(job)
                 for node in alloc:
                     node.free()
-
+        sys.stdout.flush()
         self.running = continuing_jobs
 
         for job in completed_jobs:

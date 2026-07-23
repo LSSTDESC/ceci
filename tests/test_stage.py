@@ -5,8 +5,12 @@ import numpy as np
 from ceci.errors import *
 import pytest
 import h5py
+import sys
 import os
-
+import tempfile
+import time
+import subprocess
+import signal
 # TODO: test MPI facilities properly with:
 # https://github.com/rmjarvis/TreeCorr/blob/releases/4.1/tests/mock_mpi.py
 
@@ -128,13 +132,37 @@ def test_parameter():
         name = "test_stage_param"
         inputs = [("inp1", HDFFile)]
         outputs = []
-        config_options = dict(a=StageParameter(float, 5., msg="a float"))
+        config_options = dict(
+            a=StageParameter(float, 5., msg="a float"),
+            b=StageParameter(str, msg="a str"),
+            c=StageParameter(list, [1,2,3], msg="a list"),
+            d=StageParameter(list, [], msg="an empty list"),
+        )
 
         def run(self):
             pass
 
-    stage_1 = TestStage.make_stage(a=6., inp1='dummy')
+    stage_1 = TestStage.make_stage(
+        a=6., b='puffins are not extinct?', inp1='dummy',
+        )
     assert stage_1.config.a == 6.
+    assert stage_1.config.b == 'puffins are not extinct?'
+    assert 1 in stage_1.config.c
+    assert len(stage_1.config.d) == 0
+    assert "[list] default=[1, 2, 3]" in stage_1.__doc__
+    stage_1.describe_configuration()
+    
+    cmd = "TestStage", "--a", "6", "--b", "puffins are not extinct?", "--inp", "dummy"
+    stage_1_cmd = TestStage(TestStage.parse_command_line(cmd))
+    assert stage_1_cmd.config.a == 6.
+    assert stage_1_cmd.config.b == 'puffins are not extinct?'
+
+    class AbstractStage(PipelineStage):
+        name="AbstractStage"
+        config_options = None
+
+    AbstractStage.describe_configuration()
+
 
     # This one should not work
     class TestStage_2(PipelineStage):
@@ -198,7 +226,7 @@ def test_parameter():
 
 
 
-    
+
 
 def test_incomplete():
     class Alpha(PipelineStage):
@@ -409,16 +437,21 @@ def test_open_input():
     print(f.keys())
     f.close()
 
-    # Testing with an alias - config.yml defines an alias for my_input, my_alias
-    ii = India.make_stage(name="IndiaCopy", my_input="tests/test.hdf5", config="tests/config.yml")
+    # Testing with an alias
+    ii = India.make_stage(name="IndiaCopy", my_input="tests/test.hdf5", config="tests/config.yml", aliases={"my_alias": "my_input"})
 
     print(ii.get_aliases())
 
-    # This currently works
+    # These should work with or without the alias
     assert os.path.exists(ii.get_input("my_alias"))
+    assert os.path.exists(ii.get_input("my_input"))
 
     # This works now
     f = ii.open_input("my_input")
+    print(f.keys())
+    f.close()
+
+    f = ii.open_input("my_alias")
     print(f.keys())
     f.close()
 
@@ -438,14 +471,37 @@ def test_open_output():
     with jj1.open_output("my_output") as f:
         print(f.keys())
 
-    # Testing with an alias - config.yml defines an alias for my_input, my_alias
-    jj2 = Juliett.make_stage(name="JuliettCopy", aliases=dict(my_output='my_alias'))
+    # Testing with an alias
+    jj = Juliett.make_stage(aliases=dict(my_output='my_alias'))
 
     print(jj2.get_aliases())
+
+    assert jj.get_output("my_output") == jj.get_output("my_alias")
 
     # This works now
     with jj2.open_output("my_output") as f:
         print(f.keys())
+
+    f = jj.open_output("my_alias")
+    print(f.keys())
+    f.close()
+
+    # Testing with a new name
+    jj = Juliett.make_stage(name="JuliettCopy")
+
+    print(jj.get_aliases())
+
+    assert jj.get_output("my_output") == jj.get_output("my_output_JuliettCopy")
+
+    # Check we can open using the original name
+    f = jj.open_output("my_output")
+    print(f.keys())
+    f.close()
+
+    # Check with an alias specified for the output name
+    f = jj.open_output("my_output_JuliettCopy")
+    print(f.keys())
+    f.close()
 
 
 def core_test_map(comm):
@@ -525,8 +581,101 @@ def test_unknown_stage():
         PipelineStage.get_stage("ThisStageIsDeliberatelyLeftBlank")
 
 
-# could add more tests here for constructor, but the regression tests here and in TXPipe are
-# pretty thorough.
+def test_wrong_mpi_flag():
+
+    class LimaParallel(PipelineStage):
+        name = f"LimaParallel"
+        inputs = []
+        outputs = []
+        config_options = {}
+
+        def run(self):
+            pass
+
+    class LimaSerial(LimaParallel):
+        name = f"LimaSerial"
+        parallel = False
+
+    assert LimaParallel.parse_command_line(["LimaParallel", "--mpi"]).mpi
+    assert not LimaParallel.parse_command_line(["LimaParallel"]).mpi
+
+    with pytest.raises(ValueError):
+        assert LimaSerial.parse_command_line(["LimaSerial", "--mpi"]).mpi
+
+@pytest.mark.skipif(os.environ.get("GITHUB_ACTIONS") == "true", reason="Doesn't work on github actions")
+def test_tracing():
+    with open("mike_stage.py", "w") as f:
+        f.write("""
+import ceci
+import time
+class Mike(ceci.PipelineStage):
+    name = "Mike"
+    inputs = []
+    outputs = []
+    config_options = {}
+
+    def run(self):
+        time.sleep(6)
+        print("Mike complete")
+
+if __name__ == "__main__":
+    ceci.PipelineStage.main()
+""")
+    with open("config.yml", "w") as f:
+        f.write("{}")
+
+    cmd = f"{sys.executable} mike_stage.py Mike --config config.yml --trace"
+    p1 = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    time.sleep(1)
+    p1.send_signal(signal.SIGUSR1)
+    try:
+        outs, _ = p1.communicate(timeout=15)
+    except subprocess.TimeoutExpired:
+        p1.kill()
+        outs, _ = p1.communicate()
+        raise ValueError("Timeout expired in Mike test with outs =" + outs.decode())
+    assert 'mike_stage.py", line 15' in outs.decode()
+
+
+def test_combined_iterators():
+    class Oscar(PipelineStage):
+        inputs = [("inp1", HDFFile), ("inp2", HDFFile)]
+        outputs = []
+        config_options = {}
+        def run(self):
+            it = self.combined_iterators(
+                10,
+                "inp1", "group1", ["x"], 
+                "inp2", "group1", ["y", "z"])
+            for (s, e, data) in it:
+                pass
+        
+    oo = Oscar.make_stage(inp1="tests/test.hdf5", inp2="tests/test.hdf5")
+    oo.run()
+
+
+def test_memory_and_time_reports(capsys):
+    class November(PipelineStage):
+        name = f"November"
+        parallel = False
+        inputs = []
+        outputs = []
+        config_options = {}
+
+        def run(self):
+            self.memory_report()
+            self.memory_report("TAGTAG")
+            self.time_stamp("Hello")
+
+    
+    nn = November.make_stage()
+    nn.run()
+    captured = capsys.readouterr()
+    assert "Remaining memory on" in captured.out
+    assert "TAGTAG" in captured.out
+    assert "Process 0: Hello" in captured.out
+    
 
 if __name__ == "__main__":
     test_construct()
+    test_wrong_mpi_flag()

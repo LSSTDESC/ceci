@@ -2,7 +2,7 @@
 [run]
 omit=
   *ceci/sites/ccin2p3.py
-  *ceci/sites/cori.py
+  *ceci/sites/nersc.py
 
 
 [html]

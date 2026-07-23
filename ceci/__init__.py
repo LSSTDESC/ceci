@@ -2,13 +2,20 @@
 
 from .provenance import Provenance
 from .stage import PipelineStage
-from .pipeline import Pipeline, MiniPipeline, ParslPipeline, DryRunPipeline
 from .handle import  BaseIOHandle
-from pkg_resources import DistributionNotFound
-from pkg_resources import get_distribution
+from .pipeline import (
+    Pipeline,
+    MiniPipeline,
+    ParslPipeline,
+    DryRunPipeline,
+    FlowChartPipeline,
+)
+from .main import run_pipeline
+from . import file_types
+import importlib.metadata
 
 try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:  # pragma: no cover
+    __version__ = importlib.metadata.metadata(__name__)["Version"]
+except:  # pragma: no cover
     # package is not installed
     __version__ = "unknown"

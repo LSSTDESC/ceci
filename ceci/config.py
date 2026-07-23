@@ -60,7 +60,9 @@ def cast_to_streamable(value):
 class StageParameter:
     """A small class to manage a single parameter with basic type checking"""
 
-    def __init__(self, dtype=None, default=None, fmt="%s", required=None, msg="A parameter"):
+    def __init__(
+        self, dtype=None, default=None, fmt="%s", required=None, msg="A parameter"
+    ):
         """Build from keywords
 
         Parameters
@@ -86,6 +88,10 @@ class StageParameter:
             self._required = self._default is None
         self._value = cast_value(self._dtype, self._default)
 
+    def __repr__(self):
+        req_str = 'required' if self.required else 'optional'
+        return f"Parameter({self.msg}, type: {self.dtype}, default: {self.default} [{req_str}])"
+
     @property
     def value(self):
         """Return the value"""
@@ -106,10 +112,19 @@ class StageParameter:
         """Return the required flag"""
         return self._required
 
+    @property
+    def msg(self):
+        """Return the help or docstring"""
+        return self._help
+
     def copy(self):
         """Return a copy of self"""
         return StageParameter(
-            dtype=self._dtype, default=self._default, fmt=self._format, required=self._required, msg=self._help
+            dtype=self._dtype,
+            default=self._default,
+            fmt=self._format,
+            required=self._required,
+            msg=self._help,
         )
 
     def set(self, value):
@@ -126,6 +141,27 @@ class StageParameter:
         """Set the default value"""
         self._default = default
         self.set_to_default()
+
+    def numpy_style_help_text(self):
+        """Create a docstring followwing numpy style guidelines"""
+        s = ""
+        if self._dtype is None:
+            s += "[type not specified] "
+        else:
+            s += f"[{self._dtype.__name__}] "
+        if self._required:
+            s += "(required)"
+        else:
+            # truncate long dicts
+            if isinstance(self._default, dict) and len(self._default) > 10:
+                s += "(default={...})"
+            # truncate long lists
+            elif isinstance(self._default, list) and len(self._default) > 10:
+                s += "(default=[...])"
+            else:
+                s += f"default={self._default}"
+        s += f"\n    {self._help}"
+        return s
 
 
 class StageConfig(dict):
@@ -268,3 +304,19 @@ class StageConfig(dict):
         if isinstance(attr, StageParameter):
             return attr.dtype
         return type(attr)
+
+    def numpy_style_help_text(self):
+        """Create a docstring followwing numpy style guidelines"""
+        if not self:
+            return "<This class has no configuration options>"
+        s = []
+        for key, val in dict.items(self):
+            if isinstance(val, StageConfig):
+                val = val[key]
+            if isinstance(val, StageParameter):
+                s.append(f"{key}: {val.numpy_style_help_text()}")
+            elif isinstance(val, type):
+                s.append(f"{key}: {val.__name__}] (required)")
+            else:
+                s.append(f"{key}: {type(val).__name__}] (default={val})")
+        return '\n\n'.join(s)

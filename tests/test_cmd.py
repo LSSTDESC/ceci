@@ -1,6 +1,6 @@
 from ceci.pipeline import StageExecutionConfig
 from ceci.sites.local import LocalSite
-from ceci.sites.cori import CoriBatchSite
+from ceci.sites.nersc import NerscBatchSite
 import os
 import pytest
 
@@ -62,8 +62,8 @@ def test_docker():
     assert cmd1 in cmd
 
 
-def _test_cori(job_id):
-    site = CoriBatchSite({})
+def _test_nersc(job_id):
+    site = NerscBatchSite({})
     # fake that we're runnng a job to avoid complaints
     initial = os.environ.get("SLURM_JOB_ID")
     if job_id:
@@ -109,9 +109,9 @@ def _test_cori(job_id):
 
 
 def test_works():
-    _test_cori(True)
+    _test_nersc(True)
 
 
 def test_warning():
     with pytest.raises(ValueError):
-        _test_cori(False)
+        _test_nersc(False)

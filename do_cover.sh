@@ -1,1 +1,1 @@
-python -m pytest --cov=./ceci --cov-report=html tests
+python -m pytest --cov=./ceci --cov-branch --cov-report=html tests

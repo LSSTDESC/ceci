@@ -10,13 +10,13 @@ Here is an example, from ``test/test.yml``.  The different pieces are described 
 
 .. code-block:: yaml
 
-  # There are currently three defined launchers
-  # mini, parsl, and cwl
+  # There are currently two defined launchers
+  # mini and parsl
   launcher:
       name: mini
       interval: 0.5
   # and three sites:
-  # local, cori, and cori-interactive
+  # local, nersc-batch, and nersc-interactive
   site:
       name: local
       max_threads: 2
@@ -104,7 +104,7 @@ Launcher
 
 The ``launcher`` parameter should be a dictionary that configures the workflow manager used to launch the jobs.
 
-The ``name`` item in the dictionary sets which launcher is used.  These options are currently allowed: ``mini``, ``parsl``, and ``cwl``.
+The ``name`` item in the dictionary sets which launcher is used.  These options are currently allowed: ``mini`` or ``parsl``.
 
 See the :ref:`launchers` page for information on these launchers, and the other options they take.
 
@@ -114,7 +114,7 @@ Site
 
 The ``site`` parameter should be a dictionary that configures the machine on which you are running the pipeline.
 
-The ``name`` item in the dictionary sets which site is used.  These options are currently allowed: ``local``, ``cori-batch``, and ``cori-interactive``.
+The ``name`` item in the dictionary sets which site is used.  These options are currently allowed: ``local``, ``nersc-batch``, and ``nersc-interactive``.
 
 See the :ref:`sites` page for information on these sites, and the other options they take.
 
@@ -161,3 +161,25 @@ Any executable specified by ``pre_script`` will be run before the pipeline.  If 
 Any executable specified by ``post_script`` will be run after the pipeline, but only if the pipeline completes successfully.  If the post_script returns a non-zero status then it will be returned as the ceci exit code, but no exception will be raised.
 
 Both scripts are called with the same arguments as the original executable was called with.
+
+
+Templates
+---------
+
+You can use `Jinja2 <https://jinja.palletsprojects.com>`_ to allow you to use *templates* in your pipeline YML files.
+
+This allows you to set variables on the ceci command line which are then used to
+modify the pipeline text. This lets you use a single parameter file for a set of
+runs. In TXPipe we use this to have a single pipeline file that can process one of several
+different fields depending on the parameter choice.
+
+See the `Jinja2 <https://jinja.palletsprojects.com>`_ documentation for information on the
+template syntax. Then to set input variables, use the `-t` flag on the ceci command line, in the form:
+
+.. code-block:: bash
+
+  ceci -t variable1=value1 variable2=value2   pipeline.yml
+
+
+There's not much point using template in interactive code - you should probably
+just set up your pipeline files programatically.
