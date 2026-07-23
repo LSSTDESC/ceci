@@ -171,3 +171,11 @@ class StageExecutionConfig:
             inputs, config, outputs, self.aliases, self.name
         )
         return self.site.command(core, self)
+
+    def snapshot(self):
+        return {"name": self.name, "class_name": self.class_name,
+                "module_name": self.module_name, "aliases": dict(self.aliases),
+                "nprocess": self.nprocess, "nodes": self.nodes,
+                "threads_per_process": self.threads_per_process,
+                "mem_per_process": self.mem_per_process, "image": self.image,
+                "volume": self.volume}

@@ -21,6 +21,19 @@ class FileManager(dict):
         self._tag_to_type = {}
         self._path_to_tag = {}
         dict.__init__(self)
+        self.graph = None
+
+    def attach_graph(self, graph):
+        self.graph = graph
+
+    def _sync_graph(self, tag, path=None, ftype=None):
+        if self.graph is not None and tag in self.graph:
+            data = self.graph.nodes[tag]
+            if path is not None:
+                data["path"] = path
+                data["exists"] = True
+            if ftype is not None:
+                data["file_type"] = ftype
 
     def __setitem__(self, tag, path):
         """Override dict.__setitem__() to also insert the reverse mapping"""
@@ -44,6 +57,7 @@ class FileManager(dict):
             self._path_to_tag[path] = tag
         if tag not in self._tag_to_type:
             self._tag_to_type[tag] = ftype
+        self._sync_graph(tag, path, ftype)
 
     def get_type(self, tag):
         """Return the file type associated to a given tag"""
@@ -70,4 +84,3 @@ class FileManager(dict):
             path = stage_outputs[aliased_tag]
             self.insert(aliased_tag, path=path, ftype=ftype)
         return stage_outputs
-

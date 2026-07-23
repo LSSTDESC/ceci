@@ -9,7 +9,7 @@ from abc import abstractmethod
 from ..stage import PipelineStage
 from ..sites import load, set_default_site, get_default_site
 from ..utils import extra_paths
-from .graph import build_graph, get_static_ordering, trim_pipeline_graph, combine_output_nodes
+from .graph import build_graph, get_static_ordering, trim_pipeline_graph, combine_output_nodes, set_node_payload
 from .file_manager import FileManager
 from .sec import StageExecutionConfig
 from .templates import read_and_apply_template
@@ -565,6 +565,18 @@ class Pipeline:
                     all_inputs[aliased_tag] = stage_outputs[aliased_tag]
 
             stages.append(stage)
+            node = self.graph.nodes[stage_name]
+            node["stage_obj"] = stage
+            node["stage_config"] = dict(stage.config)
+            node["input_paths"] = stage.find_inputs(all_inputs)
+            node["output_paths"] = stage.find_outputs(self.run_config["output_dir"])
+            for tag, path in node["input_paths"].items():
+                if tag in self.graph:
+                    self.graph.nodes[tag]["path"] = path
+            for tag, path in node["output_paths"].items():
+                if tag in self.graph:
+                    self.graph.nodes[tag]["path"] = path
+                    self.graph.nodes[tag]["exists"] = os.path.exists(path)
         return stages
 
     
@@ -605,12 +617,21 @@ class Pipeline:
             [self.stage_execution_config[name].aliases for name in self.stage_names],
             self.overall_inputs
         )
+        self.pipeline_files.attach_graph(self.graph)
+        for name in self.stage_names:
+            sec = self.stage_execution_config[name]
+            set_node_payload(self.graph, name, execution_config=sec,
+                             execution_config_snapshot=sec.snapshot(),
+                             stage_class=sec.stage_class, module_name=sec.module_name,
+                             aliases=dict(sec.aliases), runtime_status="pending",
+                             stage_obj=sec.stage_obj, input_paths={}, output_paths={})
 
         if "to" in self.run_config or "from" in self.run_config:
             to_ = self.run_config.get("to")
             from_ = self.run_config.get("from")
 
             self.graph, converted_inputs = trim_pipeline_graph(self.graph, from_, to_)
+            self.pipeline_files.attach_graph(self.graph)
 
             # converted_inputs contains the file names that were previously
             # outputs from the pipeline but are now converted to being inputs
@@ -628,6 +649,8 @@ class Pipeline:
                 for t, path in converted_inputs.items():
                     print(f"    - {t}: {path}")
                     self.overall_inputs[t] = path
+                    self.graph.nodes[t]["converted_input_origin"] = True
+                    self.graph.nodes[t]["path"] = path
 
 
         # Re-order the pipeline stages in a static order
@@ -697,12 +720,14 @@ class Pipeline:
             # sure they are complete!
 
             if self.should_skip_stage(stage):
+                self.graph.nodes[stage.instance_name]["runtime_status"] = "skipped"
                 stage.already_finished()
                 self.pipeline_files.insert_outputs(stage, self.run_config["output_dir"])
 
             # Otherwise, run the pipeline and register any outputs from the
             # pipe element.
             else:
+                self.graph.nodes[stage.instance_name]["runtime_status"] = "queued"
                 stage_outputs = self.enqueue_job(stage, self.pipeline_files)
                 self.pipeline_files.insert_paths(stage_outputs)
         
@@ -955,5 +980,3 @@ class Pipeline:
         outputs = the_stage.find_outputs(self.run_config["output_dir"])
         return sec.generate_full_command(all_inputs, outputs, self.stages_config)
     
-
-

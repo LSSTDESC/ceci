@@ -117,6 +117,8 @@ class MiniPipeline(Pipeline):
         try:
             runner.run(interval)
         except minirunner.FailedJob as error:
+            if error.job_name in self.graph:
+                self.graph.nodes[error.job_name]["runtime_status"] = "failed"
             sys.stderr.write(
                 f"""
 *************************************************
@@ -129,5 +131,8 @@ Standard output and error streams in {log_dir}/{error.job_name}.out
             )
             return 1
 
-        return 0
+        for stage in self.stages:
+            if self.graph.nodes[stage.instance_name]["runtime_status"] == "queued":
+                self.graph.nodes[stage.instance_name]["runtime_status"] = "completed"
 
+        return 0
