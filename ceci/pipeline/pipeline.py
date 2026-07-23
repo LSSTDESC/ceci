@@ -481,6 +481,23 @@ class Pipeline:
             return {}
         return self.pipeline_files.insert_outputs(sec.stage_obj, ".")
 
+    def _graph_files(self):
+        """Return the graph's current tag-to-path view for stage APIs."""
+        if self.graph is None:
+            return dict(self.pipeline_files)
+        return {name: data["path"] for name, data in self.graph.nodes(data=True)
+                if data.get("type") in ("input", "output") and data.get("path") is not None}
+
+    def _set_graph_file(self, tag, path, ftype=None):
+        if self.graph is None:
+            return
+        if tag in self.graph:
+            data = self.graph.nodes[tag]
+            data["path"] = path
+            data["exists"] = path is not None
+            if ftype is not None:
+                data["file_type"] = ftype
+
     def build_stage(self, stage_class, **kwargs):
         """Build a stage and add it to the pipeline
 
@@ -504,7 +521,7 @@ class Pipeline:
         kwcopy = kwargs.copy()
         aliases = kwcopy.pop("aliases", {})
         comm = kwcopy.pop("comm", None)
-        kwcopy.update(**self.pipeline_files)
+        kwcopy.update(**self._graph_files())
 
         stage = stage_class(kwcopy, comm=comm, aliases=aliases)
         return self.add_stage(stage)
@@ -728,8 +745,10 @@ class Pipeline:
             # pipe element.
             else:
                 self.graph.nodes[stage.instance_name]["runtime_status"] = "queued"
-                stage_outputs = self.enqueue_job(stage, self.pipeline_files)
+                stage_outputs = self.enqueue_job(stage, self._graph_files())
                 self.pipeline_files.insert_paths(stage_outputs)
+                for tag, path in stage_outputs.items():
+                    self._set_graph_file(tag, path)
         
 
     def initialize(self, overall_inputs, run_config, stages_config):
@@ -974,7 +993,7 @@ class Pipeline:
                 raise KeyError(f'Failed to find stage named {stage_name} in {self.stage_names}')
             the_stage = self.stages[idx]
 
-        all_inputs = self.pipeline_files.copy()
+        all_inputs = self._graph_files()
         all_inputs.update(**kwargs)
 
         outputs = the_stage.find_outputs(self.run_config["output_dir"])

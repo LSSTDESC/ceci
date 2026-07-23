@@ -166,4 +166,3 @@ def {stage.instance_name}(inputs, outputs, stdout='{log_dir}/{stage.instance_nam
         # Return the function itself.
         return d[stage.instance_name]
 
-
