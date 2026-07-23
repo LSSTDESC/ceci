@@ -82,10 +82,10 @@ class MiniPipeline(Pipeline):
         stages = []
         return jobs, stages
 
-    def enqueue_job(self, stage, pipeline_files):
+    def enqueue_job(self, stage, file_paths):
         sec = self.stage_execution_config[stage.instance_name]
         outputs = stage.find_outputs(self.run_config["output_dir"])
-        cmd = sec.generate_full_command(pipeline_files, outputs, self.stages_config)
+        cmd = sec.generate_full_command(file_paths, outputs, self.stages_config)
         job = minirunner.Job(
             stage.instance_name,
             cmd,

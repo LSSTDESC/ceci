@@ -18,11 +18,11 @@ class DryRunPipeline(Pipeline):
     def should_skip_stage(self, stage):
         return False
 
-    def enqueue_job(self, stage, pipeline_files):
+    def enqueue_job(self, stage, file_paths):
         outputs = stage.find_outputs(self.run_config["output_dir"])
         sec = self.stage_execution_config[stage.instance_name]
 
-        cmd = sec.generate_full_command(pipeline_files, outputs, self.stages_config)
+        cmd = sec.generate_full_command(file_paths, outputs, self.stages_config)
 
         # Replace the first instance of the stage name with bold
         # text, but only if we are printing to screen. This helps the

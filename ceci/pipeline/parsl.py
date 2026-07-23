@@ -10,7 +10,7 @@ class ParslPipeline(Pipeline):
     def initiate_run(self, overall_inputs):
         return []  # list of futures
 
-    def enqueue_job(self, stage, pipeline_files):
+    def enqueue_job(self, stage, file_paths):
 
         from parsl.data_provider.files import File
 
@@ -22,7 +22,7 @@ class ParslPipeline(Pipeline):
         # parsl wants.
         # The inputs that exist already need to be converted into Parsl File objects.
         # The ones that don't stay as data futures
-        inputs1 = stage.find_inputs(pipeline_files)
+        inputs1 = stage.find_inputs(file_paths)
         inputs = [
             File(val) if isinstance(val, str) else val for val in inputs1.values()
         ]
@@ -165,4 +165,3 @@ def {stage.instance_name}(inputs, outputs, stdout='{log_dir}/{stage.instance_nam
 
         # Return the function itself.
         return d[stage.instance_name]
-

@@ -10,7 +10,6 @@ from ..stage import PipelineStage
 from ..sites import load, set_default_site, get_default_site
 from ..utils import extra_paths
 from .graph import build_graph, get_static_ordering, trim_pipeline_graph, combine_output_nodes, set_node_payload
-from .file_manager import FileManager
 from .sec import StageExecutionConfig
 from .templates import read_and_apply_template
 
@@ -139,7 +138,6 @@ class Pipeline:
         self.run_config = None
         self.stages = None
         self.graph = None
-        self.pipeline_files = FileManager()
         self.pipeline_outputs = None
         self.stages_config = None
         self.stage_config_data = None
@@ -479,12 +477,12 @@ class Pipeline:
         # interactively.
         if sec.stage_obj is None:
             return {}
-        return self.pipeline_files.insert_outputs(sec.stage_obj, ".")
+        return self._register_outputs(sec.stage_obj, ".")
 
     def _graph_files(self):
         """Return the graph's current tag-to-path view for stage APIs."""
         if self.graph is None:
-            return dict(self.pipeline_files)
+            return {}
         return {name: data["path"] for name, data in self.graph.nodes(data=True)
                 if data.get("type") in ("input", "output") and data.get("path") is not None}
 
@@ -497,6 +495,13 @@ class Pipeline:
             data["exists"] = path is not None
             if ftype is not None:
                 data["file_type"] = ftype
+
+    def _register_outputs(self, stage, outdir):
+        outputs = stage.find_outputs(outdir)
+        for tag, ftype in stage.outputs:
+            tag = stage.get_aliased_tag(tag)
+            self._set_graph_file(tag, outputs[tag], ftype)
+        return outputs
 
     def build_stage(self, stage_class, **kwargs):
         """Build a stage and add it to the pipeline
@@ -516,7 +521,7 @@ class Pipeline:
         The keyword arguments will be based to the `stage_class` constructor
 
         The output files produced by this stage will be added to the
-        `Pipeline.pipeline_files` data member, so that they are available to later stages
+        graph file metadata, so that they are available to later stages
         """
         kwcopy = kwargs.copy()
         aliases = kwcopy.pop("aliases", {})
@@ -634,7 +639,6 @@ class Pipeline:
             [self.stage_execution_config[name].aliases for name in self.stage_names],
             self.overall_inputs
         )
-        self.pipeline_files.attach_graph(self.graph)
         for name in self.stage_names:
             sec = self.stage_execution_config[name]
             set_node_payload(self.graph, name, execution_config=sec,
@@ -648,7 +652,6 @@ class Pipeline:
             from_ = self.run_config.get("from")
 
             self.graph, converted_inputs = trim_pipeline_graph(self.graph, from_, to_)
-            self.pipeline_files.attach_graph(self.graph)
 
             # converted_inputs contains the file names that were previously
             # outputs from the pipeline but are now converted to being inputs
@@ -675,7 +678,8 @@ class Pipeline:
 
         # This is also a convenient place to record the location
         # of the overall inputs in the file manager
-        self.pipeline_files.insert_paths(self.overall_inputs)
+        for tag, path in self.overall_inputs.items():
+            self._set_graph_file(tag, path)
 
 
         return self.stage_names
@@ -739,14 +743,13 @@ class Pipeline:
             if self.should_skip_stage(stage):
                 self.graph.nodes[stage.instance_name]["runtime_status"] = "skipped"
                 stage.already_finished()
-                self.pipeline_files.insert_outputs(stage, self.run_config["output_dir"])
+                self._register_outputs(stage, self.run_config["output_dir"])
 
             # Otherwise, run the pipeline and register any outputs from the
             # pipe element.
             else:
                 self.graph.nodes[stage.instance_name]["runtime_status"] = "queued"
                 stage_outputs = self.enqueue_job(stage, self._graph_files())
-                self.pipeline_files.insert_paths(stage_outputs)
                 for tag, path in stage_outputs.items():
                     self._set_graph_file(tag, path)
         
@@ -809,7 +812,7 @@ class Pipeline:
         raise NotImplementedError()
 
     @abstractmethod
-    def enqueue_job(self, stage, pipeline_files):  # pragma: no cover
+    def enqueue_job(self, stage, file_paths):  # pragma: no cover
         """Setup the job for a single stage, and return stage specific information"""
         raise NotImplementedError()
 
