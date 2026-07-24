@@ -659,6 +659,8 @@ class Pipeline:
         if isinstance(self.stages_config, str):
             with open(self.stages_config) as stage_config_file:
                 self.stage_config_data = yaml.safe_load(stage_config_file)
+            if self.stage_config_data is None:
+                self.stage_config_data = {}
         elif isinstance(self.stages_config, dict):
             # In interactive mode we may have a dictionary with the configuration
             # information for each stage pre-read.
@@ -669,6 +671,12 @@ class Pipeline:
             self.stage_config_data = {}
         else:
             raise ValueError("stages_config must be a filename, a dict, or None")
+
+        # Replace any blank config settings with empty dicts
+        self.stage_config_data = {
+            k: (v if v is not None else {})
+            for k,v in self.stage_config_data.items()
+        }
 
         # Copy the global configuration into each stage separately.
         self.global_config = self.stage_config_data.pop("global", {}) 
