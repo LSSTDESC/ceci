@@ -113,7 +113,7 @@ class MiniPipeline(Pipeline):
         runner = minirunner.Runner(
             nodes, graph, log_dir, callback=self.callback, sleep=self.sleep
         )
-        interval = self.launcher_config.get("interval", 3)
+        interval = self.launcher_config.get("interval", 1)
         try:
             runner.run(interval)
         except minirunner.FailedJob as error:

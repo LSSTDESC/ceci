@@ -1,11 +1,20 @@
 global:
     metacalibration: True
 
+{% set apply_flag = false %}
+
 shearMeasurementPipe:
-    apply_flag: False
+    apply_flag: {{ apply_flag }}
 
 WLGCSelector:
     zbin_edges: [0.2, 0.3, 0.5]
     ra_range: [-5, 5]
+
+{% if false %}
+this badly-formed part should not matter
+because jinja2 templates should be working
+{% endif %}
+
+
 
 nonsenseStageToTestNonesAreOkay:

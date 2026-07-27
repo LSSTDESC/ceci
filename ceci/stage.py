@@ -1301,6 +1301,7 @@ I currently know about these stages:
         """
         # Try to load configuration file if provided
         import yaml
+        from .pipeline.templates import read_and_apply_template
 
         config_file = self.get_input("config")
 
@@ -1309,8 +1310,8 @@ I currently know about these stages:
         if isinstance(config_file, dict):
             overall_config = config_file
         elif config_file is not None:
-            with open(config_file) as _config_file:
-                overall_config = yaml.safe_load(_config_file)
+            overall_config = read_and_apply_template(config_file)
+            overall_config = yaml.safe_load(overall_config)
         else:
             overall_config = {}
 
