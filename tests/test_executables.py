@@ -23,7 +23,7 @@ def test_misuse_mpi():
         subprocess.check_call(cmd.split())
 
 def test_run_template_parameters():
-    shutil.rmtree("tests/template_test_logfile.txt")
+    shutil.rmtree("tests/template_test_logfile.txt", ignore_errors=True)
     shutil.rmtree("tests/outputs_north", ignore_errors=True)
 
     cmd = 'ceci tests/template.yml --template-parameters logfile=template_test_logfile.txt some_directory=inputs field=north'
