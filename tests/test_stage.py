@@ -461,26 +461,26 @@ def test_open_output():
         inputs = []
         outputs = [("my_output", HDFFile)]
         config_options = {}
+        def run(self):
+            pass
     cmd = "Juliett", "--config", "tests/config.yml", "--my_output", "tests/test_out.hdf5"
 
     # Testing without an alias
-    jj = Juliett(Juliett.parse_command_line(cmd))
-    #assert os.path.exists(jj.get_output("my_output"))
-    f = jj.open_output("my_output")
-    print(f.keys())
-    f.close()
+    jj1 = Juliett(Juliett.parse_command_line(cmd))
+
+    with jj1.open_output("my_output") as f:
+        print(f.keys())
 
     # Testing with an alias
     jj = Juliett.make_stage(aliases=dict(my_output='my_alias'))
 
-    print(jj.get_aliases())
+    print(jj2.get_aliases())
 
     assert jj.get_output("my_output") == jj.get_output("my_alias")
 
     # This works now
-    f = jj.open_output("my_output")
-    print(f.keys())
-    f.close()
+    with jj2.open_output("my_output") as f:
+        print(f.keys())
 
     f = jj.open_output("my_alias")
     print(f.keys())
@@ -544,6 +544,36 @@ def test_map():
     mockmpi.mock_mpiexec(2, core_test_map)
     mockmpi.mock_mpiexec(3, core_test_map)
 
+
+def test_key():
+    class Lima(PipelineStage):
+        name = f"Lima"
+        inputs = []
+        outputs = []
+        config_options = {}
+
+        def run(self):
+            pass
+
+    # First check interactive construction
+
+    # default rerun key should be zero
+    ll1 = Lima.make_stage()
+    assert ll1._rerun_key == 0
+
+    # if we set it explicitly it should work like this
+    ll2 = Lima.make_stage(rerun_key=78910)
+    assert ll2._rerun_key == 78910
+
+    # Now test command-line construction
+
+    # again test both default value and set value
+    cmd = ["Lima", "--config", "tests/config.yml"]
+    ll3 = Lima(Lima.parse_command_line(cmd))
+    assert ll3._rerun_key == 0
+
+    ll4 = Lima(Lima.parse_command_line(cmd + ["--rerun-key", "54321"]))
+    assert ll4._rerun_key == 54321
 
 
 def test_unknown_stage():
