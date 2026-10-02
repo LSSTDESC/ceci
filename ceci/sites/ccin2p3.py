@@ -50,6 +50,7 @@ class CCParallel(Site):
                 f"{mpi1} "
                 f"singularity run "
                 f"--env OMP_NUM_THREADS={sec.threads_per_process} "
+                f"--env NUMBA_NUM_THREADS={sec.threads_per_process} "
                 f"{volume_flag} "
                 f"{sec.image} "
                 f"{bash_start} "
@@ -64,6 +65,7 @@ class CCParallel(Site):
             )
             return (
                 f"OMP_NUM_THREADS={sec.threads_per_process} "
+                f"NUMBA_NUM_THREADS={sec.threads_per_process} "
                 f"{paths_env} "
                 f"{mpi1} "
                 f"{cmd} {mpi2}"

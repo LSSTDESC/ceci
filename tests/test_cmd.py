@@ -32,6 +32,7 @@ def test_local():
     assert "docker" not in cmd
     assert "shifter" not in cmd
     assert "OMP_NUM_THREADS=1" in cmd
+    assert "NUMBA_NUM_THREADS=1" in cmd
     assert cmd1 in cmd
 
 
@@ -59,6 +60,7 @@ def test_docker():
     assert "mpirun -n 2" in cmd
     assert "shifter" not in cmd
     assert "OMP_NUM_THREADS=4" in cmd
+    assert "NUMBA_NUM_THREADS=4" in cmd
     assert cmd1 in cmd
 
 
@@ -95,6 +97,7 @@ def _test_nersc(job_id):
         assert "-V a:b" in cmd
         assert "srun -u -n 2" in cmd
         assert "--env OMP_NUM_THREADS=4" in cmd
+        assert "--env NUMBA_NUM_THREADS=4" in cmd
         assert "--nodes 3" in cmd
         assert "--mpi" in cmd
         assert cmd1 in cmd
