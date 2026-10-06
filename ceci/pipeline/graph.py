@@ -207,13 +207,13 @@ def combine_output_nodes(graph):
 
     Parameters
     ----------
-    graph : networkx.DiGraph
+    graph : pygraphviz.AGraph
         The pipeline graph to modify
     """
     groups = collections.defaultdict(list)
     # find groups of nodes that have no outgoing edges and all
     # share the same incoming edge.
-    for node in graph.nodes_iter():
+    for node in graph.nodes():
         node_data = graph.get_node(node).attr
         if node_data["type"] != "output" or len(graph.successors(node)) != 0:
             continue
@@ -237,4 +237,41 @@ def combine_output_nodes(graph):
         # connect the parent to the new node
         graph.add_edge(parent, new_node_name)
         # remove the old nodes
+        graph.remove_nodes_from(group)
+
+
+def combine_input_nodes(graph):
+    """
+    Combine input nodes that share the same successor and have no
+    predecessors into a single node.
+
+    This is useful for plotting flow charts.
+
+    Parameters
+    ----------
+    graph : pygraphviz.AGraph
+        The pipeline graph to modify
+    """
+    groups = collections.defaultdict(list)
+    for node in graph.nodes():
+        node_data = graph.get_node(node).attr
+        if node_data["type"] != "input" or len(graph.predecessors(node)) != 0:
+            continue
+        successors = list(graph.successors(node))
+
+        # This shouldn't happen in the default case,
+        # but might if things change later, so let's deal with it
+        # just in case.
+        if len(successors) != 1:
+            continue
+
+        successor = successors[0]
+        groups[successor].append(node)
+
+    for successor, group in groups.items():
+        if len(group) < 2:
+            continue
+        new_node_name = "\n".join(group)
+        graph.add_node(new_node_name, type="input")
+        graph.add_edge(new_node_name, successor)
         graph.remove_nodes_from(group)
