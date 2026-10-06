@@ -1,5 +1,6 @@
 from ceci.pipeline.graph import trim_pipeline_graph, combine_input_nodes
 import networkx
+import pygraphviz
 
 
 def check_membership(graph, everything, expected):
@@ -100,7 +101,7 @@ def test_trim_pipeline_graph():
 
 
 def test_combine_input_nodes():
-    graph = networkx.DiGraph()
+    graph = pygraphviz.AGraph(directed=True)
     graph.add_node("a", type="input")
     graph.add_node("b", type="input")
     graph.add_node("stage", type="stage")
@@ -109,7 +110,11 @@ def test_combine_input_nodes():
 
     combine_input_nodes(graph)
 
-    input_nodes = [n for n in graph.nodes() if graph.nodes[n]["type"] == "input"]
+    input_nodes = [
+        str(node)
+        for node in graph.nodes()
+        if graph.get_node(node).attr["type"] == "input"
+    ]
     assert len(input_nodes) == 1
     assert input_nodes[0] == "a\nb"
-    assert list(graph.predecessors("stage")) == ["a\nb"]
+    assert [str(node) for node in graph.predecessors("stage")] == ["a\nb"]
