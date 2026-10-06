@@ -213,7 +213,7 @@ def combine_output_nodes(graph):
     groups = collections.defaultdict(list)
     # find groups of nodes that have no outgoing edges and all
     # share the same incoming edge.
-    for node in graph.nodes_iter():
+    for node in graph.nodes():
         node_data = graph.get_node(node).attr
         if node_data["type"] != "output" or len(graph.successors(node)) != 0:
             continue
@@ -253,7 +253,7 @@ def combine_input_nodes(graph):
         The pipeline graph to modify
     """
     groups = collections.defaultdict(list)
-    for node in graph.nodes_iter():
+    for node in graph.nodes():
         node_data = graph.get_node(node).attr
         if node_data["type"] != "input" or len(graph.predecessors(node)) != 0:
             continue

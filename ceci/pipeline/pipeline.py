@@ -913,7 +913,7 @@ class Pipeline:
         combine_input_nodes(graph)
 
         # set the colours and styles for the boxes
-        for node in graph.nodes_iter():
+        for node in graph.nodes():
             node_type = node.attr['type']
             if node_type == "input":
                 node.attr.update(shape="box", color="gold", style="filled")
