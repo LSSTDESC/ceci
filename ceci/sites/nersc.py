@@ -67,6 +67,7 @@ class NerscSite(Site):
                 f"{mpi1} "
                 "shifter "
                 f"--env OMP_NUM_THREADS={sec.threads_per_process} "
+                f"--env NUMBA_NUM_THREADS={sec.threads_per_process} "
                 f"{volume_flag} "
                 f"--image {sec.image} "
                 f"{paths_start} "
@@ -80,6 +81,7 @@ class NerscSite(Site):
             return (
                 # In the non-container case this is much easier
                 f"OMP_NUM_THREADS={sec.threads_per_process} "
+                f"NUMBA_NUM_THREADS={sec.threads_per_process} "
                 f"{paths_env} "
                 f"{mpi1} "
                 f"{cmd} {mpi2}"

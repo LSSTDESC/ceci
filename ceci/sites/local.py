@@ -48,6 +48,7 @@ class LocalSite(Site):
             return (
                 f"docker run "
                 f"--env OMP_NUM_THREADS={sec.threads_per_process} "
+                f"--env NUMBA_NUM_THREADS={sec.threads_per_process} "
                 f"{volume_flag} "
                 f"--rm -it {sec.image} "
                 f"{paths_start} "
@@ -62,6 +63,7 @@ class LocalSite(Site):
             )
             return (
                 f"OMP_NUM_THREADS={sec.threads_per_process} "
+                f"NUMBA_NUM_THREADS={sec.threads_per_process} "
                 f"{paths_env} "
                 f"{mpi1} "
                 f"{cmd} {mpi2}"
