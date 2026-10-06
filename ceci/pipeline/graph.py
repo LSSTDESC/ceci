@@ -207,7 +207,7 @@ def combine_output_nodes(graph):
 
     Parameters
     ----------
-    graph : networkx.DiGraph
+    graph : pygraphviz.AGraph
         The pipeline graph to modify
     """
     groups = collections.defaultdict(list)
@@ -249,7 +249,7 @@ def combine_input_nodes(graph):
 
     Parameters
     ----------
-    graph : networkx.DiGraph
+    graph : pygraphviz.AGraph
         The pipeline graph to modify
     """
     groups = collections.defaultdict(list)
