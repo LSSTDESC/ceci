@@ -657,8 +657,7 @@ class Pipeline:
         self.stages_config = stages_config
 
         if isinstance(self.stages_config, str):
-            with open(self.stages_config) as stage_config_file:
-                self.stage_config_data = yaml.safe_load(stage_config_file)
+            self.stage_config_data = yaml.safe_load(read_and_apply_template(self.stages_config))
             if self.stage_config_data is None:
                 self.stage_config_data = {}
         elif isinstance(self.stages_config, dict):

@@ -1,12 +1,12 @@
 import ceci
+from ceci.pipeline.templates import read_and_apply_template
 import yaml
 import argparse
 import networkx
 
 
 def print_ancestors(pipeline_config_file, target):
-    with open(pipeline_config_file) as f:
-        pipe_config = yaml.safe_load(f)
+    pipe_config = yaml.safe_load(read_and_apply_template(pipeline_config_file))
 
     # need to manually switch off resume mode because it
     # would stop jobs from being properly in the DAG.

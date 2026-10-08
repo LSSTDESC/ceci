@@ -1,9 +1,10 @@
 import yaml
 from ceci import FlowChartPipeline
+from ceci.pipeline.templates import read_and_apply_template
 import os
 
 def test_flow_chart():
-    config = yaml.safe_load(open("tests/test.yml"))
+    config = yaml.safe_load(read_and_apply_template("tests/test.yml"))
     launcher_config = {"interval": 0.5, "name": "mini"}
 
     pipeline = FlowChartPipeline(config["stages"], launcher_config)

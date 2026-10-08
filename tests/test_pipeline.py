@@ -1,4 +1,5 @@
 from ceci import PipelineStage, MiniPipeline, ParslPipeline, Pipeline, DryRunPipeline
+from ceci.pipeline.templates import read_and_apply_template
 from ceci_example.types import TextFile
 from ceci.sites import load, reset_default_site
 from ceci.utils import extra_paths
@@ -191,7 +192,7 @@ def test_dry_run(mocker):
     stdout_mock = mocker.patch("ceci.pipeline.pipeline.sys.stdout")
     stdout_mock.isatty.return_value = True
 
-    config = yaml.safe_load(open("tests/test.yml"))
+    config = yaml.safe_load(read_and_apply_template("tests/test.yml"))
     launcher_config = {"interval": 0.5, "name": "mini"}
 
     pipeline = DryRunPipeline(config["stages"], launcher_config)
