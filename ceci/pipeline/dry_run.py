@@ -13,7 +13,10 @@ class DryRunPipeline(Pipeline):
     """
 
     def initiate_run(self, overall_inputs):
-        return []
+        return {
+            "commands": [],
+            "completed_stages": [],
+        }
 
     def should_skip_stage(self, stage):
         return False
@@ -30,13 +33,20 @@ class DryRunPipeline(Pipeline):
         if sys.stdout.isatty():
             cmd = cmd.replace(stage.instance_name, embolden(stage.instance_name), 1)
 
-        self.run_info.append(cmd)
+        # make a list of complete stages and print at the end
+        if super().should_skip_stage(stage):
+            self.run_info["completed_stages"].append(stage.instance_name)
+
+        self.run_info["commands"].append(cmd)
         return outputs
 
     def run_jobs(self):
-        for cmd in self.run_info:
+        for cmd in self.run_info["commands"]:
             print(cmd)
             print("\n")
+        print("\n")
+        for name in self.run_info["completed_stages"]:
+            print(f"# {name} is complete and could be skipped")
         return 0
 
     def find_all_outputs(self):
