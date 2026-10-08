@@ -34,7 +34,7 @@ class DryRunPipeline(Pipeline):
             cmd = cmd.replace(stage.instance_name, embolden(stage.instance_name), 1)
 
         # make a list of complete stages and print at the end
-        if super().should_skip_stage(stage):
+        if self.run_config["resume"] in (True, "resume") and super().should_skip_stage(stage):
             self.run_info["completed_stages"].append(stage.instance_name)
 
         self.run_info["commands"].append(cmd)
