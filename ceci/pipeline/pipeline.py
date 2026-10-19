@@ -20,7 +20,6 @@ from .graph import (
     combine_output_nodes,
     combine_input_nodes,
 )
-from .file_manager import FileManager
 from .sec import StageExecutionConfig
 from .templates import read_and_apply_template
 
@@ -294,10 +293,52 @@ class Pipeline:
         """The PipelineStage objects in the pipeline, in an order they can be run"""
         return [self.graph.nodes[name]["sec"].stage_obj for name in self.stage_names]
 
-    @property
-    def pipeline_files(self):
-        """A FileManager mapping file tags to paths, backed by the pipeline graph"""
-        return FileManager(self.graph)
+    def add_inputs(self, paths):
+        """Add overall input files to the pipeline, or update their paths
+
+        Parameters
+        ----------
+        paths : `Mapping`
+            Mapping of tag to path for the input files
+        """
+        for tag, path in paths.items():
+            add_input_node(self.graph, tag, path=path)
+
+    def stage_input_paths(self, stage):
+        """Return the paths to the inputs of a stage, as known so far
+
+        Parameters
+        ----------
+        stage : `PipelineStage`
+            The stage in question
+
+        Returns
+        -------
+        paths : `dict`
+            Mapping of aliased tag to path, in the order of the stage's input tags.
+            Inputs whose paths are not yet known are omitted.
+        """
+        paths = {}
+        for tag in stage.input_tags():
+            aliased_tag = stage.get_aliased_tag(tag)
+            node = self.graph.nodes.get(aliased_tag, {})
+            if "path" in node:
+                paths[aliased_tag] = node["path"]
+        return paths
+
+    def _record_outputs(self, stage, paths):
+        """Record the paths of a stage's outputs on its output nodes
+
+        Parameters
+        ----------
+        stage : `PipelineStage`
+            The stage in question
+        paths : `Mapping`
+            Mapping of aliased tag to path for the outputs
+        """
+        for tag in stage.output_tags():
+            aliased_tag = stage.get_aliased_tag(tag)
+            self.graph.nodes[aliased_tag]["path"] = paths[aliased_tag]
 
     def _stage_node(self, stage_name):
         node = self.graph.nodes.get(stage_name)
@@ -524,7 +565,9 @@ class Pipeline:
         # interactively.
         if sec.stage_obj is None:
             return {}
-        return self.pipeline_files.insert_outputs(sec.stage_obj, ".")
+        stage_outputs = sec.stage_obj.find_outputs(".")
+        self._record_outputs(sec.stage_obj, stage_outputs)
+        return stage_outputs
 
     def build_stage(self, stage_class, **kwargs):
         """Build a stage and add it to the pipeline
@@ -541,15 +584,22 @@ class Pipeline:
 
         Notes
         -----
-        The keyword arguments will be based to the `stage_class` constructor
+        The keyword arguments will be based to the `stage_class` constructor.
+        Paths to the stage's inputs are taken from the outputs of stages already
+        added and any inputs set with `add_inputs`, unless given explicitly.
 
-        The output files produced by this stage will be added to the
-        `Pipeline.pipeline_files` data member, so that they are available to later stages
+        The paths to the output files produced by this stage will be recorded
+        in the pipeline graph, so that they are available to later stages
         """
         kwcopy = kwargs.copy()
         aliases = kwcopy.pop("aliases", {})
         comm = kwcopy.pop("comm", None)
-        kwcopy.update(**self.pipeline_files)
+        kwcopy.setdefault("config", None)
+        for tag in stage_class.input_tags():
+            aliased_tag = aliases.get(tag, tag)
+            node = self.graph.nodes.get(aliased_tag, {})
+            if aliased_tag not in kwcopy and "path" in node:
+                kwcopy[aliased_tag] = node["path"]
 
         stage = stage_class(kwcopy, comm=comm, aliases=aliases)
         return self.add_stage(stage)
@@ -579,7 +629,6 @@ class Pipeline:
         self.read_stages_config(stages_config)
 
         stages = []
-        pipeline_files = self.pipeline_files
         for stage_name in self.stage_names:
             # Find the stage class and execution config
             node = self.graph.nodes[stage_name]
@@ -602,13 +651,13 @@ class Pipeline:
                 args = stage_config.copy()
                 for tag in stage_class.input_tags():
                     aliased_tag = stage_aliases.get(tag, tag)
-                    args[aliased_tag] = pipeline_files[aliased_tag]
+                    args[aliased_tag] = self.graph.nodes[aliased_tag]["path"]
                 args["config"] = self.stages_config
 
                 # Make the stage object and record the outputs
                 # in the graph for the next stages
                 stage = sec.build_stage_object(args)
-                pipeline_files.insert_outputs(stage, ".")
+                self._record_outputs(stage, stage.find_outputs("."))
 
             stages.append(stage)
         return stages
@@ -734,7 +783,7 @@ class Pipeline:
         self.run_info = self.initiate_run(self.overall_inputs)
 
         # Now we can queue up all the jobs. The subclass decides what this actually means.
-        pipeline_files = self.pipeline_files
+        output_dir = self.run_config["output_dir"]
         for stage in self.stages:
             # If we are in "resume" mode and the pipeline has already been run
             # then we re-use any existing outputs.  User is responsible for making
@@ -742,14 +791,14 @@ class Pipeline:
 
             if self.should_skip_stage(stage):
                 stage.already_finished()
-                pipeline_files.insert_outputs(stage, self.run_config["output_dir"])
+                self._record_outputs(stage, stage.find_outputs(output_dir))
                 self.set_stage_status(stage.instance_name, StageStatus.SKIPPED)
 
             # Otherwise, run the pipeline and register any outputs from the
             # pipe element.
             else:
-                stage_outputs = self.enqueue_job(stage, pipeline_files)
-                pipeline_files.insert_paths(stage_outputs)
+                stage_outputs = self.enqueue_job(stage, self.stage_input_paths(stage))
+                self._record_outputs(stage, stage_outputs)
                 self.set_stage_status(stage.instance_name, StageStatus.QUEUED)
         
 
@@ -811,8 +860,9 @@ class Pipeline:
         raise NotImplementedError()
 
     @abstractmethod
-    def enqueue_job(self, stage, pipeline_files):  # pragma: no cover
-        """Setup the job for a single stage, and return stage specific information"""
+    def enqueue_job(self, stage, input_paths):  # pragma: no cover
+        """Setup the job for a single stage, given a mapping of its input tags to paths,
+        and return a mapping of its output tags to paths (or futures)"""
         raise NotImplementedError()
 
     @abstractmethod
@@ -993,7 +1043,7 @@ class Pipeline:
         if the_stage is None:
             raise ValueError(f"Stage {stage_name} has not been configured yet")
 
-        all_inputs = self.pipeline_files.copy()
+        all_inputs = self.stage_input_paths(the_stage)
         all_inputs.update(**kwargs)
 
         outputs = the_stage.find_outputs(self.run_config["output_dir"])

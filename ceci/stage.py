@@ -1360,15 +1360,15 @@ I currently know about these stages:
             out_dict[key] = cast_to_streamable(val)
         return out_dict
 
-    def find_inputs(self, pipeline_files):
-        """Find and retrun all the inputs associated to this stage in the FileManager
+    def find_inputs(self, input_paths):
+        """Find and retrun all the inputs associated to this stage in a mapping of tags to paths
 
         These are returned as a dictionary of tag : path pairs
         """
         ret_dict = {}
         for tag, _ in self.inputs_():
             aliased_tag = self.get_aliased_tag(tag)
-            ret_dict[aliased_tag] = pipeline_files[aliased_tag]
+            ret_dict[aliased_tag] = input_paths[aliased_tag]
         return ret_dict
 
     def find_outputs(self, outdir):
