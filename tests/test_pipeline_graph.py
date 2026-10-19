@@ -1,7 +1,8 @@
 from ceci import PipelineStage, MiniPipeline, Pipeline, FlowChartPipeline
 from ceci.pipeline import StageExecutionConfig
-from ceci.pipeline.graph import StageStatus
+from ceci.pipeline.graph import StageStatus, STATIC_ORDERING
 from ceci_example.types import TextFile
+import networkx
 import pytest
 
 
@@ -119,6 +120,41 @@ def test_remove_stage():
     assert "gy_extra" not in pipeline.graph
     with pytest.raises(KeyError):
         pipeline.remove_stage("GraphStageY")
+
+
+def test_static_ordering_cache(tmp_path, mocker):
+    sort = mocker.spy(networkx, "topological_sort")
+    pipeline = Pipeline(STAGES, {"name": "mini"})
+
+    # Before inputs are connected the order is the insertion order
+    assert pipeline.stage_names == ["GraphStageZ", "GraphStageY", "GraphStageX"]
+    assert pipeline.graph.graph[STATIC_ORDERING] == pipeline.stage_names
+    assert sort.call_count == 1
+
+    # Connecting the inputs invalidates the cache
+    pipeline.construct_pipeline_graph(INPUTS, {})
+    assert pipeline.stage_names == ["GraphStageX", "GraphStageY", "GraphStageZ"]
+    assert pipeline.stage_names == ["GraphStageX", "GraphStageY", "GraphStageZ"]
+    assert sort.call_count == 2
+
+    # Modifying the returned list does not change the cache
+    pipeline.stage_names.remove("GraphStageX")
+    assert pipeline.stage_names == ["GraphStageX", "GraphStageY", "GraphStageZ"]
+
+    # Removing and adding stages invalidates it
+    pipeline.remove_stage("GraphStageZ")
+    assert pipeline.stage_names == ["GraphStageX", "GraphStageY"]
+    pipeline.add_stage({"name": "GraphStageZ"})
+    # the new stage is not connected yet, so its position is not fixed
+    assert sorted(pipeline.stage_names) == ["GraphStageX", "GraphStageY", "GraphStageZ"]
+    assert sort.call_count == 4
+
+    # So does trimming
+    pipeline = Pipeline(STAGES, {"name": "mini"})
+    pipeline.stage_names
+    rc = {"output_dir": str(tmp_path), "from": "GraphStageY"}
+    pipeline.construct_pipeline_graph(INPUTS, rc)
+    assert pipeline.stage_names == ["GraphStageY", "GraphStageZ"]
 
 
 def test_flow_chart_structure_only(tmp_path):
