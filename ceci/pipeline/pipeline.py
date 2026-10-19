@@ -9,7 +9,17 @@ from abc import abstractmethod
 from ..stage import PipelineStage
 from ..sites import load, set_default_site, get_default_site
 from ..utils import extra_paths
-from .graph import build_graph, get_static_ordering, trim_pipeline_graph, combine_output_nodes, combine_input_nodes
+from .graph import (
+    StageStatus,
+    add_stage_node,
+    add_input_node,
+    remove_stage_node,
+    connect_stage_inputs,
+    get_static_ordering,
+    trim_pipeline_graph,
+    combine_output_nodes,
+    combine_input_nodes,
+)
 from .file_manager import FileManager
 from .sec import StageExecutionConfig
 from .templates import read_and_apply_template
@@ -131,15 +141,15 @@ class Pipeline:
         self.overall_inputs = {}
         self.modules = kwargs.get("modules", "")
 
-        # These are populated as we add stages below
-        self.stage_execution_config = {}
-        self.stage_names = []
+        # The graph is the main store of information about the pipeline.
+        # Stage nodes carry the execution config ("sec"), the stage
+        # configuration ("config") and run status ("status") of each stage,
+        # and file nodes carry the "path" and "ftype" of each file.
+        # It is populated as we add stages below.
+        self.graph = networkx.DiGraph()
 
         self.run_info = None
         self.run_config = None
-        self.stages = None
-        self.graph = None
-        self.pipeline_files = FileManager()
         self.pipeline_outputs = None
         self.stages_config = None
         self.stage_config_data = None
@@ -262,14 +272,50 @@ class Pipeline:
 
     def __getitem__(self, name):
         """Get a particular stage by name"""
-        try:
-            return self.stage_execution_config[name].stage_obj
-        except Exception as msg:  # pragma: no cover
-            raise AttributeError(f"Pipeline does not have stage {name}") from msg
+        # Use __dict__ directly to avoid recursion via __getattr__ if
+        # the graph does not exist yet
+        graph = self.__dict__.get("graph")
+        node = None if graph is None else graph.nodes.get(name)
+        if node is None or node["type"] != "stage":
+            raise AttributeError(f"Pipeline does not have stage {name}")
+        return node["sec"].stage_obj
 
     def __getattr__(self, name):
         """Get a particular stage by name"""
         return self.__getitem__(name)
+
+    @property
+    def stage_names(self):
+        """The names of the stages in the pipeline, in an order they can be run"""
+        return get_static_ordering(self.graph)
+
+    @property
+    def stages(self):
+        """The PipelineStage objects in the pipeline, in an order they can be run"""
+        return [self.graph.nodes[name]["sec"].stage_obj for name in self.stage_names]
+
+    @property
+    def pipeline_files(self):
+        """A FileManager mapping file tags to paths, backed by the pipeline graph"""
+        return FileManager(self.graph)
+
+    def _stage_node(self, stage_name):
+        node = self.graph.nodes.get(stage_name)
+        if node is None or node["type"] != "stage":
+            raise KeyError(f"Failed to find stage named {stage_name} in {self.stage_names}")
+        return node
+
+    def get_stage_execution_config(self, stage_name):
+        """Return the StageExecutionConfig for the named stage"""
+        return self._stage_node(stage_name)["sec"]
+
+    def get_stage_status(self, stage_name):
+        """Return the StageStatus for the named stage"""
+        return self._stage_node(stage_name)["status"]
+
+    def set_stage_status(self, stage_name, status):
+        """Set the StageStatus for the named stage"""
+        self._stage_node(stage_name)["status"] = StageStatus(status)
 
     def print_stages(self, stream=sys.stdout):
         """Print the list of stages in this pipeline to a stream"""
@@ -470,8 +516,7 @@ class Pipeline:
         else:
             sec = StageExecutionConfig(stage_info)
         sec.build_stage_class()
-        self.stage_execution_config[sec.name] = sec
-        self.stage_names.append(sec.name)
+        add_stage_node(self.graph, sec.name, sec.stage_class, sec.aliases, sec=sec, config={})
 
         # If we are adding a pre-built stage then we insert the output files now.
         # Otherwise this happens later.  Why does this happen now? Probably so that
@@ -518,8 +563,8 @@ class Pipeline:
             The name of the stage to remove.
 
         """
-        self.stage_names.remove(name)
-        del self.stage_execution_config[name]
+        self._stage_node(name)
+        remove_stage_node(self.graph, name)
 
 
     def configure_stages(self, stages_config):
@@ -534,35 +579,36 @@ class Pipeline:
         self.read_stages_config(stages_config)
 
         stages = []
-        all_inputs = self.overall_inputs.copy()
+        pipeline_files = self.pipeline_files
         for stage_name in self.stage_names:
             # Find the stage class and execution config
-            sec = self.stage_execution_config[stage_name]
+            node = self.graph.nodes[stage_name]
+            sec = node["sec"]
             stage_aliases = sec.aliases
             stage_class = sec.stage_class
+
+            # Record the configuration for this stage in the graph
+            stage_config = self.stage_config_data.get(stage_name, {})
+            node["config"] = stage_config
 
             # In interactive use the stage object might already be created
             # otherwise we need to create it
             if sec.stage_obj is not None:
-                orig_stage_config = self.stage_config_data.get(stage_name, {}).copy()
                 stage = sec.stage_obj
-                stage.config.update(**orig_stage_config)
+                stage.config.update(**stage_config.copy())
             else:
                 # Find the inputs for this stage and set up the arguments
                 # to the stage init method
-                args = self.stage_config_data.get(stage_name, {})
+                args = stage_config.copy()
                 for tag in stage_class.input_tags():
                     aliased_tag = stage_aliases.get(tag, tag)
-                    args[aliased_tag] = all_inputs[aliased_tag]
+                    args[aliased_tag] = pipeline_files[aliased_tag]
                 args["config"] = self.stages_config
 
-                # Make the stage object and find the outputs,
-                # keeping track of them for the next stages
+                # Make the stage object and record the outputs
+                # in the graph for the next stages
                 stage = sec.build_stage_object(args)
-                stage_outputs = stage.find_outputs(".")
-                for tag in stage_class.output_tags():
-                    aliased_tag = stage_aliases.get(tag, tag)
-                    all_inputs[aliased_tag] = stage_outputs[aliased_tag]
+                pipeline_files.insert_outputs(stage, ".")
 
             stages.append(stage)
         return stages
@@ -596,15 +642,13 @@ class Pipeline:
             self.data_registry = self.setup_data_registry(registry_info)
         self.overall_inputs = self.process_overall_inputs(overall_inputs)
 
-        # Get the stages in the order we need.
-        # First build the graph that includes both the stages and the
-        # input and output files for the pipeline.
-        self.graph = build_graph(
-            self.stage_names, 
-            [self.stage_execution_config[name].stage_class for name in self.stage_names],
-            [self.stage_execution_config[name].aliases for name in self.stage_names],
-            self.overall_inputs
-        )
+        # The stages and their outputs are already in the graph.
+        # Add the overall inputs, recording their paths, and then
+        # connect everything together. This also checks the pipeline
+        # is valid.
+        for tag, path in self.overall_inputs.items():
+            add_input_node(self.graph, tag, path=path)
+        connect_stage_inputs(self.graph)
 
         if "to" in self.run_config or "from" in self.run_config:
             to_ = self.run_config.get("to")
@@ -628,15 +672,7 @@ class Pipeline:
                 for t, path in converted_inputs.items():
                     print(f"    - {t}: {path}")
                     self.overall_inputs[t] = path
-
-
-        # Re-order the pipeline stages in a static order
-        self.stage_names = get_static_ordering(self.graph)
-
-        # This is also a convenient place to record the location
-        # of the overall inputs in the file manager
-        self.pipeline_files.insert_paths(self.overall_inputs)
-
+                    self.graph.nodes[t]["path"] = path
 
         return self.stage_names
 
@@ -698,6 +734,7 @@ class Pipeline:
         self.run_info = self.initiate_run(self.overall_inputs)
 
         # Now we can queue up all the jobs. The subclass decides what this actually means.
+        pipeline_files = self.pipeline_files
         for stage in self.stages:
             # If we are in "resume" mode and the pipeline has already been run
             # then we re-use any existing outputs.  User is responsible for making
@@ -705,13 +742,15 @@ class Pipeline:
 
             if self.should_skip_stage(stage):
                 stage.already_finished()
-                self.pipeline_files.insert_outputs(stage, self.run_config["output_dir"])
+                pipeline_files.insert_outputs(stage, self.run_config["output_dir"])
+                self.set_stage_status(stage.instance_name, StageStatus.SKIPPED)
 
             # Otherwise, run the pipeline and register any outputs from the
             # pipe element.
             else:
-                stage_outputs = self.enqueue_job(stage, self.pipeline_files)
-                self.pipeline_files.insert_paths(stage_outputs)
+                stage_outputs = self.enqueue_job(stage, pipeline_files)
+                pipeline_files.insert_paths(stage_outputs)
+                self.set_stage_status(stage.instance_name, StageStatus.QUEUED)
         
 
     def initialize(self, overall_inputs, run_config, stages_config):
@@ -737,7 +776,7 @@ class Pipeline:
 
         # Configure the individual stages. Reads the config information for them
         # and creates PipelineStage objects for each one.
-        self.stages = self.configure_stages(stages_config)
+        self.configure_stages(stages_config)
 
         # Tell the subclass to preapre to run the pipeline by queueing up
         # the jobs. This does a few other miscellaneous things too.
@@ -836,7 +875,8 @@ class Pipeline:
 
         site = None
 
-        for key, val in self.stage_execution_config.items():
+        for key in self.stage_names:
+            val = self.get_stage_execution_config(key)
             if val.stage_obj is None:  # pragma: no cover
                 raise ValueError(f"Stage {key} has not been built, can not save")
             if site is None:
@@ -902,8 +942,15 @@ class Pipeline:
         graphviz.AGraph
             The graphviz object representing the pipeline stages
         """
+        # The graph nodes carry python objects that we do not want
+        # to write to the chart, so make a copy with just the structure
+        # and the node types.
+        structure = networkx.DiGraph()
+        structure.add_nodes_from((n, {"type": t}) for n, t in self.graph.nodes(data="type"))
+        structure.add_edges_from(self.graph.edges)
+
         # generate a graphviz object from the networkx graph
-        graph = networkx.nx_agraph.to_agraph(self.graph)
+        graph = networkx.nx_agraph.to_agraph(structure)
 
         # Some stages have long lists of output nodes like plots that
         # are final outputs not used in the rest of the pipeline. We
@@ -941,21 +988,10 @@ class Pipeline:
         kwargs: dict        
             Used to override pipeline inputs
         """
-        try:
-            sec = self.stage_execution_config[stage_name]
-        except KeyError as msg:
-            raise KeyError(f'Failed to find stage named {stage_name} in {list(self.stage_execution_config.keys())}') from msg
-
-        if sec.stage_obj is not None:
-            the_stage = sec.stage_obj
-        else:            
-            for i, stage_name_ in self.stage_names:
-                if stage_name == stage_name_:
-                    idx = i
-                    break
-            if idx is None:
-                raise KeyError(f'Failed to find stage named {stage_name} in {self.stage_names}')
-            the_stage = self.stages[idx]
+        sec = self.get_stage_execution_config(stage_name)
+        the_stage = sec.stage_obj
+        if the_stage is None:
+            raise ValueError(f"Stage {stage_name} has not been configured yet")
 
         all_inputs = self.pipeline_files.copy()
         all_inputs.update(**kwargs)

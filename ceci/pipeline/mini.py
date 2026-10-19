@@ -1,6 +1,7 @@
 import sys
 from .. import minirunner
 from .pipeline import Pipeline, get_default_site
+from .graph import StageStatus
 
 class MiniPipeline(Pipeline):
     """A pipeline subclass that uses Minirunner, a sub-module
@@ -50,32 +51,39 @@ class MiniPipeline(Pipeline):
         Parameters
         ----------
 
-        stages: list[PipelineStage]
-            A list of stages to generate the DAG for
+        jobs: dict[str, minirunner.Job]
+            The jobs to generate the DAG for, keyed by stage name
 
         """
         depend = {}
 
         # for each stage in our pipeline ...
-        for stage in self.stages[:]:
-            if stage.instance_name not in jobs:
+        for stage_name in self.stage_names:
+            if stage_name not in jobs:
                 continue
-            job = jobs[stage.instance_name]
+            job = jobs[stage_name]
             depend[job] = []
-            # check for each of the inputs for that stage ...
-            for tag in stage.input_tags():
-                aliased_tag = stage.get_aliased_tag(tag)
-                for potential_parent in self.stages[:]:
-                    # if that stage is supplied by another pipeline stage
-                    if potential_parent.instance_name not in jobs:  # pragma: no cover
-                        continue
-                    potential_parent_tags = [
-                        potential_parent.get_aliased_tag(tag_)
-                        for tag_ in potential_parent.output_tags()
-                    ]
-                    if aliased_tag in potential_parent_tags:
-                        depend[job].append(jobs[potential_parent.instance_name])
+            # the stages it depends on are the ones that make
+            # its input files.  Stages that are not being run
+            # are not included
+            for tag in self.graph.predecessors(stage_name):
+                for parent in self.graph.predecessors(tag):
+                    if parent in jobs:
+                        depend[job].append(jobs[parent])
         return depend
+
+    def _status_callback(self, event_type, event_info):
+        """Record job events as stage status in the graph, and
+        then pass them on to any user callback."""
+        status = {
+            minirunner.EVENT_LAUNCH: StageStatus.RUNNING,
+            minirunner.EVENT_COMPLETED: StageStatus.COMPLETE,
+            minirunner.EVENT_FAIL: StageStatus.FAILED,
+        }.get(event_type)
+        if status is not None:
+            self.set_stage_status(event_info["job"].name, status)
+        if self.callback is not None:
+            self.callback(event_type, event_info)
 
     def initiate_run(self, overall_inputs):
         jobs = {}
@@ -83,7 +91,7 @@ class MiniPipeline(Pipeline):
         return jobs, stages
 
     def enqueue_job(self, stage, pipeline_files):
-        sec = self.stage_execution_config[stage.instance_name]
+        sec = self.get_stage_execution_config(stage.instance_name)
         outputs = stage.find_outputs(self.run_config["output_dir"])
         cmd = sec.generate_full_command(pipeline_files, outputs, self.stages_config)
         job = minirunner.Job(
@@ -106,12 +114,12 @@ class MiniPipeline(Pipeline):
         # This pipeline, being mainly for testing, can only
         # run at a single site, so we can assume here that the
         # sites are all the same
-        sec = self.stage_execution_config[self.stage_names[0]]
+        sec = self.get_stage_execution_config(self.stage_names[0])
         nodes = sec.site.info["nodes"]
 
         # Run under minirununer
         runner = minirunner.Runner(
-            nodes, graph, log_dir, callback=self.callback, sleep=self.sleep
+            nodes, graph, log_dir, callback=self._status_callback, sleep=self.sleep
         )
         interval = self.launcher_config.get("interval", 3)
         try:

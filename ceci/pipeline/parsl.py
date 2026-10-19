@@ -2,6 +2,7 @@ import sys
 import os
 
 from .pipeline import Pipeline
+from .graph import StageStatus
 
 
 class ParslPipeline(Pipeline):
@@ -47,8 +48,10 @@ class ParslPipeline(Pipeline):
             try:
                 # This waits for b/g pipeline completion.
                 future.result()
+                self.set_stage_status(stage_name, StageStatus.COMPLETE)
             # Parsl emits this on any non-zero status code.
             except BashExitFailure:
+                self.set_stage_status(stage_name, StageStatus.FAILED)
                 stdout_file = f"{log_dir}/{stage_name}.err"
                 stderr_file = f"{log_dir}/{stage_name}.out"
                 sys.stderr.write(
@@ -138,7 +141,7 @@ Standard error:
         config = f"{{inputs[{config_index}]}}"
 
         # This includes all the "mpirun" stuff.
-        sec = self.stage_execution_config[stage.instance_name]
+        sec = self.get_stage_execution_config(stage.instance_name)
         executor = sec.site.info["executor"]
 
         # Construct the command line call

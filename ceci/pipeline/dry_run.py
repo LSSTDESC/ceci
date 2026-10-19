@@ -20,7 +20,7 @@ class DryRunPipeline(Pipeline):
 
     def enqueue_job(self, stage, pipeline_files):
         outputs = stage.find_outputs(self.run_config["output_dir"])
-        sec = self.stage_execution_config[stage.instance_name]
+        sec = self.get_stage_execution_config(stage.instance_name)
 
         cmd = sec.generate_full_command(pipeline_files, outputs, self.stages_config)
 

@@ -1,10 +1,15 @@
-class FileManager(dict):
+from collections.abc import MutableMapping
+import networkx
+from .graph import add_input_node
+
+
+class FileManager(MutableMapping):
     """Small class to manage files within a particular Pipeline
 
-    This is a dict which is used for tag to path mapping,
-    but has a couple of additional dicts to manage the reverse mapping and the
-    tag to type mapping.
-
+    This is a mapping from tag to path, but stores no information of its
+    own. Instead it is a view onto the file nodes of a pipeline graph,
+    reading and writing their "path" and "ftype" attributes.  Setting a
+    path for a tag that is not yet in the graph adds it as an input node.
 
     The tag to path mapping is the thing that the Pipeline uses to set the
     input paths for downstream stages that use the outputs of earlier stages,
@@ -16,16 +21,53 @@ class FileManager(dict):
     downstream stages can pick up that location correctly)
     """
 
-    def __init__(self):
-        """Constructor, makes empty dictionaries"""
-        self._tag_to_type = {}
-        self._path_to_tag = {}
-        dict.__init__(self)
+    def __init__(self, graph=None):
+        """Constructor
+
+        Parameters
+        ----------
+        graph : networkx.DiGraph or None
+            The pipeline graph to view. If None, a new empty graph is used.
+        """
+        self.graph = networkx.DiGraph() if graph is None else graph
+
+    def _file_node(self, tag):
+        node = self.graph.nodes.get(tag)
+        if node is None or node["type"] == "stage":
+            raise KeyError(tag)
+        return node
+
+    def __getitem__(self, tag):
+        node = self._file_node(tag)
+        if "path" not in node:
+            raise KeyError(tag)
+        return node["path"]
 
     def __setitem__(self, tag, path):
-        """Override dict.__setitem__() to also insert the reverse mapping"""
-        dict.__setitem__(self, tag, path)
-        self._path_to_tag[path] = tag
+        # Unlike insert, this sets the path even if it is None
+        self.insert(tag)
+        self._file_node(tag)["path"] = path
+
+    def __delitem__(self, tag):
+        node = self._file_node(tag)
+        if "path" not in node:
+            raise KeyError(tag)
+        del node["path"]
+
+    def __iter__(self):
+        for tag, node in self.graph.nodes(data=True):
+            if node["type"] != "stage" and "path" in node:
+                yield tag
+
+    def __len__(self):
+        return sum(1 for _ in self)
+
+    def __repr__(self):
+        return f"FileManager({dict(self)})"
+
+    def copy(self):
+        """Return a plain dictionary copy of the tag to path mapping"""
+        return dict(self)
 
     def insert(self, tag, path=None, ftype=None):
         """Insert a file, including the path and the file type
@@ -39,15 +81,17 @@ class FileManager(dict):
         ftype : type
             The file type for this file
         """
+        if tag not in self.graph.nodes:
+            add_input_node(self.graph, tag)
+        node = self._file_node(tag)
         if path is not None:
-            self[tag] = path
-            self._path_to_tag[path] = tag
-        if tag not in self._tag_to_type:
-            self._tag_to_type[tag] = ftype
+            node["path"] = path
+        if node.get("ftype") is None:
+            node["ftype"] = ftype
 
     def get_type(self, tag):
         """Return the file type associated to a given tag"""
-        return self._tag_to_type[tag]
+        return self._file_node(tag).get("ftype")
 
     def get_path(self, tag):
         """Return the path associated to a give tag"""
@@ -55,7 +99,10 @@ class FileManager(dict):
 
     def get_tag(self, path):
         """Return the tag associated to a given path"""
-        return self._path_to_tag[path]
+        for tag, node_path in self.items():
+            if node_path is path or node_path == path:
+                return tag
+        raise KeyError(path)
 
     def insert_paths(self, path_dict):
         """Insert a set of paths from a dict that has tag, path pairs"""
@@ -70,4 +117,3 @@ class FileManager(dict):
             path = stage_outputs[aliased_tag]
             self.insert(aliased_tag, path=path, ftype=ftype)
         return stage_outputs
-

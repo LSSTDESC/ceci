@@ -3,6 +3,7 @@ from ceci.pipeline.templates import read_and_apply_template
 from ceci_example.types import TextFile
 from ceci.sites import load, reset_default_site
 from ceci.utils import extra_paths
+from ceci.pipeline.graph import StageStatus
 import pytest
 from parsl import clear
 import yaml
@@ -132,6 +133,7 @@ class FailingStage(PipelineStage):
 
 def _return_value_test_(resume):
     expected_status = 0 if ((resume == "resume") or (resume is True)) else 1
+    expected_stage_status = StageStatus.SKIPPED if expected_status == 0 else StageStatus.FAILED
     # Mini pipeline should not run
     launcher_config = {"interval": 0.5, "name": "mini"}
     run_config = {
@@ -144,6 +146,7 @@ def _return_value_test_(resume):
     pipeline.initialize({}, run_config, "tests/config.yml")
     status = pipeline.run()
     assert status == expected_status
+    assert pipeline.get_stage_status("FailingStage") == expected_stage_status
 
     # Parsl pipeline should not run stage either
     launcher_config = {"name": "parsl"}
@@ -154,6 +157,7 @@ def _return_value_test_(resume):
     pipeline.initialize({}, run_config, "tests/config.yml")
     status = pipeline.run()
     assert status == expected_status
+    assert pipeline.get_stage_status("FailingStage") == expected_stage_status
     clear()  # clear parsl settings
     reset_default_site()  # reset so default is minirunner again
 

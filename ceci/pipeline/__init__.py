@@ -13,3 +13,4 @@ from .flow_chart import FlowChartPipeline
 from .mini import MiniPipeline
 from .file_manager import FileManager
 from .sec import StageExecutionConfig
+from .graph import StageStatus
