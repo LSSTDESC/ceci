@@ -613,6 +613,9 @@ class Pipeline:
             The name of the stage to remove.
 
         """
+        # Check that this is the name of a stage, raising a KeyError if not.
+        # Otherwise a file name would be accepted, and remove_stage_node
+        # would delete that file's node from the graph.
         self._stage_node(name)
         remove_stage_node(self.graph, name)
 
