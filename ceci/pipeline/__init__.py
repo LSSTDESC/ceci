@@ -11,5 +11,5 @@ from .parsl import ParslPipeline
 from .dry_run import DryRunPipeline
 from .flow_chart import FlowChartPipeline
 from .mini import MiniPipeline
-from .file_manager import FileManager
 from .sec import StageExecutionConfig
+from .graph import StageStatus

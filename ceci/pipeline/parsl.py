@@ -2,6 +2,7 @@ import sys
 import os
 
 from .pipeline import Pipeline
+from .graph import StageStatus
 
 
 class ParslPipeline(Pipeline):
@@ -10,7 +11,7 @@ class ParslPipeline(Pipeline):
     def initiate_run(self, overall_inputs):
         return []  # list of futures
 
-    def enqueue_job(self, stage, pipeline_files):
+    def enqueue_job(self, stage, input_paths):
 
         from parsl.data_provider.files import File
 
@@ -22,7 +23,7 @@ class ParslPipeline(Pipeline):
         # parsl wants.
         # The inputs that exist already need to be converted into Parsl File objects.
         # The ones that don't stay as data futures
-        inputs1 = stage.find_inputs(pipeline_files)
+        inputs1 = stage.find_inputs(input_paths)
         inputs = [
             File(val) if isinstance(val, str) else val for val in inputs1.values()
         ]
@@ -47,8 +48,10 @@ class ParslPipeline(Pipeline):
             try:
                 # This waits for b/g pipeline completion.
                 future.result()
+                self.set_stage_status(stage_name, StageStatus.COMPLETE)
             # Parsl emits this on any non-zero status code.
             except BashExitFailure:
+                self.set_stage_status(stage_name, StageStatus.FAILED)
                 stdout_file = f"{log_dir}/{stage_name}.err"
                 stderr_file = f"{log_dir}/{stage_name}.out"
                 sys.stderr.write(
@@ -138,7 +141,7 @@ Standard error:
         config = f"{{inputs[{config_index}]}}"
 
         # This includes all the "mpirun" stuff.
-        sec = self.stage_execution_config[stage.instance_name]
+        sec = self.get_stage_execution_config(stage.instance_name)
         executor = sec.site.info["executor"]
 
         # Construct the command line call

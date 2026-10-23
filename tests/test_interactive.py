@@ -79,13 +79,10 @@ def test_interactive_pipeline():
     pipe2 = Pipeline.interactive()
     overall_inputs = {'DM':'./tests/inputs/dm.txt',
                       'fiducial_cosmology':'./tests/inputs/fiducial_cosmology.txt'}
-    inputs = overall_inputs.copy()
-    inputs['metacalibration'] = True
-    inputs['config'] = None
 
-    pipe2.pipeline_files.update(**inputs)
+    pipe2.add_inputs(overall_inputs)
     pipe2.build_stage(PZEstimationPipe)
-    pipe2.build_stage(shearMeasurementPipe, apply_flag=False)
+    pipe2.build_stage(shearMeasurementPipe, metacalibration=True, apply_flag=False)
     pipe2.build_stage(WLGCSelector, zbin_edges=[0.2, 0.3, 0.5], ra_range=[-5, 5])
     pipe2.build_stage(SysMapMaker)
     pipe2.build_stage(SourceSummarizer)
@@ -105,9 +102,10 @@ def test_interactive_pipeline():
 
     rpr = repr(pipe2.WLGCCov.config)
 
-    path = pipe2.pipeline_files.get_path('covariance_copy')
-    assert pipe2.pipeline_files.get_tag(path) == 'covariance_copy'
-    assert pipe2.pipeline_files.get_type('covariance_copy') == pipe2.WLGCCov.get_output_type('covariance_1')
+    node = pipe2.graph.nodes['covariance_copy']
+    assert node['path'] == pipe2.WLGCCov.find_outputs(pipeline.run_config['output_dir'])['covariance_copy']
+    assert node['creator'] == 'WLGCCov'
+    assert node['ftype'] == pipe2.WLGCCov.get_output_type('covariance_1')
 
     pipe2.run()
 
@@ -118,10 +116,8 @@ def test_inter_pipe():
     pipe2 = Pipeline.interactive()
     overall_inputs = {'DM':'./tests/inputs/dm.txt',
                       'fiducial_cosmology':'./tests/inputs/fiducial_cosmology.txt'}
-    inputs = overall_inputs.copy()
-    inputs['config'] = None
 
-    pipe2.pipeline_files.update(**inputs)
+    pipe2.add_inputs(overall_inputs)
 
     pipe2.build_stage(PZEstimationPipe, name='bob')
     assert isinstance(pipe2.bob, PZEstimationPipe)
