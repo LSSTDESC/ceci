@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9, "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
   
     steps:
     - name: Checkout repository
@@ -72,7 +72,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: [3.9]
+        python-version: [3.12]
 
     steps:
     - name: Checkout repository
@@ -103,7 +103,7 @@ jobs:
         echo "sqlalchemy.url : postgresql://postgres:postgres@localhost:5432/desc_data_registry" > $DATAREG_CONFIG
         # Install the data registry
         cd dataregistry
-        python3 -m pip install .
+        python3 -m pip install . psycopg
         # Create the data registry schema
         python3 scripts/create_registry_db.py --config $DATAREG_CONFIG
         # Create some dummy data registry entries
