@@ -103,7 +103,7 @@ jobs:
         echo "sqlalchemy.url : postgresql://postgres:postgres@localhost:5432/desc_data_registry" > $DATAREG_CONFIG
         # Install the data registry
         cd dataregistry
-        python3 -m pip install . psycopg2
+        python3 -m pip install . psycopg
         # Create the data registry schema
         python3 scripts/create_registry_db.py --config $DATAREG_CONFIG
         # Create some dummy data registry entries
