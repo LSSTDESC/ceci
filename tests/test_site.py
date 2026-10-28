@@ -71,3 +71,65 @@ def test_in2p3():
     site = get_default_site()
     cmd = site.command("xxx", sec)
     assert "singularity run" in cmd
+
+
+def test_nersc_parse_int_set():
+    from ceci.sites.nersc import parse_int_set
+
+    assert parse_int_set("1,3-5,9") == {1, 3, 4, 5, 9}
+    with pytest.raises(ValueError):
+        parse_int_set("1,abc")
+
+
+def test_nersc_mini_login_node(monkeypatch):
+    from ceci.sites.nersc import NerscSite
+
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    site = NerscSite({})
+    site.configure_for_mini()
+    (node,) = site.info["nodes"]
+    assert node.cores == 4
+
+
+def test_nersc_mini_slurm_job(monkeypatch):
+    # Simulate being inside a SLURM job, so this can run anywhere (e.g. CI)
+    from ceci.sites.nersc import NerscSite
+
+    monkeypatch.setenv("SLURM_JOB_ID", "12345")
+    monkeypatch.setenv("SLURM_JOB_NODELIST", "nid[1234-1235,1240]")
+    monkeypatch.setenv("SLURM_CPUS_ON_NODE", "64")
+    site = NerscSite({})
+    site.configure_for_mini()
+    nodes = site.info["nodes"]
+    assert len(nodes) == 3
+    assert all(node.cores == 64 for node in nodes)
+
+    # single node, no brackets, and the default core count
+    monkeypatch.setenv("SLURM_JOB_NODELIST", "nid001234")
+    monkeypatch.delenv("SLURM_CPUS_ON_NODE")
+    site = NerscSite({})
+    site.configure_for_mini()
+    (node,) = site.info["nodes"]
+    assert node.id == "nid001234"
+    assert node.cores == 32
+
+
+def test_nersc_command(monkeypatch):
+    from ceci.sites.nersc import NerscSite
+
+    monkeypatch.setenv("SLURM_JOB_ID", "12345")
+    site = NerscSite({"python_paths": ["/a", "/b"]})
+
+    sec = StageExecutionConfig({"name": "Test", "nprocess": 4, "threads_per_process": 2})
+    cmd = site.command("xxx", sec)
+    assert "srun -u -n 4 --cpus-per-task=2" in cmd
+    assert "OMP_NUM_THREADS=2" in cmd
+    assert "PYTHONPATH=/a:/b:$PYTHONPATH" in cmd
+    assert "shifter" not in cmd
+    assert "--mpi" in cmd
+
+    sec = StageExecutionConfig({"name": "Test", "nprocess": 1, "image": "img:latest"})
+    cmd = site.command("xxx", sec)
+    assert "shifter" in cmd
+    assert "--image img:latest" in cmd
+    assert "--mpi" not in cmd
