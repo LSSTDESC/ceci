@@ -43,6 +43,13 @@ def get_default_site():
 reset_default_site()
 
 
+def detect_site_name():
+    """Choose "nersc-interactive" if NERSC_HOST is set, otherwise "local"."""
+    if "NERSC_HOST" in os.environ:
+        return "nersc-interactive"
+    return "local"
+
+
 def load(launcher_config, site_configs):
     """Configure a launcher and the sites it will execute on.
 
@@ -70,7 +77,10 @@ def load(launcher_config, site_configs):
 
     # Create an object for each site.
     for site_config in site_configs:
-        site_name = site_config["name"]
+        site_name = site_config.get("name", "auto")
+        if site_name == "auto":
+            site_name = detect_site_name()
+        site_config["name"] = site_name
         # Also tell the sites whether this is a dry-run.
         # for example, the nersc site checks you're not
         # trying to run srun on a login node, but we skip

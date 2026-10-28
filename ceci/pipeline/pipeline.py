@@ -46,7 +46,7 @@ def prepare_for_pipeline(pipe_config):
 
     # Get information (maybe the default) on the launcher we may be using
     launcher_config = pipe_config.setdefault("launcher", {"name": "mini"})
-    site_config = pipe_config.get("site", {"name": "local"})
+    site_config = pipe_config.get("site", {"name": "auto"})
 
     # Pass the paths along to the site
     site_config["python_paths"] = paths
@@ -495,8 +495,8 @@ class Pipeline:
 
         modules = pipe_config["modules"].split()
         launcher_config = pipe_config.setdefault("launcher", {"name": "mini"})
-        site_config = dict(name="local")
-        site_config.update(**pipe_config.get("site"))
+        site_config = dict(name="auto")
+        site_config.update(**(pipe_config.get("site") or {}))
         # Pass the paths along to the site
         site_config["python_paths"] = paths
         load(launcher_config, [site_config])
