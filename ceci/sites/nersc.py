@@ -108,7 +108,7 @@ class NerscSite(Site):
             slurm_cpus_on_node = int(os.environ.get("SLURM_CPUS_ON_NODE", 32))
 
             # collect list.
-            nodes = [Node(name, cpus_per_node) for name in node_names]
+            nodes = [Node(name, slurm_cpus_on_node) for name in node_names]
         else:
             # running on login node
             # use at most 4 procs to avoid annoying people
@@ -147,7 +147,7 @@ class NerscBatchSite(NerscSite):
             max_blocks=max_slurm_jobs,  # one slurm job to start with
             scheduler_options=f"#SBATCH --constraint={cpu_type}\n"
             f"#SBATCH --account={account}\n"
-            f"#SBATCH --walltime={walltime}\n",
+            f"#SBATCH --time={walltime}\n",
             nodes_per_block=1,
             init_blocks=1,
             worker_init=f"source {setup_script}",
