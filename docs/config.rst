@@ -114,7 +114,7 @@ Site
 
 The ``site`` parameter should be a dictionary that configures the machine on which you are running the pipeline.
 
-The ``name`` item in the dictionary sets which site is used.  These options are currently allowed: ``local``, ``nersc-batch``, and ``nersc-interactive``.
+The ``name`` item in the dictionary sets which site is used.  These options are currently allowed: ``auto``, ``local``, ``nersc-batch``, and ``nersc-interactive``. The default, ``auto``, selects ``nersc-interactive`` if the ``NERSC_HOST`` environment variable is set, and ``local`` otherwise.
 
 See the :ref:`sites` page for information on these sites, and the other options they take.
 
