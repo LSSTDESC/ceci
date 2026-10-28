@@ -652,6 +652,9 @@ class Pipeline:
                 # Find the inputs for this stage and set up the arguments
                 # to the stage init method
                 args = stage_config.copy()
+                # Make sure the instance name is the pipeline name, which
+                # may differ from the class name if 'classname' was given
+                args.setdefault("name", stage_name)
                 for tag in stage_class.input_tags():
                     aliased_tag = stage_aliases.get(tag, tag)
                     args[aliased_tag] = self.graph.nodes[aliased_tag]["path"]
