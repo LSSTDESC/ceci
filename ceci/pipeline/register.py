@@ -41,7 +41,7 @@ def _path_size(path):
     return total
 
 
-def plan_registration(outputs, execution_name, version, allow_large, allow_incomplete):
+def plan_registration(outputs, execution_name, version, allow_incomplete):
     """Check what would be registered, without touching the registry.
 
     Parameters
@@ -50,7 +50,6 @@ def plan_registration(outputs, execution_name, version, allow_large, allow_incom
         tag: path for all outputs of the pipeline
     execution_name : str
     version : str
-    allow_large : bool
     allow_incomplete : bool
 
     Returns
@@ -92,6 +91,11 @@ def plan_registration(outputs, execution_name, version, allow_large, allow_incom
     if not plan:
         raise RegistrationError("There are no output files to register")
 
+    return plan, missing
+
+
+def check_size(plan, allow_large):
+    """Raise if the total size of the planned datasets is over the limit"""
     total = sum(size for _, _, size in plan)
     if total > MAX_REGISTER_BYTES and not allow_large:
         raise RegistrationError(
@@ -99,24 +103,25 @@ def plan_registration(outputs, execution_name, version, allow_large, allow_incom
             f"more than the {MAX_REGISTER_BYTES / 1024**3:.0f} GB limit. "
             "Pass --dregs-allow-large to register them anyway."
         )
-    return plan, missing
 
 
-def format_plan(execution_name, version, plan, missing):
+def format_plan(execution_name, version, plan, missing, existing=()):
     """Human-readable description of a registration plan"""
     total = sum(size for _, _, size in plan)
     lines = [f"Execution '{execution_name}' would register {len(plan)} datasets at version {version}:"]
     for name, path, size in plan:
         lines.append(f"    {name:40} {size / 1024**2:10.2f} MB  {path}")
     lines.append(f"Total size: {total / 1024**3:.3f} GB")
+    for name in existing:
+        lines.append(f"Skipping {name}: already registered at version {version}")
     for tag, path in missing:
         lines.append(f"Skipping missing output {tag}: {path}")
     return "\n".join(lines)
 
 
-def check_existing(registry, plan, version):
-    """Raise if any dataset in the plan already exists in the registry"""
-    clashes = []
+def find_existing(registry, plan, version):
+    """Return the names of datasets in the plan already in the registry"""
+    existing = []
     for name, _, _ in plan:
         filters = [
             registry.Query.gen_filter("dataset.name", "==", name),
@@ -124,14 +129,29 @@ def check_existing(registry, plan, version):
         ]
         found = registry.Query.find_datasets(["dataset.dataset_id"], filters)
         if found and len(found["dataset.dataset_id"]) > 0:
-            clashes.append(name)
-    if clashes:
+            existing.append(name)
+    return existing
+
+
+def find_execution(registry, execution_name):
+    """Return the id of the existing registry execution with this name"""
+    name_filter = registry.Query.gen_filter("execution.name", "==", execution_name)
+    found = registry.Query.get_table_values(
+        "execution", ["execution_id"], filters=[name_filter]
+    )
+    ids = found["execution.execution_id"] if found else []
+    if len(ids) != 1:
         raise RegistrationError(
-            f"Datasets already exist in the registry at version {version}: {', '.join(clashes)}"
+            f"--dregs-more needs exactly one existing registry execution named "
+            f"'{execution_name}', but found {len(ids)}"
         )
+    return ids[0]
 
 
-def register_plan(registry, execution_name, version, plan, configuration=None, description=None):
+def register_plan(
+    registry, execution_name, version, plan, configuration=None, description=None,
+    execution_id=None,
+):
     """Create the execution and register each planned dataset under it
 
     Parameters
@@ -139,35 +159,38 @@ def register_plan(registry, execution_name, version, plan, configuration=None, d
     registry : dataregistry.DataRegistry
     configuration : dict, optional
         label: text for configuration files to store with the execution
+    execution_id : int, optional
+        Add to this existing execution instead of creating a new one
 
     Returns
     -------
     dataset_ids : dict
         name: dataset id for each registered dataset
     """
-    config_path = None
-    max_config_length = None
-    try:
-        if configuration:
-            text = "".join(
-                f"# ---- {label} ----\n{content}\n" for label, content in configuration.items()
-            )
-            with tempfile.NamedTemporaryFile("w", suffix=".yml", delete=False) as f:
-                f.write(text)
-                config_path = f.name
-            max_config_length = len(text) + 1
+    if execution_id is None:
+        config_path = None
+        max_config_length = None
+        try:
+            if configuration:
+                text = "".join(
+                    f"# ---- {label} ----\n{content}\n" for label, content in configuration.items()
+                )
+                with tempfile.NamedTemporaryFile("w", suffix=".yml", delete=False) as f:
+                    f.write(text)
+                    config_path = f.name
+                max_config_length = len(text) + 1
 
-        description = description or f"Outputs of ceci pipeline, registered as {execution_name}"
-        execution_id = registry.Registrar.execution.register(
-            execution_name,
-            description=description,
-            execution_start=datetime.now(),
-            configuration=config_path,
-            max_config_length=max_config_length,
-        )
-    finally:
-        if config_path is not None:
-            os.unlink(config_path)
+            description = description or f"Outputs of ceci pipeline, registered as {execution_name}"
+            execution_id = registry.Registrar.execution.register(
+                execution_name,
+                description=description,
+                execution_start=datetime.now(),
+                configuration=config_path,
+                max_config_length=max_config_length,
+            )
+        finally:
+            if config_path is not None:
+                os.unlink(config_path)
 
     dataset_ids = {}
     for name, path, _ in plan:

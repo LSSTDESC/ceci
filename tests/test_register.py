@@ -1,16 +1,21 @@
 import os
 import pytest
 from ceci import Pipeline
-from ceci.pipeline.register import RegistrationError, MAX_REGISTER_BYTES, plan_registration
+from ceci.pipeline.register import RegistrationError, MAX_REGISTER_BYTES, plan_registration, check_size
 from ceci.main import parser
 
 
 class FakeQuery:
-    def __init__(self, existing=()):
+    def __init__(self, existing=(), executions=()):
         self.existing = existing
+        self.executions = {n: 7 for n in executions}
 
     def gen_filter(self, prop, op, value):
         return (prop, value)
+
+    def get_table_values(self, table, props, filters):
+        n = dict(filters)["execution.name"]
+        return {"execution.execution_id": [self.executions.get(n, 42)] if n in self.executions else []}
 
     def find_datasets(self, props, filters):
         name = dict(filters)["dataset.name"]
@@ -39,8 +44,8 @@ class FakeDataset:
 
 
 class FakeRegistry:
-    def __init__(self, existing=()):
-        self.Query = FakeQuery(existing)
+    def __init__(self, existing=(), executions=()):
+        self.Query = FakeQuery(existing, executions)
 
         class Registrar:
             execution = FakeExecution()
@@ -115,9 +120,38 @@ def test_existing_name(tmp_path):
     first = f"exec1_{next(iter(outputs))}"
     registry = FakeRegistry(existing=[first])
     p.data_registry = {"registry": registry}
-    with pytest.raises(RegistrationError, match=first):
+    with pytest.raises(RegistrationError, match="dregs-more"):
         p.register_outputs("exec1")
     assert not registry.Registrar.execution.calls
+
+
+def test_more(tmp_path):
+    p, outputs = make_pipeline(tmp_path)
+    tags = list(outputs)
+    already = [f"exec1_{t}" for t in tags[:3]]
+    registry = FakeRegistry(existing=already, executions=["exec1"])
+    p.data_registry = {"registry": registry}
+    ids = p.register_outputs("exec1", more=True)
+
+    assert set(ids) == {f"exec1_{t}" for t in tags[3:]}
+    # No new execution, and the new datasets join the existing one
+    assert not registry.Registrar.execution.calls
+    assert all(c[2]["execution_id"] == 7 for c in registry.Registrar.dataset.calls)
+
+
+def test_more_nothing_new(tmp_path):
+    p, outputs = make_pipeline(tmp_path)
+    registry = FakeRegistry(existing=[f"exec1_{t}" for t in outputs], executions=["exec1"])
+    p.data_registry = {"registry": registry}
+    assert p.register_outputs("exec1", more=True) == {}
+    assert not registry.Registrar.dataset.calls
+
+
+def test_more_no_execution(tmp_path):
+    p, _ = make_pipeline(tmp_path)
+    p.data_registry = {"registry": FakeRegistry()}
+    with pytest.raises(RegistrationError, match="exactly one"):
+        p.register_outputs("exec1", more=True)
 
 
 def test_illegal_name(tmp_path):
@@ -133,25 +167,26 @@ def test_symlink_refused(tmp_path):
     link = tmp_path / "link.txt"
     link.symlink_to(target)
     with pytest.raises(RegistrationError, match="symlink"):
-        plan_registration({"a": str(link)}, "e", "1.0.0", False, False)
+        plan_registration({"a": str(link)}, "e", "1.0.0", False)
 
 
 def test_large(tmp_path, monkeypatch):
     f = tmp_path / "f.txt"
     f.write_text("x" * 100)
     monkeypatch.setattr("ceci.pipeline.register.MAX_REGISTER_BYTES", 10)
-    with pytest.raises(RegistrationError, match="dregs-allow-large"):
-        plan_registration({"a": str(f)}, "e", "1.0.0", False, False)
-    plan, _ = plan_registration({"a": str(f)}, "e", "1.0.0", True, False)
+    plan, _ = plan_registration({"a": str(f)}, "e", "1.0.0", False)
     assert plan[0][0] == "e_a"
+    with pytest.raises(RegistrationError, match="dregs-allow-large"):
+        check_size(plan, False)
+    check_size(plan, True)
 
 
 def test_cli_args():
     args = parser.parse_args(
         ["--register", "x", "--dregs-version", "2.0.0", "--dregs-allow-large",
-         "--dregs-incomplete", "--dregs-dry-run", "p.yml"]
+         "--dregs-incomplete", "--dregs-more", "--dregs-dry-run", "p.yml"]
     )
     assert args.register == "x"
     assert args.dregs_version == "2.0.0"
-    assert args.dregs_allow_large and args.dregs_incomplete and args.dregs_dry_run
+    assert args.dregs_allow_large and args.dregs_incomplete and args.dregs_dry_run and args.dregs_more
     assert parser.parse_args(["--register", "x", "p.yml"]).dregs_version == "1.0.0"

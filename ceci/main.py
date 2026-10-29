@@ -55,6 +55,13 @@ parser.add_argument(
     "if some pipeline outputs are missing",
 )
 parser.add_argument(
+    "--dregs-more",
+    action="store_true",
+    help="Allow --register to add more outputs to an execution that was already "
+    "registered: outputs already registered are skipped, new ones are added to "
+    "the existing execution",
+)
+parser.add_argument(
     "--dregs-dry-run",
     action="store_true",
     help="Show what --register would register without registering it",
@@ -122,6 +129,7 @@ def register_pipeline(pipe_config, args):
             version=args.dregs_version,
             allow_large=args.dregs_allow_large,
             allow_incomplete=args.dregs_incomplete,
+            more=args.dregs_more,
             dry_run=args.dregs_dry_run,
             configuration=configuration,
         )
@@ -141,7 +149,7 @@ def main():  # pragma: no cover
             args.template_parameters
         )
         return register_pipeline(pipe_config, args)
-    if args.dregs_dry_run or args.dregs_incomplete or args.dregs_allow_large:
+    if args.dregs_dry_run or args.dregs_incomplete or args.dregs_allow_large or args.dregs_more:
         parser.error("--dregs-* flags can only be used with --register")
     # If we are making a flow chart then we also set dry_run to stop
     # pre-scripts and post-scripts running

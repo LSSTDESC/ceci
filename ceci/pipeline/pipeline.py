@@ -24,9 +24,12 @@ from .sec import StageExecutionConfig
 from .templates import read_and_apply_template
 from .register import (
     DEFAULT_VERSION,
+    RegistrationError,
     plan_registration,
+    check_size,
     format_plan,
-    check_existing,
+    find_existing,
+    find_execution,
     register_plan,
 )
 
@@ -875,6 +878,7 @@ class Pipeline:
         allow_incomplete=False,
         dry_run=False,
         configuration=None,
+        more=False,
     ):
         """Register all the outputs of this (already complete) pipeline in the
         data registry, as datasets named <execution_name>_<tag> that share one
@@ -893,6 +897,10 @@ class Pipeline:
             Print what would be registered without registering anything
         configuration : dict, optional
             label: text of configuration files to store in the execution
+        more : bool
+            Add to an execution that was already registered: outputs already
+            registered at this version are skipped, and new ones are added
+            to the existing execution
 
         Returns
         -------
@@ -907,7 +915,7 @@ class Pipeline:
         # Call the base class method explicitly, since DryRunPipeline (which is
         # used to avoid running anything) overrides it to return nothing.
         plan, missing = plan_registration(
-            Pipeline.find_all_outputs(self), execution_name, version, allow_large, allow_incomplete
+            Pipeline.find_all_outputs(self), execution_name, version, allow_incomplete
         )
 
         if self.data_registry is None:
@@ -918,15 +926,36 @@ class Pipeline:
                     raise
                 print(f"Warning: could not connect to the data registry ({error}); "
                       "not checking for existing datasets")
-        if self.data_registry is not None:
-            check_existing(self.data_registry["registry"], plan, version)
 
-        print(format_plan(execution_name, version, plan, missing))
+        existing = []
+        execution_id = None
+        if self.data_registry is not None:
+            registry = self.data_registry["registry"]
+            existing = find_existing(registry, plan, version)
+            if more:
+                execution_id = find_execution(registry, execution_name)
+                plan = [p for p in plan if p[0] not in existing]
+            elif existing:
+                raise RegistrationError(
+                    f"Datasets already exist in the registry at version {version}: "
+                    f"{', '.join(existing)}. Pass --dregs-more to add only new outputs "
+                    "to the existing execution."
+                )
+        elif more:
+            print("Warning: --dregs-more could not check which datasets already exist")
+
+        check_size(plan, allow_large)
+        if not plan:
+            print(f"Nothing new to register for execution '{execution_name}'")
+            return {}
+
+        print(format_plan(execution_name, version, plan, missing, existing if more else ()))
         if dry_run:
             return {}
 
         return register_plan(
-            self.data_registry["registry"], execution_name, version, plan, configuration
+            self.data_registry["registry"], execution_name, version, plan, configuration,
+            execution_id=execution_id,
         )
 
     @abstractmethod
