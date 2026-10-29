@@ -22,6 +22,13 @@ from .graph import (
 )
 from .sec import StageExecutionConfig
 from .templates import read_and_apply_template
+from .register import (
+    DEFAULT_VERSION,
+    plan_registration,
+    format_plan,
+    check_existing,
+    register_plan,
+)
 
 
 RESUME_MODE_RESUME = "resume"
@@ -859,6 +866,68 @@ class Pipeline:
             stage_outputs = stage.find_outputs(self.run_config["output_dir"])
             outputs.update(stage_outputs)
         return outputs
+
+    def register_outputs(
+        self,
+        execution_name,
+        version=DEFAULT_VERSION,
+        allow_large=False,
+        allow_incomplete=False,
+        dry_run=False,
+        configuration=None,
+    ):
+        """Register all the outputs of this (already complete) pipeline in the
+        data registry, as datasets named <execution_name>_<tag> that share one
+        registry execution.
+
+        Parameters
+        ----------
+        execution_name : str
+        version : str
+            Registry version for all the datasets, default 1.0.0
+        allow_large : bool
+            Allow registration of more than 50GB
+        allow_incomplete : bool
+            Register only the outputs that exist if some are missing
+        dry_run : bool
+            Print what would be registered without registering anything
+        configuration : dict, optional
+            label: text of configuration files to store in the execution
+
+        Returns
+        -------
+        dataset_ids : dict
+            name: dataset id for each registered dataset (empty for a dry run)
+
+        Raises
+        ------
+        RegistrationError
+            If the outputs cannot or should not be registered
+        """
+        # Call the base class method explicitly, since DryRunPipeline (which is
+        # used to avoid running anything) overrides it to return nothing.
+        plan, missing = plan_registration(
+            Pipeline.find_all_outputs(self), execution_name, version, allow_large, allow_incomplete
+        )
+
+        if self.data_registry is None:
+            try:
+                self.data_registry = self.setup_data_registry(self.run_config.get("registry") or {})
+            except Exception as error:  # pragma: no cover
+                if not dry_run:
+                    raise
+                print(f"Warning: could not connect to the data registry ({error}); "
+                      "not checking for existing datasets")
+        if self.data_registry is not None:
+            check_existing(self.data_registry["registry"], plan, version)
+
+        print(format_plan(execution_name, version, plan, missing))
+        if dry_run:
+            return {}
+
+        return register_plan(
+            self.data_registry["registry"], execution_name, version, plan, configuration
+        )
 
     @abstractmethod
     def initiate_run(self, overall_inputs):  # pragma: no cover
