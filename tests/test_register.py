@@ -154,6 +154,16 @@ def test_more_no_execution(tmp_path):
         p.register_outputs("exec1", more=True)
 
 
+def test_existing_execution(tmp_path):
+    # e.g. re-registering at a new version, so no dataset clashes
+    p, _ = make_pipeline(tmp_path)
+    registry = FakeRegistry(executions=["exec1"])
+    p.data_registry = {"registry": registry}
+    with pytest.raises(RegistrationError, match="already in the registry"):
+        p.register_outputs("exec1", version="2.0.0")
+    assert not registry.Registrar.execution.calls
+
+
 def test_illegal_name(tmp_path):
     p, _ = make_pipeline(tmp_path)
     p.data_registry = {"registry": FakeRegistry()}

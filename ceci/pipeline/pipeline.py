@@ -30,6 +30,7 @@ from .register import (
     format_plan,
     find_existing,
     find_execution,
+    find_executions,
     register_plan,
 )
 
@@ -940,6 +941,13 @@ class Pipeline:
                     f"Datasets already exist in the registry at version {version}: "
                     f"{', '.join(existing)}. Pass --dregs-more to add only new outputs "
                     "to the existing execution."
+                )
+            elif find_executions(registry, execution_name):
+                # The registry allows duplicate execution names, but they
+                # would make --dregs-more ambiguous
+                raise RegistrationError(
+                    f"An execution named '{execution_name}' is already in the registry. "
+                    "Pass --dregs-more to add to it, or choose a different name."
                 )
         elif more:
             print("Warning: --dregs-more could not check which datasets already exist")

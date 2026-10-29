@@ -133,13 +133,18 @@ def find_existing(registry, plan, version):
     return existing
 
 
-def find_execution(registry, execution_name):
-    """Return the id of the existing registry execution with this name"""
+def find_executions(registry, execution_name):
+    """Return the ids of all existing registry executions with this name"""
     name_filter = registry.Query.gen_filter("execution.name", "==", execution_name)
     found = registry.Query.get_table_values(
         "execution", ["execution_id"], filters=[name_filter]
     )
-    ids = found["execution.execution_id"] if found else []
+    return list(found["execution.execution_id"]) if found else []
+
+
+def find_execution(registry, execution_name):
+    """Return the id of the one existing registry execution with this name"""
+    ids = find_executions(registry, execution_name)
     if len(ids) != 1:
         raise RegistrationError(
             f"--dregs-more needs exactly one existing registry execution named "
