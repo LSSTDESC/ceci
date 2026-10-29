@@ -22,6 +22,17 @@ from .graph import (
 )
 from .sec import StageExecutionConfig
 from .templates import read_and_apply_template
+from .register import (
+    DEFAULT_VERSION,
+    RegistrationError,
+    plan_registration,
+    check_size,
+    format_plan,
+    find_existing,
+    find_execution,
+    find_executions,
+    register_plan,
+)
 
 
 RESUME_MODE_RESUME = "resume"
@@ -859,6 +870,101 @@ class Pipeline:
             stage_outputs = stage.find_outputs(self.run_config["output_dir"])
             outputs.update(stage_outputs)
         return outputs
+
+    def register_outputs(
+        self,
+        execution_name,
+        version=DEFAULT_VERSION,
+        allow_large=False,
+        allow_incomplete=False,
+        dry_run=False,
+        configuration=None,
+        more=False,
+    ):
+        """Register all the outputs of this (already complete) pipeline in the
+        data registry, as datasets named <execution_name>_<tag> that share one
+        registry execution.
+
+        Parameters
+        ----------
+        execution_name : str
+        version : str
+            Registry version for all the datasets, default 1.0.0
+        allow_large : bool
+            Allow registration of more than 50GB
+        allow_incomplete : bool
+            Register only the outputs that exist if some are missing
+        dry_run : bool
+            Print what would be registered without registering anything
+        configuration : dict, optional
+            label: text of configuration files to store in the execution
+        more : bool
+            Add to an execution that was already registered: outputs already
+            registered at this version are skipped, and new ones are added
+            to the existing execution
+
+        Returns
+        -------
+        dataset_ids : dict
+            name: dataset id for each registered dataset (empty for a dry run)
+
+        Raises
+        ------
+        RegistrationError
+            If the outputs cannot or should not be registered
+        """
+        # Call the base class method explicitly, since DryRunPipeline (which is
+        # used to avoid running anything) overrides it to return nothing.
+        plan, missing = plan_registration(
+            Pipeline.find_all_outputs(self), execution_name, version, allow_incomplete
+        )
+
+        if self.data_registry is None:
+            try:
+                self.data_registry = self.setup_data_registry(self.run_config.get("registry") or {})
+            except Exception as error:  # pragma: no cover
+                if not dry_run:
+                    raise
+                print(f"Warning: could not connect to the data registry ({error}); "
+                      "not checking for existing datasets")
+
+        existing = []
+        execution_id = None
+        if self.data_registry is not None:
+            registry = self.data_registry["registry"]
+            existing = find_existing(registry, plan, version)
+            if more:
+                execution_id = find_execution(registry, execution_name)
+                plan = [p for p in plan if p[0] not in existing]
+            elif existing:
+                raise RegistrationError(
+                    f"Datasets already exist in the registry at version {version}: "
+                    f"{', '.join(existing)}. Pass --dregs-more to add only new outputs "
+                    "to the existing execution."
+                )
+            elif find_executions(registry, execution_name):
+                # The registry allows duplicate execution names, but they
+                # would make --dregs-more ambiguous
+                raise RegistrationError(
+                    f"An execution named '{execution_name}' is already in the registry. "
+                    "Pass --dregs-more to add to it, or choose a different name."
+                )
+        elif more:
+            print("Warning: --dregs-more could not check which datasets already exist")
+
+        check_size(plan, allow_large)
+        if not plan:
+            print(f"Nothing new to register for execution '{execution_name}'")
+            return {}
+
+        print(format_plan(execution_name, version, plan, missing, existing if more else ()))
+        if dry_run:
+            return {}
+
+        return register_plan(
+            self.data_registry["registry"], execution_name, version, plan, configuration,
+            execution_id=execution_id,
+        )
 
     @abstractmethod
     def initiate_run(self, overall_inputs):  # pragma: no cover
