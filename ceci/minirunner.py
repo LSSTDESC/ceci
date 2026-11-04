@@ -6,6 +6,8 @@ It does minimal checking.
 
 It launches only local jobs, so is designed for debugging or for use on NERSC interactive mode.
 """
+import os
+import signal
 import subprocess
 import time
 from timeit import default_timer
@@ -240,6 +242,15 @@ class Runner:
         """
         status = WAITING
         t0 = default_timer()
+
+        # Treat SIGTERM like ctrl-C so that jobs are cleaned up.
+        # Signal handlers can only be set from the main thread.
+        old_handler = None
+        try:
+            old_handler = signal.signal(signal.SIGTERM, self._raise_interrupt)
+        except ValueError:  # pragma: no cover
+            pass
+
         try:
             while status == WAITING:
                 status = self._update()
@@ -250,19 +261,48 @@ class Runner:
                         f"Pipeline did not finish within {timeout} seconds. "
                         f"These jobs were still running: {self.running}"
                     )
-        except Exception:
+        except BaseException:
             # The pipeline should be cleaned up
-            # in the event of any error.
+            # in the event of any error, including KeyboardInterrupt.
             # There should be nothing to clean up
             # if the pipeline ends cleanly
             # TODO: add a test for this
             self.abort()
             raise
+        finally:
+            if old_handler is not None:
+                signal.signal(signal.SIGTERM, old_handler)
 
-    def abort(self):
-        """End the pipeline and kill all running jobs."""
+    @staticmethod
+    def _raise_interrupt(signum, frame):
+        raise KeyboardInterrupt(f"Received signal {signum}")
+
+    @staticmethod
+    def _kill_process_group(process, sig):
+        # Jobs are started in their own sessions, so signalling the
+        # group reaches everything the shell launched (e.g. mpirun).
+        try:
+            os.killpg(os.getpgid(process.pid), sig)
+        except (ProcessLookupError, PermissionError):
+            pass
+
+    def abort(self, grace=5.0):
+        """End the pipeline and kill all running jobs, and their children.
+
+        Jobs are first sent SIGTERM, and then SIGKILL if they have not
+        exited after a grace period (in seconds)."""
         for process, _, _, _ in self.running:
-            process.kill()
+            self._kill_process_group(process, signal.SIGTERM)
+
+        deadline = default_timer() + grace
+        for process, _, _, _ in self.running:
+            try:
+                process.wait(timeout=max(0.0, deadline - default_timer()))
+            except subprocess.TimeoutExpired:
+                pass
+            # Also sweep up any group members that ignored SIGTERM
+            self._kill_process_group(process, signal.SIGKILL)
+            process.wait()
 
         for node in self.nodes:
             node.free()
@@ -289,7 +329,11 @@ class Runner:
         with open(stdout_file, "w") as stdout:
             # launch cmd in a subprocess, and keep track in running jobs
             p = subprocess.Popen(
-                cmd, shell=True, stdout=stdout, stderr=subprocess.STDOUT
+                cmd,
+                shell=True,
+                stdout=stdout,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
             )  # pylint: disable=consider-using-with
             self.running.append((p, job, alloc, default_timer()))
             self.callback(
