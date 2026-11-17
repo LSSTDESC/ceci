@@ -385,3 +385,108 @@ def test_config_template():
 # this has to be here because we test running the pipeline
 if __name__ == "__main__":
     PipelineStage.main()
+
+
+SKIPPING_STAGE_MODULE = """
+import ceci
+from ceci_example.types import TextFile
+
+class SkippingStage(ceci.PipelineStage):
+    name = "SkippingStage"
+    inputs = []
+    outputs = [("made", TextFile), ("optional", TextFile)]
+    config_options = {"make_optional": bool, "counter_file": str}
+
+    def run(self):
+        # record each time the stage actually runs
+        with open(self.config["counter_file"], "a") as f:
+            f.write("ran\\n")
+        with open(self.get_output("made"), "w") as f:
+            f.write("hello\\n")
+        if self.config["make_optional"]:
+            with open(self.get_output("optional"), "w") as f:
+                f.write("optional\\n")
+        else:
+            self.mark_output_skipped("optional", reason="make_optional is False")
+
+if __name__ == "__main__":
+    ceci.PipelineStage.main()
+"""
+
+
+def _run_skipping_stage(dirname, resume, make_optional):
+    config_path = os.path.join(dirname, "config.yml")
+    counter_file = os.path.join(dirname, "counter.txt")
+    with open(config_path, "w") as f:
+        f.write(
+            f"SkippingStage:\n"
+            f"    make_optional: {make_optional}\n"
+            f"    counter_file: {counter_file}\n"
+        )
+    run_config = {
+        "log_dir": dirname,
+        "output_dir": dirname,
+        "resume": resume,
+    }
+    launcher_config = {"interval": 0.1, "name": "mini"}
+    load(launcher_config, [{"name": "local", "python_paths": [dirname]}])
+    pipeline = MiniPipeline([{"name": "SkippingStage"}], launcher_config)
+    pipeline.initialize({}, run_config, config_path)
+    status = pipeline.run()
+    return pipeline, status
+
+
+def _run_count(dirname):
+    path = os.path.join(dirname, "counter.txt")
+    if not os.path.exists(path):
+        return 0
+    return len(open(path).readlines())
+
+
+def test_skipped_output_resume():
+    with tempfile.TemporaryDirectory() as dirname:
+        with open(os.path.join(dirname, "skipping_stage.py"), "w") as f:
+            f.write(SKIPPING_STAGE_MODULE)
+
+        made = os.path.join(dirname, "made.txt")
+        optional = os.path.join(dirname, "optional.txt")
+        marker = optional + ".skipped"
+
+        try:
+            with extra_paths(dirname):
+                import skipping_stage
+
+                # First run: the optional output is deliberately skipped
+                pipeline, status = _run_skipping_stage(dirname, "restart", False)
+                assert status == 0
+                assert _run_count(dirname) == 1
+                assert os.path.exists(made)
+                assert not os.path.exists(optional)
+                assert os.path.exists(marker)
+                assert "make_optional is False" in open(marker).read()
+
+                # Resuming should not re-run the stage
+                pipeline, status = _run_skipping_stage(dirname, "resume", False)
+                assert status == 0
+                assert _run_count(dirname) == 1
+                assert pipeline.get_stage_status("SkippingStage") == StageStatus.SKIPPED
+
+                # Refuse mode should treat the marker like an existing output
+                with pytest.raises(RuntimeError, match="Output files already exist"):
+                    _run_skipping_stage(dirname, "refuse", False)
+
+                # Deleting the marker means the stage is re-run on resume
+                os.remove(marker)
+                pipeline, status = _run_skipping_stage(dirname, "resume", False)
+                assert status == 0
+                assert _run_count(dirname) == 2
+                assert os.path.exists(marker)
+
+                # Re-running and making the output removes the stale marker
+                pipeline, status = _run_skipping_stage(dirname, "restart", True)
+                assert status == 0
+                assert _run_count(dirname) == 3
+                assert os.path.exists(optional)
+                assert not os.path.exists(marker)
+        finally:
+            reset_default_site()

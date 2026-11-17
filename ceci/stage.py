@@ -23,6 +23,17 @@ MPI_PARALLEL = "mpi"
 DASK_PARALLEL = "dask"
 
 IN_PROGRESS_PREFIX = "inprogress_"
+SKIPPED_OUTPUT_SUFFIX = ".skipped"
+
+
+def skipped_output_marker(path):
+    """Return the path of the marker file recording that an output was deliberately skipped"""
+    return f"{path}{SKIPPED_OUTPUT_SUFFIX}"
+
+
+def output_or_skip_marker_exists(path):
+    """Return True if an output file exists, or a marker says it was deliberately not made"""
+    return os.path.exists(path) or os.path.exists(skipped_output_marker(path))
 
 
 class PipelineStage:
@@ -92,6 +103,7 @@ class PipelineStage:
         self._configs = StageConfig(**self.config_options)
         self._inputs = None
         self._outputs = None
+        self._skipped_outputs = {}
         self._parallel = SERIAL
         self._comm = None
         self._size = 1
@@ -773,19 +785,71 @@ I currently know about these stages:
         aliased_tag = self.get_aliased_tag(tag)
         temp_name = self.get_output(aliased_tag)
         final_name = self.get_output(aliased_tag, final_name=True)
+        marker = pathlib.Path(skipped_output_marker(final_name))
 
         # it's not an error here if the path does not exist,
         # because that will be handled later.
         if pathlib.Path(temp_name).exists():
+            if aliased_tag in self._skipped_outputs:
+                sys.stderr.write(
+                    f"NOTE/WARNING: Output {aliased_tag} was marked as skipped "
+                    "but was generated anyway; keeping the generated file.\n"
+                )
             # replace directories, rather than nesting more results
             if pathlib.Path(final_name).is_dir():  # pragma: no cover
                 shutil.rmtree(final_name)
             shutil.move(temp_name, final_name)
+            # remove any marker left from an earlier run that skipped this output
+            if marker.exists():
+                marker.unlink()
+        elif aliased_tag in self._skipped_outputs:
+            self._write_skipped_output_marker(aliased_tag, final_name, marker)
         else:  # pragma: no cover
             sys.stderr.write(
                 f"NOTE/WARNING: Expected output file {final_name} was not generated.\n"
             )
         return final_name
+
+    def mark_output_skipped(self, tag, reason=""):
+        """Record that this stage is deliberately not generating an output.
+
+        Call this from ``run`` when the stage configuration means that an
+        output will not be made. When the stage finishes successfully a
+        marker file is written next to where the output would have gone,
+        so that when a pipeline is resumed the stage is not re-run just
+        because the output is missing.
+
+        Under MPI this must be called on the root process (or on all processes).
+
+        Parameters
+        ----------
+        tag: str
+            Tag as listed in self.outputs
+
+        reason: str
+            Optional explanation, recorded in the marker file
+        """
+        aliased_tag = self.get_aliased_tag(tag)
+        if aliased_tag not in self._outputs:
+            raise ValueError(f"Stage {self.instance_name} has no output with tag {tag}")
+        self._skipped_outputs[aliased_tag] = reason
+
+    def _write_skipped_output_marker(self, aliased_tag, final_name, marker):
+        if pathlib.Path(final_name).exists():
+            sys.stderr.write(
+                f"NOTE/WARNING: Output {aliased_tag} was skipped in this run, but a file "
+                f"{final_name} from an earlier run still exists.\n"
+            )
+        reason = self._skipped_outputs[aliased_tag]
+        now = datetime.datetime.now().isoformat(" ")
+        with open(marker, "w") as f:
+            f.write(f"stage: {self.instance_name}\n")
+            f.write(f"tag: {aliased_tag}\n")
+            f.write(f"time: {now}\n")
+            f.write(f"reason: {reason}\n")
+        sys.stderr.write(
+            f"Output {aliased_tag} was deliberately not generated; wrote marker {marker}\n"
+        )
 
     #############################################
     # Parallelism-related methods and properties.

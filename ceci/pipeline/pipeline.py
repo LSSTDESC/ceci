@@ -6,7 +6,7 @@ import jinja2.meta
 import yaml
 from abc import abstractmethod
 
-from ..stage import PipelineStage
+from ..stage import PipelineStage, output_or_skip_marker_exists
 from ..sites import load, set_default_site, get_default_site
 from ..utils import extra_paths
 from .graph import (
@@ -889,10 +889,12 @@ class Pipeline:
 
         outputs = stage.find_outputs(self.run_config["output_dir"]).values()
 
+        # An output counts as present if either the file exists or the stage
+        # left a marker saying that it deliberately did not make it.
         if resume_mode == "resume":
-            return all(os.path.exists(output) for output in outputs)
+            return all(output_or_skip_marker_exists(output) for output in outputs)
         elif resume_mode == "refuse":
-            if any(os.path.exists(output) for output in outputs):
+            if any(output_or_skip_marker_exists(output) for output in outputs):
                 raise RuntimeError(f"Output files already exist for stage {stage} and resume mode is 'refuse'")
         else:
             raise ValueError(f"Unknown resume mode: {resume_mode}")

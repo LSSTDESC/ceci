@@ -91,6 +91,19 @@ optionally returning a wrapper class instead of the file:
     self.open_input(tag, wrapper=False, **kwargs)
     self.open_output(tag, wrapper=False, **kwargs)
 
+Record that an output is deliberately not being generated (for example because
+of the stage's configuration). When the stage finishes, a marker file
+``<output path>.skipped`` is written in place of the output, so that resuming
+the pipeline does not re-run the stage just because the output is missing.
+Under MPI, call this on the root process (or all processes):
+
+.. code-block:: python
+
+    self.mark_output_skipped(tag, reason="")
+
+Downstream stages that take a skipped output as input will be given a path
+that does not exist, so they must handle that case themselves.
+
 Look for a section in a yaml input file tagged "config"
 and read it.  If the config_options class variable exists in the class
 then it checks those options are set or uses any supplied defaults.

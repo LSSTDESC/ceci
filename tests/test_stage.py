@@ -649,3 +649,27 @@ def test_memory_and_time_reports(capsys):
 if __name__ == "__main__":
     test_construct()
     test_wrong_mpi_flag()
+
+
+def test_mark_output_skipped(tmp_path):
+    class Lima(PipelineStage):
+        name = "Lima"
+        inputs = []
+        outputs = [("lima_output", HDFFile)]
+        config_options = {}
+
+        def run(self):
+            pass
+
+    out = str(tmp_path / "lima_output.hdf5")
+    cmd = "Lima", "--config", "tests/config.yml", "--lima_output", out
+    ll = Lima(Lima.parse_command_line(cmd))
+
+    with pytest.raises(ValueError):
+        ll.mark_output_skipped("not_an_output")
+
+    ll.mark_output_skipped("lima_output", reason="testing")
+    ll.finalize()
+    assert not os.path.exists(out)
+    assert os.path.exists(out + ".skipped")
+    assert "reason: testing" in open(out + ".skipped").read()
