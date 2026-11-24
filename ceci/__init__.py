@@ -1,6 +1,8 @@
 """Ceci n'est pas une pipeline"""
 
+from .provenance import Provenance
 from .stage import PipelineStage
+from .handle import  BaseIOHandle
 from .pipeline import (
     Pipeline,
     MiniPipeline,
@@ -16,4 +18,4 @@ try:
     __version__ = importlib.metadata.metadata(__name__)["Version"]
 except:  # pragma: no cover
     # package is not installed
-    pass
+    __version__ = "unknown"
